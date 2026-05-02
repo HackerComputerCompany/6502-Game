@@ -33,6 +33,8 @@ var _instant_output: bool = false
 var debug: DebugManager
 var _debug_visible: bool = false
 
+var _fonts_loaded: bool = false
+
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
@@ -44,9 +46,15 @@ func _ready() -> void:
 	input_line.grab_focus()
 	_print_banner()
 	_update_status()
-	_apply_font()
 	_update_baud_label()
 	_update_font_label()
+	call_deferred("_apply_font_deferred")
+
+func _apply_font_deferred() -> void:
+	if _fonts_loaded:
+		return
+	_apply_font()
+	_fonts_loaded = true
 
 func _process(delta: float) -> void:
 	if debug.is_recording():
@@ -183,7 +191,9 @@ func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
 	var dynamic_font: FontFile = ResourceLoader.load(font_info["path"], "FontFile")
 	if dynamic_font == null:
-		dynamic_font = FontFile.new()
+		return
+	if dynamic_font.data.is_empty():
+		return
 	var font_size = _base_font_size
 	if font_info["name"] == "Press Start 2P":
 		font_size = max(_base_font_size - 4, 10)
