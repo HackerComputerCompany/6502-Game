@@ -30,12 +30,16 @@ var _output_timer: float = 0.0
 var _is_streaming: bool = false
 
 var _instant_output: bool = false
+var debug: DebugManager
+var _debug_visible: bool = false
 
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
 	sound = SoundManager.new()
 	add_child(sound)
+	debug = DebugManager.new()
+	add_child(debug)
 	input_line.text_submitted.connect(_on_input_line_text_submitted)
 	input_line.grab_focus()
 	_print_banner()
@@ -45,6 +49,10 @@ func _ready() -> void:
 	_update_font_label()
 
 func _process(delta: float) -> void:
+	if debug.is_recording():
+		var fc = debug.get_frame_count()
+		if fc % 30 == 0:
+			_update_status()
 	if _is_streaming and _output_queue.length() > 0:
 		var chars_per_second = float(_baud_rates[_current_baud_idx]) / 10.0
 		var chars_this_frame = max(1, int(chars_per_second * delta))
@@ -111,12 +119,25 @@ func _input(event: InputEvent) -> void:
 			_current_font_idx = (_current_font_idx + 1) % _available_fonts.size()
 			_apply_font()
 			_update_font_label()
+		elif event.keycode == KEY_F9:
+			var path = debug.take_screenshot()
+			_instant_output = true
+			screen.append_text("\n[color=cyan]Screenshot: " + path + "[/color]\n")
+			_instant_output = false
+		elif event.keycode == KEY_F6:
+			debug.toggle_recording()
+			_instant_output = true
+			if debug.is_recording():
+				screen.append_text("\n[color=yellow] Recording ON (F6 to stop) [/color]\n")
+			else:
+				screen.append_text("\n[color=yellow] Recording OFF - frames saved [/color]\n")
+			_instant_output = false
 
 func _print_banner() -> void:
 	_instant_output = true
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
-	screen.append_text("[color=green]Version 1.2 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
-	screen.append_text("[color=green]F1=Help F5=Run F10=Reset F7=Baud F8=Font[/color]\n")
+	screen.append_text("[color=green]Version 1.3 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
+	screen.append_text("[color=green]F1=Help F5=Run F6=Rec F9=SS F7=Baud F8=Font F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
@@ -138,11 +159,13 @@ func _on_output(text: String) -> void:
 
 func _update_status() -> void:
 	var state = computer.cpu.get_state()
-	status_bar.text = "A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | MEM:64K | F7=Baud F8=Font" % [
+	var rec = " [REC]" if debug.is_recording() else ""
+	status_bar.text = "A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | MEM:64K%s | F7=Baud F8=Font" % [
 		state.A, state.X, state.Y, state.SP, state.PC,
 		"C" if state.C else ".", "Z" if state.Z else ".",
 		"I" if state.I else ".", "D" if state.D else ".",
-		".", "V" if state.V else ".", "N" if state.N else ".", "."
+		".", "V" if state.V else ".", "N" if state.N else ".", ".",
+		rec
 	]
 
 func _update_baud_label() -> void:
@@ -254,6 +277,8 @@ func _show_help() -> void:
 	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
 	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	help_text += "[color=yellow]  F8  [/color]- Cycle font (VT323/Press Start 2P/Share Tech/IBM Plex)\n"
+	help_text += "[color=yellow]  F9  [/color]- Take screenshot (saved to user://debug/screenshots/)\n"
+	help_text += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
 	help_text += "[color=yellow]  F1  [/color]- Show this help\n"
 	help_text += "[color=yellow]  F5  [/color]- Run program\n"
 	help_text += "[color=yellow]  F10 [/color]- Reset system\n"

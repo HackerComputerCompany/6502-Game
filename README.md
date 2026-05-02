@@ -47,8 +47,10 @@ RUN           → runs the loaded program
 |-----|--------|
 | F1 | Show help |
 | F5 | Run program |
+| F6 | Start/stop video recording |
 | F7 | Cycle baud rate (300/1200/2400/9600/14400) |
 | F8 | Cycle font |
+| F9 | Take screenshot |
 | F10 | Full system reset |
 | Up/Down | Command history |
 
@@ -153,6 +155,40 @@ Characters are output at the selected baud rate ÷ 10 characters per second. Cyc
 | 2400 | 240 | Moderate — default |
 | 9600 | 960 | Fast — late 1980s |
 | 14400 | 1440 | Instant — modern feel |
+
+## Debug & Recording
+
+### Screenshots (F9)
+
+Press **F9** at any time to save a screenshot. Files are saved to:
+- **macOS**: `~/Library/Application Support/Godot/app_userdata/BASIC6502/debug/screenshots/`
+- **Linux**: `~/.local/share/godot/app_userdata/BASIC6502/debug/screenshots/`
+- **Windows**: `%APPDATA%/Godot/app_userdata/BASIC6502/debug/screenshots/`
+
+### Video Recording (F6)
+
+Press **F6** to start recording. The status bar shows `[REC]` and a frame counter. Press **F6** again to stop. Frames are saved as sequential PNGs to `debug/video/frames_<timestamp>/`.
+
+Convert to MP4 with ffmpeg:
+```bash
+ffmpeg -framerate 30 -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p output.mp4
+```
+
+### Scriptable Debug API
+
+The `DebugManager` is accessible from other GDScript via `debug`:
+```gdscript
+debug.take_screenshot()           # Returns file path
+debug.start_recording()            # Begin frame capture
+debug.stop_recording()              # Stop and save frames, returns dir path
+debug.toggle_recording()            # Toggle on/off
+debug.is_recording()                # Check state
+debug.get_frame_count()             # Current frame count
+debug.execute_command("screenshot") # Command interface
+debug.execute_command("record")     # Start recording via string
+debug.execute_command("stop")       # Stop recording via string
+debug.execute_command("status")     # Get current state
+```
 
 ## Running Tests
 

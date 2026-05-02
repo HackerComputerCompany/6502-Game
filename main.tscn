@@ -1,16 +1,17 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/terminal.gd" id="1"]
 [ext_resource type="Shader" path="res://shaders/crt_overlay.gdshader" id="2"]
 [ext_resource type="Script" path="res://scripts/sound_manager.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/debug_manager.gd" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
 shader = ExtResource("2")
-shader_parameter/scanline_intensity = 0.12
-shader_parameter/vignette_intensity = 0.3
-shader_parameter/crt_curvature = 0.015
-shader_parameter/flicker_intensity = 0.012
-shader_parameter/glow_intensity = 0.35
+shader_parameter/scanline_intensity = 0.04
+shader_parameter/vignette_intensity = 0.18
+shader_parameter/crt_curvature = 0.005
+shader_parameter/flicker_intensity = 0.005
+shader_parameter/glow_intensity = 0.18
 shader_parameter/time_speed = 1.0
 shader_parameter/glow_color = Color(0.2, 1, 0.2, 1)
 
@@ -29,18 +30,18 @@ shadow_color = Color(0, 0, 0, 0.5)
 shadow_size = 12
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
-bg_color = Color(0.15, 0.16, 0.18, 1)
-border_width_left = 20
-border_width_top = 20
-border_width_right = 20
-border_width_bottom = 20
-border_color = Color(0.1, 0.1, 0.12, 1)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
-shadow_color = Color(0, 0, 0, 0.7)
-shadow_size = 20
+bg_color = Color(0.12, 0.12, 0.14, 1)
+border_width_left = 18
+border_width_top = 18
+border_width_right = 18
+border_width_bottom = 18
+border_color = Color(0.08, 0.08, 0.1, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.6)
+shadow_size = 16
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -58,7 +59,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.1, 0.1, 0.13, 1)
+color = Color(0.08, 0.08, 0.1, 1)
 
 [node name="BezelPanel" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -74,10 +75,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 28.0
-offset_top = 28.0
-offset_right = -28.0
-offset_bottom = -28.0
+offset_left = 26.0
+offset_top = 26.0
+offset_right = -26.0
+offset_bottom = -26.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 2
@@ -144,3 +145,4 @@ grow_horizontal = 2
 grow_vertical = 2
 material = SubResource("ShaderMaterial_1")
 mouse_filter = 2
+z_index = 100
