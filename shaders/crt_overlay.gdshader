@@ -3,7 +3,7 @@ shader_type canvas_item;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform float scanline_intensity : hint_range(0.0, 1.0) = 0.04;
 uniform float vignette_intensity : hint_range(0.0, 1.0) = 0.18;
-uniform float crt_curvature : hint_range(0.0, 0.05) = 0.0025;
+uniform float crt_curvature : hint_range(0.0, 1.0) = 0.15;
 uniform float flicker_intensity : hint_range(0.0, 0.05) = 0.005;
 uniform float glow_intensity : hint_range(0.0, 2.0) = 0.18;
 uniform float time_speed : hint_range(0.5, 5.0) = 1.0;
@@ -13,12 +13,11 @@ uniform vec4 glow_color : source_color = vec4(0.2, 1.0, 0.2, 1.0);
 void fragment() {
 	vec2 uv = SCREEN_UV;
 	
-	float curvature = crt_curvature;
-	if (curvature > 0.0) {
-		uv = uv * 2.0 - 1.0;
-		vec2 offset = abs(uv.yx) / vec2(2.0);
-		uv = uv + uv * offset * offset;
-		uv = uv * 0.5 + 0.5;
+	if (crt_curvature > 0.0) {
+		vec2 centered = uv * 2.0 - 1.0;
+		float dist2 = dot(centered, centered);
+		centered *= 1.0 + crt_curvature * dist2;
+		uv = centered * 0.5 + 0.5;
 	}
 	
 	bool out_of_bounds = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;

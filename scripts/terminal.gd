@@ -6,6 +6,19 @@ extends Control
 @onready var title_bar: Label = $VBoxContainer/TopBar/TitleBar
 @onready var baud_label: Label = $VBoxContainer/TopBar/BaudLabel
 @onready var font_label: Label = $VBoxContainer/TopBar/FontLabel
+@onready var settings_panel: PanelContainer = $SettingsPanel
+@onready var curvature_slider: HSlider = $SettingsPanel/VBoxContainer/CurvatureSlider
+@onready var curvature_label: Label = $SettingsPanel/VBoxContainer/CurvatureLabel
+@onready var scanline_slider: HSlider = $SettingsPanel/VBoxContainer/ScanlineSlider
+@onready var scanline_label: Label = $SettingsPanel/VBoxContainer/ScanlineLabel
+@onready var vignette_slider: HSlider = $SettingsPanel/VBoxContainer/VignetteSlider
+@onready var vignette_label: Label = $SettingsPanel/VBoxContainer/VignetteLabel
+@onready var glow_slider: HSlider = $SettingsPanel/VBoxContainer/GlowSlider
+@onready var glow_label: Label = $SettingsPanel/VBoxContainer/GlowLabel
+@onready var flicker_slider: HSlider = $SettingsPanel/VBoxContainer/FlickerSlider
+@onready var flicker_label: Label = $SettingsPanel/VBoxContainer/FlickerLabel
+@onready var reset_btn: Button = $SettingsPanel/VBoxContainer/ResetBtn
+@onready var crt_overlay: ColorRect = $CRTOverlay
 
 var computer: Computer
 var sound: SoundManager
@@ -43,6 +56,12 @@ func _ready() -> void:
 	debug = DebugManager.new()
 	add_child(debug)
 	input_line.text_submitted.connect(_on_input_line_text_submitted)
+	curvature_slider.value_changed.connect(_on_curvature_changed)
+	scanline_slider.value_changed.connect(_on_scanline_changed)
+	vignette_slider.value_changed.connect(_on_vignette_changed)
+	glow_slider.value_changed.connect(_on_glow_changed)
+	flicker_slider.value_changed.connect(_on_flicker_changed)
+	reset_btn.pressed.connect(_on_reset_settings)
 	input_line.grab_focus()
 	_print_banner()
 	_update_status()
@@ -111,15 +130,20 @@ func _input(event: InputEvent) -> void:
 			input_line.caret_column = input_line.text.length()
 		elif event.keycode == KEY_F1:
 			_show_help()
+		elif event.keycode == KEY_F3:
+			_debug_visible = not _debug_visible
+			settings_panel.visible = _debug_visible
 		elif event.keycode == KEY_F5:
 			_run_program()
 			input_line.grab_focus()
-		elif event.keycode == KEY_F10:
-			computer.reset()
-			screen.clear()
-			_print_banner()
-			_update_status()
-			input_line.grab_focus()
+		elif event.keycode == KEY_F6:
+			debug.toggle_recording()
+			_instant_output = true
+			if debug.is_recording():
+				screen.append_text("\n[color=yellow] Recording ON (F6 to stop) [/color]\n")
+			else:
+				screen.append_text("\n[color=yellow] Recording OFF - frames saved [/color]\n")
+			_instant_output = false
 		elif event.keycode == KEY_F7:
 			_current_baud_idx = (_current_baud_idx + 1) % _baud_rates.size()
 			_update_baud_label()
@@ -132,20 +156,18 @@ func _input(event: InputEvent) -> void:
 			_instant_output = true
 			screen.append_text("\n[color=cyan]Screenshot: " + path + "[/color]\n")
 			_instant_output = false
-		elif event.keycode == KEY_F6:
-			debug.toggle_recording()
-			_instant_output = true
-			if debug.is_recording():
-				screen.append_text("\n[color=yellow] Recording ON (F6 to stop) [/color]\n")
-			else:
-				screen.append_text("\n[color=yellow] Recording OFF - frames saved [/color]\n")
-			_instant_output = false
+		elif event.keycode == KEY_F10:
+			computer.reset()
+			screen.clear()
+			_print_banner()
+			_update_status()
+			input_line.grab_focus()
 
 func _print_banner() -> void:
 	_instant_output = true
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
-	screen.append_text("[color=green]F1=Help F5=Run F6=Rec F9=SS F7=Baud F8=Font F10=Reset[/color]\n")
+	screen.append_text("[color=green]F1=Help F3=CRT F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
@@ -277,6 +299,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  SYS addr  [/color]- Execute machine code at address\n"
 	help_text += "[color=yellow]  PEEK(addr)[/color]- Read memory location\n"
 	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
+	help_text += "[color=yellow]  F3  [/color]- Toggle CRT settings panel\n"
 	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	help_text += "[color=yellow]  F8  [/color]- Cycle font (VT323/Press Start 2P/Share Tech/IBM Plex)\n"
 	help_text += "[color=yellow]  F9  [/color]- Take screenshot (saved to user://debug/screenshots/)\n"
@@ -441,3 +464,30 @@ func _peek_command(text: String) -> void:
 
 func _sys_command(text: String) -> void:
 	computer.execute_basic_line(text)
+
+func _on_curvature_changed(value: float) -> void:
+	crt_overlay.material.set_shader_parameter("crt_curvature", value)
+	curvature_label.text = "Curvature: %.4f" % value
+
+func _on_scanline_changed(value: float) -> void:
+	crt_overlay.material.set_shader_parameter("scanline_intensity", value)
+	scanline_label.text = "Scanlines: %.3f" % value
+
+func _on_vignette_changed(value: float) -> void:
+	crt_overlay.material.set_shader_parameter("vignette_intensity", value)
+	vignette_label.text = "Vignette: %.2f" % value
+
+func _on_glow_changed(value: float) -> void:
+	crt_overlay.material.set_shader_parameter("glow_intensity", value)
+	glow_label.text = "Glow: %.2f" % value
+
+func _on_flicker_changed(value: float) -> void:
+	crt_overlay.material.set_shader_parameter("flicker_intensity", value)
+	flicker_label.text = "Flicker: %.3f" % value
+
+func _on_reset_settings() -> void:
+	curvature_slider.value = 0.15
+	scanline_slider.value = 0.04
+	vignette_slider.value = 0.18
+	glow_slider.value = 0.18
+	flicker_slider.value = 0.005

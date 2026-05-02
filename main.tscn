@@ -9,7 +9,7 @@
 shader = ExtResource("2")
 shader_parameter/scanline_intensity = 0.04
 shader_parameter/vignette_intensity = 0.18
-shader_parameter/crt_curvature = 0.0025
+shader_parameter/crt_curvature = 0.15
 shader_parameter/flicker_intensity = 0.005
 shader_parameter/glow_intensity = 0.18
 shader_parameter/time_speed = 1.0
@@ -146,3 +146,105 @@ grow_vertical = 2
 material = SubResource("ShaderMaterial_1")
 mouse_filter = 2
 z_index = 100
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = 30.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "CRT Settings (F3)"
+
+[node name="CurvatureSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.15
+
+[node name="CurvatureLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "Curvature: 0.15"
+
+[node name="ScanlineSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 0.3
+step = 0.005
+value = 0.04
+
+[node name="ScanlineLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "Scanlines: 0.04"
+
+[node name="VignetteSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.18
+
+[node name="VignetteLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "Vignette: 0.18"
+
+[node name="GlowSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.18
+
+[node name="GlowLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "Glow: 0.18"
+
+[node name="FlickerSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+min_value = 0.0
+max_value = 0.05
+step = 0.001
+value = 0.005
+
+[node name="FlickerLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 12
+text = "Flicker: 0.005"
+
+[node name="HSeparator" type="HSeparator" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ResetBtn" type="Button" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_font_sizes/font_size = 14
+text = "Reset to Defaults"
