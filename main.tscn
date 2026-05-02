@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/terminal.gd" id="1"]
+[ext_resource type="Shader" path="res://shaders/crt_overlay.gdshader" id="2"]
+[ext_resource type="Script" path="res://scripts/sound_manager.gd" id="3"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+shader = ExtResource("2")
+shader_parameter/scanline_intensity = 0.12
+shader_parameter/vignette_intensity = 0.35
+shader_parameter/crt_curvature = 0.02
+shader_parameter/flicker_intensity = 0.015
+shader_parameter/glow_intensity = 0.4
+shader_parameter/time_speed = 1.0
+shader_parameter/glow_color = Color(0.2, 1, 0.2, 1)
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -18,7 +30,16 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.05, 0.05, 0.1, 1)
+color = Color(0.02, 0.02, 0.06, 1)
+
+[node name="CRTOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+material = SubResource("ShaderMaterial_1")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -27,19 +48,37 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 margin_left = 8
 margin_top = 8
 margin_right = 8
 margin_bottom = 8
 
-[node name="TitleBar" type="Label" parent="VBoxContainer"]
+[node name="TopBar" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
+
+[node name="TitleBar" type="Label" parent="VBoxContainer/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0.8, 0, 1)
 theme_override_colors/font_shadow_color = Color(0, 0.3, 0, 1)
-theme_override_font_sizes/font_size = 22
-text = "  BASIC6502  |  6502 CPU  |  64K RAM  |  F1=Help  F5=Run  F10=Reset"
+theme_override_font_sizes/font_size = 20
+text = "  BASIC6502  |  6502 CPU  |  64K RAM"
 horizontal_alignment = 0
+
+[node name="BaudLabel" type="Label" parent="VBoxContainer/TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0, 1)
+theme_override_font_sizes/font_size = 16
+text = "2400 BAUD"
+horizontal_alignment = 2
+
+[node name="FontLabel" type="Label" parent="VBoxContainer/TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "VT323"
+horizontal_alignment = 2
 
 [node name="Screen" type="RichTextLabel" parent="VBoxContainer"]
 layout_mode = 2
@@ -62,5 +101,5 @@ caret_blink = true
 [node name="StatusBar" type="Label" parent="VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.8, 1, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 14
 text = "A:00 X:00 Y:00 SP:FD PC:0800 -------- | MEM:64K"
