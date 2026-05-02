@@ -158,26 +158,26 @@ func _update_font_label() -> void:
 
 func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
-	var dynamic_font = FontFile.new()
-	var err = dynamic_font.load(font_info["path"])
-	if err == OK:
-		var font_size = _base_font_size
-		if font_info["name"] == "Press Start 2P":
-			font_size = max(_base_font_size - 4, 10)
-		screen.add_theme_font_override("normal_font", dynamic_font)
-		screen.add_theme_font_override("mono_font", dynamic_font)
-		screen.add_theme_font_size_override("normal_font_size", font_size)
-		screen.add_theme_font_size_override("mono_font_size", font_size)
-		input_line.add_theme_font_override("font", dynamic_font)
-		input_line.add_theme_font_size_override("font_size", font_size)
-		title_bar.add_theme_font_override("font", dynamic_font)
-		title_bar.add_theme_font_size_override("font_size", max(font_size + 2, 12))
-		status_bar.add_theme_font_override("font", dynamic_font)
-		status_bar.add_theme_font_size_override("font_size", max(font_size - 4, 10))
-		baud_label.add_theme_font_override("font", dynamic_font)
-		baud_label.add_theme_font_size_override("font_size", max(font_size - 2, 10))
-		font_label.add_theme_font_override("font", dynamic_font)
-		font_label.add_theme_font_size_override("font_size", max(font_size - 2, 10))
+	var dynamic_font: FontFile = ResourceLoader.load(font_info["path"], "FontFile")
+	if dynamic_font == null:
+		dynamic_font = FontFile.new()
+	var font_size = _base_font_size
+	if font_info["name"] == "Press Start 2P":
+		font_size = max(_base_font_size - 4, 10)
+	screen.add_theme_font_override("normal_font", dynamic_font)
+	screen.add_theme_font_override("mono_font", dynamic_font)
+	screen.add_theme_font_size_override("normal_font_size", font_size)
+	screen.add_theme_font_size_override("mono_font_size", font_size)
+	input_line.add_theme_font_override("font", dynamic_font)
+	input_line.add_theme_font_size_override("font_size", font_size)
+	title_bar.add_theme_font_override("font", dynamic_font)
+	title_bar.add_theme_font_size_override("font_size", max(font_size + 2, 12))
+	status_bar.add_theme_font_override("font", dynamic_font)
+	status_bar.add_theme_font_size_override("font_size", max(font_size - 4, 10))
+	baud_label.add_theme_font_override("font", dynamic_font)
+	baud_label.add_theme_font_size_override("font_size", max(font_size - 2, 10))
+	font_label.add_theme_font_override("font", dynamic_font)
+	font_label.add_theme_font_size_override("font_size", max(font_size - 2, 10))
 	sound.play_key()
 
 func _on_input_line_text_submitted(text: String) -> void:

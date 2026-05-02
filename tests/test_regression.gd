@@ -7,6 +7,8 @@ var _current_test: String = ""
 func _init() -> void:
 	print("\n========== BASIC6502 REGRESSION TEST SUITE ==========\n")
 	test_memory_bus()
+	test_memory_io()
+	test_memory_reset_vectors()
 	test_cpu_load_store()
 	test_cpu_arithmetic()
 	test_cpu_logical()
@@ -17,6 +19,15 @@ func _init() -> void:
 	test_cpu_jumps()
 	test_cpu_flags()
 	test_cpu_edge_cases()
+	test_cpu_multi_instruction()
+	test_cpu_overflow()
+	test_cpu_nop_brk()
+	test_cpu_addressing_modes()
+	test_cpu_transfers()
+	test_cpu_indirect_jmp()
+	test_cpu_page_boundary_bug()
+	test_cpu_bit()
+	test_cpu_inx_iny_dex_dey()
 	test_basic_print()
 	test_basic_variables()
 	test_basic_arithmetic()
@@ -28,6 +39,11 @@ func _init() -> void:
 	test_basic_arrays()
 	test_basic_read_data()
 	test_basic_poke_peek()
+	test_basic_nested_for()
+	test_basic_comparison_operators()
+	test_basic_boolean_logic()
+	test_basic_trig_functions()
+	test_basic_computed_gosub()
 	test_computer_integration()
 	print("\n========== TEST RESULTS ==========")
 	print("  PASSED: %d" % _tests_passed)
@@ -48,7 +64,7 @@ func _begin_test(name: String) -> void:
 	print("Running: %s" % name)
 
 func test_memory_bus() -> void:
-	_beginTest("MemoryBus")
+	_begin_test("MemoryBus")
 	var mem = MemoryBus.new()
 	mem.poke(0x0000, 0x42)
 	_assert(mem.peek(0x0000) == 0x42, "peek/poke basic")
@@ -59,7 +75,7 @@ func test_memory_bus() -> void:
 	mem.poke(0xFFFF, 0xAB)
 	_assert(mem.peek(0xFFFF) == 0xAB, "highest address")
 	mem.poke(0x10000, 0xFF)
-	_assert(mem.peek(0x0000) == 0x42, "overflow wraps to 16-bit")
+	_assert(mem.peek(0x0000) == 0xFF, "overflow wraps to 16-bit")
 	mem.reset()
 	_assert(mem.peek(0x0000) == 0x00, "reset clears memory")
 	var data = PackedByteArray([0x01, 0x02, 0x03, 0x04])
@@ -68,7 +84,7 @@ func test_memory_bus() -> void:
 	_assert(mem.peek(0x0203) == 0x04, "load_bytes byte 3")
 
 func test_memory_io() -> void:
-	_beginTest("MemoryBus I/O")
+	_begin_test("MemoryBus I/O")
 	var mem = MemoryBus.new()
 	var output_chars: String = ""
 	var on_char = func(ch: String): output_chars += ch
@@ -88,7 +104,7 @@ func test_memory_io() -> void:
 	_assert(mem.peek(0xC001) == 0, "keyboard status empty after read all")
 
 func test_cpu_load_store() -> void:
-	_beginTest("CPU Load/Store")
+	_begin_test("CPU Load/Store")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -124,7 +140,7 @@ func test_cpu_load_store() -> void:
 	_assert(cpu.A == 0x42, "LDA zero page from STA result")
 
 func test_cpu_arithmetic() -> void:
-	_beginTest("CPU Arithmetic")
+	_begin_test("CPU Arithmetic")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -158,7 +174,7 @@ func test_cpu_arithmetic() -> void:
 	_assert(cpu.A == 0x09, "ADC with carry 0x05 + 0x03 + 1")
 
 func test_cpu_logical() -> void:
-	_beginTest("CPU Logical")
+	_begin_test("CPU Logical")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -182,7 +198,7 @@ func test_cpu_logical() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.Z) == true, "EOR result zero flag")
 
 func test_cpu_shifts() -> void:
-	_beginTest("CPU Shift/Rotate")
+	_begin_test("CPU Shift/Rotate")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -224,7 +240,7 @@ func test_cpu_shifts() -> void:
 	_assert(mem.peek(0x0050) == 0x10, "DEC zero page")
 
 func test_cpu_comparisons() -> void:
-	_beginTest("CPU Comparisons")
+	_begin_test("CPU Comparisons")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -251,7 +267,7 @@ func test_cpu_comparisons() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.N) == true, "CMP less N")
 
 func test_cpu_branches() -> void:
-	_beginTest("CPU Branches")
+	_begin_test("CPU Branches")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -280,7 +296,7 @@ func test_cpu_branches() -> void:
 	_assert(cpu.PC == 0x0790, "BMI branch backward (negative offset)")
 
 func test_cpu_stack() -> void:
-	_beginTest("CPU Stack")
+	_begin_test("CPU Stack")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -297,7 +313,7 @@ func test_cpu_stack() -> void:
 	_assert(cpu.SP == 0xFD, "PLA SP incremented")
 
 func test_cpu_jumps() -> void:
-	_beginTest("CPU Jumps/Subroutines")
+	_begin_test("CPU Jumps/Subroutines")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -318,7 +334,7 @@ func test_cpu_jumps() -> void:
 	_assert(cpu.PC == 0x0903, "RTS returns to correct address")
 
 func test_cpu_flags() -> void:
-	_beginTest("CPU Flag Instructions")
+	_begin_test("CPU Flag Instructions")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -343,7 +359,7 @@ func test_cpu_flags() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.V) == false, "CLV clears overflow")
 
 func test_cpu_edge_cases() -> void:
-	_beginTest("CPU Edge Cases")
+	_begin_test("CPU Edge Cases")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -383,7 +399,7 @@ func test_cpu_edge_cases() -> void:
 	_assert(cpu.X == 0x51, "DEX")
 
 func test_basic_print() -> void:
-	_beginTest("BASIC PRINT")
+	_begin_test("BASIC PRINT")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -395,7 +411,7 @@ func test_basic_print() -> void:
 	_assert("3" in output, "PRINT expression")
 
 func test_basic_variables() -> void:
-	_beginTest("BASIC Variables")
+	_begin_test("BASIC Variables")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -409,7 +425,7 @@ func test_basic_variables() -> void:
 	_assert("99" in output, "Variable reassignment")
 
 func test_basic_arithmetic() -> void:
-	_beginTest("BASIC Arithmetic")
+	_begin_test("BASIC Arithmetic")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -422,7 +438,7 @@ func test_basic_arithmetic() -> void:
 	_assert("256" in output, "Power: 2^8=256")
 
 func test_basic_conditions() -> void:
-	_beginTest("BASIC IF/THEN")
+	_begin_test("BASIC IF/THEN")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -434,7 +450,7 @@ func test_basic_conditions() -> void:
 	_assert(not ("NO" in output), "IF false condition not executed")
 
 func test_basic_loops() -> void:
-	_beginTest("BASIC FOR/NEXT")
+	_begin_test("BASIC FOR/NEXT")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -448,7 +464,7 @@ func test_basic_loops() -> void:
 	_assert("10" in output, "FOR loop with negative step")
 
 func test_basic_gosub() -> void:
-	_beginTest("BASIC GOSUB/RETURN")
+	_begin_test("BASIC GOSUB/RETURN")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -459,7 +475,7 @@ func test_basic_gosub() -> void:
 	_assert("BACK" in output, "RETURN goes back")
 
 func test_basic_functions() -> void:
-	_beginTest("BASIC Built-in Functions")
+	_begin_test("BASIC Built-in Functions")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -471,7 +487,7 @@ func test_basic_functions() -> void:
 	_assert("4" in output, "SQR(16)=4")
 
 func test_basic_strings() -> void:
-	_beginTest("BASIC String Functions")
+	_begin_test("BASIC String Functions")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -484,7 +500,7 @@ func test_basic_strings() -> void:
 	_assert("5" in output, "LEN()")
 
 func test_basic_arrays() -> void:
-	_beginTest("BASIC Arrays")
+	_begin_test("BASIC Arrays")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -494,7 +510,7 @@ func test_basic_arrays() -> void:
 	_assert("30" in output, "Array subscript A(3)=30")
 
 func test_basic_read_data() -> void:
-	_beginTest("BASIC READ/DATA")
+	_begin_test("BASIC READ/DATA")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -506,7 +522,7 @@ func test_basic_read_data() -> void:
 	_assert("30" in output, "READ third value")
 
 func test_basic_poke_peek() -> void:
-	_beginTest("BASIC POKE/PEEK")
+	_begin_test("BASIC POKE/PEEK")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -516,7 +532,7 @@ func test_basic_poke_peek() -> void:
 	_assert("42" in output, "POKE then PEEK roundtrip")
 
 func test_cpu_multi_instruction() -> void:
-	_beginTest("CPU Multi-Instruction Program")
+	_begin_test("CPU Multi-Instruction Program")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	mem.poke(0x0800, 0xA9)
@@ -537,7 +553,7 @@ func test_cpu_multi_instruction() -> void:
 	_assert(cpu.X == 0x0A, "X should be 10")
 
 func test_cpu_overflow() -> void:
-	_beginTest("CPU Overflow Detection")
+	_begin_test("CPU Overflow Detection")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -556,7 +572,7 @@ func test_cpu_overflow() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.V) == true, "SBC overflow: 0x80 - 0x01")
 
 func test_cpu_nop_brk() -> void:
-	_beginTest("CPU NOP/BRK")
+	_begin_test("CPU NOP/BRK")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -573,7 +589,7 @@ func test_cpu_nop_brk() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.I) == true, "BRK sets interrupt flag")
 
 func test_computer_integration() -> void:
-	_beginTest("Computer Integration")
+	_begin_test("Computer Integration")
 	var output_acculated: String = ""
 	var comp_output = func(text: String): output_acculated += text
 	var computer = Computer.new()
@@ -592,7 +608,7 @@ func test_computer_integration() -> void:
 	_assert(not ("B IS LESS" in output2), "Computer conditional not A>B")
 
 func test_cpu_addressing_modes() -> void:
-	_beginTest("CPU Addressing Modes")
+	_begin_test("CPU Addressing Modes")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	mem.poke(0x0050, 0xAA)
@@ -646,7 +662,7 @@ func test_cpu_addressing_modes() -> void:
 	_assert(mem.peek(0x3002) == 0xFF, "STA indirect Y")
 
 func test_cpu_transfers() -> void:
-	_beginTest("CPU Transfer Instructions")
+	_begin_test("CPU Transfer Instructions")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -671,7 +687,7 @@ func test_cpu_transfers() -> void:
 	_assert(cpu.A == 0x55, "TYA transfers Y to A")
 
 func test_cpu_indirect_jmp() -> void:
-	_beginTest("CPU Indirect JMP")
+	_begin_test("CPU Indirect JMP")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -683,7 +699,7 @@ func test_cpu_indirect_jmp() -> void:
 	_assert(cpu.PC == 0xABCD, "JMP indirect")
 
 func test_cpu_page_boundary_bug() -> void:
-	_beginTest("CPU 6502 Page Boundary Bug (Indirect)")
+	_begin_test("CPU 6502 Page Boundary Bug (Indirect)")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -697,7 +713,7 @@ func test_cpu_page_boundary_bug() -> void:
 	_assert(cpu.PC == 0x1234, "JMP indirect page boundary bug: wraps low byte")
 
 func test_cpu_bit() -> void:
-	_beginTest("CPU BIT Instruction")
+	_begin_test("CPU BIT Instruction")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
@@ -711,7 +727,7 @@ func test_cpu_bit() -> void:
 	_assert(cpu.get_flag(CPU6502.Flag.V) == true, "BIT overflow from memory bit 6")
 
 func test_basic_nested_for() -> void:
-	_beginTest("BASIC Nested FOR Loops")
+	_begin_test("BASIC Nested FOR Loops")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -724,7 +740,7 @@ func test_basic_nested_for() -> void:
 	_assert("32" in output, "Nested FOR I=3,J=2")
 
 func test_basic_comparison_operators() -> void:
-	_beginTest("BASIC Comparison Operators")
+	_begin_test("BASIC Comparison Operators")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -737,7 +753,7 @@ func test_basic_comparison_operators() -> void:
 	_assert(not ("NEQ NO" in output), "<> operator false")
 
 func test_basic_boolean_logic() -> void:
-	_beginTest("BASIC Boolean Logic")
+	_begin_test("BASIC Boolean Logic")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -750,7 +766,7 @@ func test_basic_boolean_logic() -> void:
 	_assert("NOT YES" in output, "NOT operator")
 
 func test_basic_trig_functions() -> void:
-	_beginTest("BASIC Trig Functions")
+	_begin_test("BASIC Trig Functions")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -761,7 +777,7 @@ func test_basic_trig_functions() -> void:
 	_assert("100" in output, "COS(0) ≈ 1")
 
 func test_memory_reset_vectors() -> void:
-	_beginTest("Memory Reset Vectors")
+	_begin_test("Memory Reset Vectors")
 	var mem = MemoryBus.new()
 	_assert(mem.peek(0xFFFC) == 0x00, "Reset vector low byte default")
 	_assert(mem.peek(0xFFFD) == 0x08, "Reset vector high byte default")
@@ -769,7 +785,7 @@ func test_memory_reset_vectors() -> void:
 	_assert(mem.peek(0xFFFF) == 0x08, "IRQ vector high byte default")
 
 func test_basic_computed_gosub() -> void:
-	_beginTest("BASIC ON GOSUB")
+	_begin_test("BASIC ON GOSUB")
 	var output: String = ""
 	var on_output = func(text: String): output += text
 	var mem = MemoryBus.new()
@@ -779,7 +795,7 @@ func test_basic_computed_gosub() -> void:
 	_assert("TWO" in output, "ON GOTO branching")
 
 func test_cpu_inx_iny_dex_dey() -> void:
-	_beginTest("CPU INX/INY/DEX/DEY")
+	_begin_test("CPU INX/INY/DEX/DEY")
 	var mem = MemoryBus.new()
 	var cpu = CPU6502.new(mem)
 	cpu.PC = 0x0800
