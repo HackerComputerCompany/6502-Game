@@ -15,6 +15,7 @@ var _base_font_size: int = 18
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
+	input_line.text_submitted.connect(_on_input_line_text_submitted)
 	input_line.grab_focus()
 	_print_banner()
 	_update_status()
