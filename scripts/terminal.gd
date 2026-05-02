@@ -115,9 +115,9 @@ func _input(event: InputEvent) -> void:
 func _print_banner() -> void:
 	_instant_output = true
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
-	screen.append_text("[color=green]Version 1.1 | 64KB RAM | 6502 CPU @ 1MHz[/color]\n")
+	screen.append_text("[color=green]Version 1.2 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
 	screen.append_text("[color=green]F1=Help F5=Run F10=Reset F7=Baud F8=Font[/color]\n")
-	screen.append_text("[color=green]Type HELP for commands, or start coding!\n\n[/color]")
+	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
 
@@ -217,6 +217,11 @@ func _handle_command(text: String) -> void:
 		_load_program(text.substr(5).strip_edges())
 	elif upper == "DIR" or upper == "CATALOG":
 		_show_catalog()
+	elif upper == "DEMO" or upper == "DEMOS":
+		_show_demos()
+	elif upper.begins_with("DEMO ") or upper.begins_with("DEMOS "):
+		var demo_name = text.substr(5).strip_edges().to_lower()
+		_load_demo(demo_name)
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
@@ -242,6 +247,8 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  SAVE name [/color]- Save program to disk\n"
 	help_text += "[color=yellow]  LOAD name [/color]- Load program from disk\n"
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
+	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
+	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program\n"
 	help_text += "[color=yellow]  SYS addr  [/color]- Execute machine code at address\n"
 	help_text += "[color=yellow]  PEEK(addr)[/color]- Read memory location\n"
 	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
@@ -370,6 +377,39 @@ func _show_cpu_state() -> void:
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
+
+func _show_demos() -> void:
+	_instant_output = true
+	var text = "\n[color=cyan][b]BUILT-IN DEMO PROGRAMS:[/b][/color]\n"
+	text += "[color=yellow]  Type DEMO name to load, then RUN[/color]\n\n"
+	var demos = computer.rom.get_demo_list()
+	for d in demos:
+		text += "[color=white]  %-14s[/color] %s\n" % [d["name"], d["desc"]]
+	text += "\n[color=cyan][b]ROM ROUTINES (use with SYS):[/b][/color]\n"
+	text += "[color=white]  $F000[/color]  Warm boot (prints message)\n"
+	text += "[color=white]  $F040[/color]  Counter (prints 0-9)\n"
+	text += "[color=white]  $F060[/color]  Add 2 to accumulator\n"
+	text += "[color=white]  $F080[/color]  Fibonacci (8 terms)\n"
+	text += "[color=white]  $F0C0[/color]  Scroll animation (infinite loop)\n"
+	text += "[color=white]  $F100[/color]  Hex output (A register)\n"
+	text += "[color=white]  $F020[/color]  Print char (A register -> screen)\n"
+	text += "[color=white]  $F030[/url]  Print string ($1C/$1D = ptr, Y=index)\n\n"
+	screen.append_text(text)
+	_instant_output = false
+
+func _load_demo(name: String) -> void:
+	var program = computer.load_demo(name)
+	if program != "":
+		_instant_output = true
+		screen.append_text("[color=lime]Loading demo: " + name + "\n[/color]")
+		_instant_output = false
+		computer.run_basic("")
+		computer.basic.load_program(program)
+		_list_program()
+		screen.append_text("[color=lime]Type RUN to execute.\n[/color]")
+		sound.play_bell()
+	else:
+		screen.append_text("[color=red]ERROR: DEMO NOT FOUND. Type DEMO to list available demos.\n[/color]")
 
 func _peek_command(text: String) -> void:
 	computer.execute_basic_line(text)
