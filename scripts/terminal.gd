@@ -74,6 +74,7 @@ func _on_input_line_text_submitted(text: String) -> void:
 	history_pos = command_history.size()
 	input_line.clear()
 	_handle_command(text.strip_edges())
+	input_line.grab_focus()
 
 func _handle_command(text: String) -> void:
 	var upper = text.to_upper()
@@ -239,6 +240,10 @@ func _peek_command(text: String) -> void:
 
 func _sys_command(text: String) -> void:
 	computer.execute_basic_line(text)
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		input_line.grab_focus()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
