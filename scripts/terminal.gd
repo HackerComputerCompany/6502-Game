@@ -189,10 +189,14 @@ func _update_font_label() -> void:
 
 func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
-	var dynamic_font: FontFile = ResourceLoader.load(font_info["path"], "FontFile")
+	var path = font_info["path"]
+	var dynamic_font: FontFile = load(path)
 	if dynamic_font == null:
+		# Font not yet imported — retry after a short delay
+		if not _fonts_loaded:
+			get_tree().create_timer(0.1).timeout.connect(_apply_font_deferred)
 		return
-	if dynamic_font.data.is_empty():
+	if dynamic_font == null:
 		return
 	var font_size = _base_font_size
 	if font_info["name"] == "Press Start 2P":
