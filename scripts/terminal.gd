@@ -3,12 +3,14 @@ extends Control
 @onready var screen: RichTextLabel = $VBoxContainer/Screen
 @onready var input_line: LineEdit = $VBoxContainer/InputLine
 @onready var status_bar: Label = $VBoxContainer/StatusBar
+@onready var title_bar: Label = $VBoxContainer/TitleBar
 
 var computer: Computer
 var command_history: Array = []
 var history_pos: int = -1
 var program_mode: bool = false
 var program_buffer: String = ""
+var _base_font_size: int = 18
 
 func _ready() -> void:
 	computer = Computer.new()
@@ -16,6 +18,22 @@ func _ready() -> void:
 	input_line.grab_focus()
 	_print_banner()
 	_update_status()
+	_scale_fonts()
+
+func _on_resized() -> void:
+	_scale_fonts()
+
+func _scale_fonts() -> void:
+	var root_size = get_viewport().get_visible_rect().size
+	var scale_factor = min(root_size.x / 1280.0, root_size.y / 960.0)
+	scale_factor = clamp(scale_factor, 0.5, 3.0)
+	var font_size = int(_base_font_size * scale_factor)
+	font_size = max(font_size, 10)
+	screen.add_theme_font_size_override("normal_font_size", font_size)
+	screen.add_theme_font_size_override("mono_font_size", font_size)
+	input_line.add_theme_font_size_override("font_size", font_size)
+	title_bar.add_theme_font_size_override("font_size", max(font_size - 2, 10))
+	status_bar.add_theme_font_size_override("font_size", max(font_size - 4, 10))
 
 func _print_banner() -> void:
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
