@@ -186,6 +186,34 @@ This stores LDA #$41, STA $0800 at address 768 ($0300), then calls SYS 768 to ex
 70 END
 ```
 
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| F1 | Show help |
+| F3 | Toggle CRT settings panel |
+| F5 | Run program |
+| F6 | Start/stop video recording |
+| F7 | Cycle baud rate (300/1200/2400/9600/14400) |
+| F8 | Cycle font |
+| F9 | Take screenshot |
+| F10 | Full system reset |
+| Up/Down | Command history |
+
+## CRT Settings Panel
+
+Press **F3** to open the real-time CRT settings panel on the right side of the screen. Adjust any parameter with the sliders — changes are applied immediately.
+
+| Parameter | Default | Range | Effect |
+|-----------|---------|-------|--------|
+| Curvature | 0.15 | 0.0–1.0 | Barrel distortion (0=flat screen, 1=extreme curve) |
+| Scanlines | 0.04 | 0.0–0.3 | Horizontal scanline darkness |
+| Vignette | 0.18 | 0.0–1.0 | Edge darkening intensity |
+| Glow | 0.18 | 0.0–1.0 | Phosphor bloom brightness |
+| Flicker | 0.005 | 0.0–0.05 | Random brightness flicker |
+
+Click **Reset to Defaults** to restore all values. Press **F3** again to close.
+
 ## Troubleshooting
 
 | Problem | Solution |

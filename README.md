@@ -8,7 +8,8 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Complete BASIC interpreter** — PRINT, INPUT, FOR/NEXT, IF/THEN, GOSUB/RETURN, DIM, READ/DATA, POKE/PEEK, string functions, math functions, ON GOTO/GOSUB
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
-- **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker)
+- **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
+- **Real-time CRT settings panel** — press F3 to adjust curvature, scanlines, vignette, glow, and flicker with sliders
 - **Baud rate simulation** — characters stream in at 300/1200/2400/9600/14400 baud (F7 to cycle)
 - **4 switchable retro fonts** — VT323, Press Start 2P, Share Tech Mono, IBM Plex Mono (F8 to cycle)
 - **Procedural sound effects** — key clicks, carriage returns, bell, line feed
@@ -46,6 +47,7 @@ RUN           → runs the loaded program
 | Key | Action |
 |-----|--------|
 | F1 | Show help |
+| F3 | Toggle CRT settings panel |
 | F5 | Run program |
 | F6 | Start/stop video recording |
 | F7 | Cycle baud rate (300/1200/2400/9600/14400) |
@@ -143,6 +145,20 @@ The terminal is wrapped in a `PanelContainer` with a `StyleBoxFlat` that provide
 - **Outer area**: The bezel/body of the CRT monitor — can be any retro aesthetic (beige plastic, wood grain, metal, etc.)
 - **Inner shadow**: Add a subtle inner shadow around the cutout to simulate screen depth
 - **Corner radius**: The screen cutout should have ~4-8px radius to match the scene's StyleBox corner radius
+
+### CRT Settings Panel (F3)
+
+Press **F3** to open the CRT settings panel on the right side of the screen. Five sliders control the CRT effect in real-time:
+
+| Parameter | Default | Range | Effect |
+|-----------|---------|-------|--------|
+| Curvature | 0.15 | 0.0–1.0 | Barrel distortion (0=flat, 0.15=subtle, 0.5=strong, 1.0=extreme) |
+| Scanlines | 0.04 | 0.0–0.3 | Horizontal scanline darkness |
+| Vignette | 0.18 | 0.0–1.0 | Edge darkening |
+| Glow | 0.18 | 0.0–1.0 | Phosphor bloom intensity |
+| Flicker | 0.005 | 0.0–0.05 | Random brightness variation |
+
+Click **Reset to Defaults** to restore all values. Press **F3** again to close the panel.
 
 ### Baud Rate
 
