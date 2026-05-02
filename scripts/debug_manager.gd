@@ -7,8 +7,6 @@ var _is_recording: bool = false
 var _frames: Array = []
 var _frame_interval: float = 1.0 / 30.0
 var _frame_timer: float = 0.0
-var _video_width: int = 960
-var _video_height: int = 720
 
 signal debug_log(message: String)
 
