@@ -9,7 +9,7 @@
 shader = ExtResource("2")
 shader_parameter/scanline_intensity = 0.04
 shader_parameter/vignette_intensity = 0.18
-shader_parameter/crt_curvature = 0.005
+shader_parameter/crt_curvature = 0.0025
 shader_parameter/flicker_intensity = 0.005
 shader_parameter/glow_intensity = 0.18
 shader_parameter/time_speed = 1.0
@@ -106,7 +106,7 @@ horizontal_alignment = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.6, 0.8, 1, 1)
 theme_override_font_sizes/font_size = 16
-text = "VT323"
+text = "Press Start 2P"
 horizontal_alignment = 2
 
 [node name="Screen" type="RichTextLabel" parent="VBoxContainer"]

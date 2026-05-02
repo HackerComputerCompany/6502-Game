@@ -15,8 +15,8 @@ var history_pos: int = -1
 var _base_font_size: int = 18
 
 var _available_fonts: Array = [
-	{"name": "VT323", "path": "res://fonts/vt323.ttf", "type": "terminal"},
 	{"name": "Press Start 2P", "path": "res://fonts/pressstart2p.ttf", "type": "terminal"},
+	{"name": "VT323", "path": "res://fonts/vt323.ttf", "type": "terminal"},
 	{"name": "Share Tech Mono", "path": "res://fonts/sharetechmono.ttf", "type": "terminal"},
 	{"name": "IBM Plex Mono", "path": "res://fonts/ibmplexmono.ttf", "type": "mono"},
 ]
@@ -144,7 +144,7 @@ func _input(event: InputEvent) -> void:
 func _print_banner() -> void:
 	_instant_output = true
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
-	screen.append_text("[color=green]Version 1.3 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
+	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
 	screen.append_text("[color=green]F1=Help F5=Run F6=Rec F9=SS F7=Baud F8=Font F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
@@ -213,6 +213,9 @@ func _on_input_line_text_submitted(text: String) -> void:
 	history_pos = command_history.size()
 	input_line.clear()
 	_handle_command(text.strip_edges())
+	_instant_output = true
+	screen.append_text("[color=lime]\nREADY.\n[/color]")
+	_instant_output = false
 	input_line.grab_focus()
 
 func _handle_command(text: String) -> void:
@@ -228,9 +231,6 @@ func _handle_command(text: String) -> void:
 		_update_status()
 	elif upper == "NEW":
 		computer.reset()
-		_instant_output = true
-		screen.append_text("[color=lime]\nREADY.\n[/color]")
-		_instant_output = false
 		_update_status()
 	elif upper == "LIST":
 		_list_program()
@@ -311,17 +311,15 @@ func _list_program() -> void:
 	_instant_output = false
 
 func _run_program() -> void:
-	_instant_output = false
 	screen.append_text("\n")
 	var prog_lines: Array = []
 	for entry in computer.basic._program:
 		prog_lines.append(str(entry[0]) + " " + str(entry[1]))
 	var program = "\n".join(prog_lines)
 	computer.run_basic(program)
-	screen.append_text("[color=lime]\nREADY.\n[/color]")
 
 func _add_program_line(text: String) -> void:
-	screen.append_text("[color=lime]\n[/color]")
+	pass
 
 func _save_program(filename: String) -> void:
 	if filename == "":

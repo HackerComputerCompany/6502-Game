@@ -3,7 +3,7 @@ shader_type canvas_item;
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform float scanline_intensity : hint_range(0.0, 1.0) = 0.04;
 uniform float vignette_intensity : hint_range(0.0, 1.0) = 0.18;
-uniform float crt_curvature : hint_range(0.0, 0.05) = 0.005;
+uniform float crt_curvature : hint_range(0.0, 0.05) = 0.0025;
 uniform float flicker_intensity : hint_range(0.0, 0.05) = 0.005;
 uniform float glow_intensity : hint_range(0.0, 2.0) = 0.18;
 uniform float time_speed : hint_range(0.5, 5.0) = 1.0;
