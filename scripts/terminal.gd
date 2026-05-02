@@ -190,12 +190,13 @@ func _update_font_label() -> void:
 func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
 	var path = font_info["path"]
-	var dynamic_font: FontFile = load(path)
-	if dynamic_font == null:
-		# Font not yet imported — retry after a short delay
+	var dynamic_font = FontFile.new()
+	var err = dynamic_font.load_dynamic_font(path)
+	if err != OK:
 		if not _fonts_loaded:
-			get_tree().create_timer(0.1).timeout.connect(_apply_font_deferred)
+			get_tree().create_timer(0.2).timeout.connect(_apply_font_deferred)
 		return
+	_fonts_loaded = true
 	if dynamic_font == null:
 		return
 	var font_size = _base_font_size
