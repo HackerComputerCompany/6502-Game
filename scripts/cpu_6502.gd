@@ -467,3 +467,64 @@ func _build_opcode_table() -> void:
 	}
 	for opcode in opcodes:
 		_opcode_table[opcode] = opcodes[opcode]
+
+func disassemble(addr: int, count: int = 1) -> Array:
+	var results = []
+	for _i in range(count):
+		if addr > 0xFFFF:
+			break
+		var opcode = memory.peek(addr)
+		var entry = _opcode_table.get(opcode, null)
+		var line_str: String
+		var line_addr = addr
+		if entry == null:
+			line_str = "???"
+			addr += 1
+		else:
+			var instr = entry[0]
+			var mode = entry[1]
+			var nbytes = 1 + _addr_bytes(mode)
+			var operand_str = _format_operand(addr, mode)
+			line_str = instr + " " + operand_str
+			addr += nbytes
+		results.append({"addr": line_addr, "disasm": line_str})
+	return results
+
+func _format_operand(addr: int, mode: String) -> String:
+	match mode:
+		"IMP":
+			return ""
+		"ACC":
+			return "A"
+		"IMM":
+			return "#$" + _hex(memory.peek(addr + 1), 2)
+		"ZPG":
+			return "$" + _hex(memory.peek(addr + 1), 2)
+		"ZPX":
+			return "$" + _hex(memory.peek(addr + 1), 2) + ",X"
+		"ZPY":
+			return "$" + _hex(memory.peek(addr + 1), 2) + ",Y"
+		"ABS":
+			return "$" + _hex(memory.peek_word(addr + 1), 4)
+		"ABX":
+			return "$" + _hex(memory.peek_word(addr + 1), 4) + ",X"
+		"ABY":
+			return "$" + _hex(memory.peek_word(addr + 1), 4) + ",Y"
+		"IND":
+			return "($" + _hex(memory.peek_word(addr + 1), 4) + ")"
+		"IZX":
+			return "($" + _hex(memory.peek(addr + 1), 2) + ",X)"
+		"IZY":
+			return "($" + _hex(memory.peek(addr + 1), 2) + "),Y"
+		"REL":
+			var offset = memory.peek(addr + 1)
+			if offset >= 128:
+				offset = offset - 256
+			var target = (addr + 2 + offset) & 0xFFFF
+			return "$" + _hex(target, 4)
+		_:
+			return ""
+
+func _hex(val: int, digits: int) -> String:
+	var s = ("%0" + str(digits) + "X") % val
+	return s

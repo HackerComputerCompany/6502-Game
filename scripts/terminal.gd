@@ -56,6 +56,9 @@ var _debug_visible: bool = false
 
 var _fonts_loaded: bool = false
 
+var _monitor_mode: bool = false
+var _monitor_addr: int = 0x0000
+
 const SAVE_PATH = "user://savestate.json"
 
 const WARMUP_DURATION: float = 120.0
@@ -231,6 +234,9 @@ func _gui_input(event: InputEvent) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE and _monitor_mode:
+			_exit_monitor()
+			return
 		if event.keycode == KEY_UP:
 			if history_pos > 0:
 				history_pos -= 1
@@ -374,6 +380,9 @@ func _on_input_line_text_submitted(text: String) -> void:
 		computer.output.emit("\nREADY.\n")
 
 func _handle_command(text: String) -> void:
+	if _monitor_mode:
+		_handle_monitor_command(text)
+		return
 	var upper = text.to_upper()
 	if upper == "HELP":
 		_show_help()
@@ -389,6 +398,16 @@ func _handle_command(text: String) -> void:
 	elif upper == "NEW":
 		computer.reset()
 		_update_status()
+	elif upper == "STOP" or upper == "BREAK":
+		_cmd_stop()
+	elif upper == "HALT":
+		_cmd_halt()
+	elif upper == "STEP":
+		_cmd_step()
+	elif upper == "POWEROFF":
+		_cmd_poweroff()
+	elif upper == "MONITOR" or upper == "MON":
+		_enter_monitor()
 	elif upper == "LIST":
 		_list_program()
 	elif upper.begins_with("RUN"):
@@ -426,6 +445,11 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  CLEAR     [/color]- Clear the screen\n"
 	help_text += "[color=yellow]  RESET     [/color]- Full system reset\n"
 	help_text += "[color=yellow]  CPU       [/color]- Show CPU registers\n"
+	help_text += "[color=yellow]  STOP      [/color]- Break running program\n"
+	help_text += "[color=yellow]  HALT      [/color]- Halt the CPU\n"
+	help_text += "[color=yellow]  STEP      [/color]- Single-step one CPU instruction\n"
+	help_text += "[color=yellow]  MONITOR   [/color]- Enter system monitor (Apple II style)\n"
+	help_text += "[color=yellow]  POWEROFF  [/color]- Shut down\n"
 	help_text += "[color=yellow]  SAVE name [/color]- Save program to disk\n"
 	help_text += "[color=yellow]  LOAD name [/color]- Load program from disk\n"
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
@@ -618,18 +642,11 @@ func _init_help_topics() -> void:
 			]
 		},
 		"END": {
-			"syntax": "END",
-			"desc": "Stop program execution immediately. Same as STOP.",
+			"syntax": "END  or  STOP",
+			"desc": "Stop program execution. END and STOP are interchangeable in BASIC.",
 			"examples": [
 				'99 END',
 				'10 PRINT "DONE": END',
-			]
-		},
-		"STOP": {
-			"syntax": "STOP",
-			"desc": "Stop program execution. Same as END.",
-			"examples": [
-				'50 STOP',
 			]
 		},
 		"REM": {
@@ -729,6 +746,43 @@ func _init_help_topics() -> void:
 				'DEMO',
 				'DEMO HELLO',
 				'DEMO MANDELBROT',
+			]
+		},
+		"STOP": {
+			"syntax": "STOP  or  BREAK",
+			"desc": "Break (stop) the currently running program. Shows the line number where execution stopped.",
+			"examples": [
+				'STOP',
+				'BREAK',
+			]
+		},
+		"HALT": {
+			"syntax": "HALT",
+			"desc": "Halt the 6502 CPU immediately. The CPU will not execute further until you type STEP, enter the MONITOR, or RESET. Useful for debugging machine code.",
+			"examples": [
+				'HALT',
+			]
+		},
+		"STEP": {
+			"syntax": "STEP",
+			"desc": "Execute a single 6502 CPU instruction at the current PC, then display the instruction and registers.",
+			"examples": [
+				'STEP',
+			]
+		},
+		"MONITOR": {
+			"syntax": "MONITOR  or  MON",
+			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list.",
+			"examples": [
+				'MONITOR',
+				'MON',
+			]
+		},
+		"POWEROFF": {
+			"syntax": "POWEROFF",
+			"desc": "Shut down the BASIC6502 application.",
+			"examples": [
+				'POWEROFF',
 			]
 		},
 		"INT": {
@@ -1051,6 +1105,260 @@ func _peek_command(text: String) -> void:
 
 func _sys_command(text: String) -> void:
 	computer.execute_basic_line(text)
+
+func _cmd_stop() -> void:
+	if computer._program_running:
+		computer._program_running = false
+		computer.basic._running = false
+		computer._awaiting_input = false
+		_instant_output = true
+		screen.append_text("\n[color=yellow]BREAK at line " + str(computer.basic._current_line) + "[/color]\n")
+		_instant_output = false
+		sound.play_bell()
+	else:
+		_instant_output = true
+		screen.append_text("[color=yellow]No program running.[/color]\n")
+		_instant_output = false
+
+func _cmd_halt() -> void:
+	computer.cpu.halted = true
+	computer._program_running = false
+	computer.basic._running = false
+	_instant_output = true
+	screen.append_text("[color=red]CPU HALTED. Type MONITOR to inspect, or RESET to restart.[/color]\n")
+	_instant_output = false
+	sound.play_bell()
+
+func _cmd_step() -> void:
+	if computer.cpu.halted:
+		computer.cpu.halted = false
+	var old_pc = computer.cpu.PC
+	computer.cpu.step()
+	var disasm = computer.cpu.disassemble(old_pc, 1)
+	var line_text = "$" + ("%04X" % old_pc) + ": " + disasm[0]["disasm"] + "\n"
+	_instant_output = true
+	screen.append_text("[color=cyan]" + line_text + "[/color]")
+	_show_cpu_reg()
+	_instant_output = false
+
+func _cmd_poweroff() -> void:
+	_instant_output = true
+	screen.append_text("\n[color=yellow]POWER OFF...[/color]\n")
+	_instant_output = false
+	await get_tree().create_timer(1.0).timeout
+	get_tree().quit()
+
+func _enter_monitor() -> void:
+	_monitor_mode = true
+	_monitor_addr = computer.cpu.PC
+	_instant_output = true
+	screen.append_text("\n[color=cyan][b]*** SYSTEM MONITOR ***[/b][/color]\n")
+	screen.append_text("[color=cyan]Type H for monitor commands. ESC or Q to exit.[/color]\n")
+	screen.append_text("[color=cyan]*[/color] ")
+	_instant_output = false
+	sound.play_bell()
+
+func _exit_monitor() -> void:
+	_monitor_mode = false
+	_instant_output = true
+	screen.append_text("\n[color=cyan]Exit monitor.[/color]\n")
+	_instant_output = false
+
+func _handle_monitor_command(text: String) -> void:
+	var upper = text.to_upper().strip_edges()
+	if upper == "H" or upper == "HELP":
+		_show_monitor_help()
+	elif upper == "Q" or upper == "QUIT" or upper == "EXIT":
+		_exit_monitor()
+	elif upper == "R" or upper == "REGS" or upper == "REGISTERS":
+		_show_cpu_reg()
+	elif upper == "S" or upper == "STEP":
+		computer.cpu.halted = false
+		var old_pc = computer.cpu.PC
+		computer.cpu.step()
+		var disasm = computer.cpu.disassemble(old_pc, 1)
+		_instant_output = true
+		screen.append_text("[color=white]$%04X: %s[/color]\n" % [old_pc, disasm[0]["disasm"]])
+		_show_cpu_reg()
+		_instant_output = false
+	elif upper == "G" or upper == "GO":
+		computer.cpu.halted = false
+		_instant_output = true
+		screen.append_text("[color=cyan]Running from $%04X...[/color]\n" % computer.cpu.PC)
+		screen.append_text("[color=cyan]Type STOP to break.[/color]\n")
+		_instant_output = false
+		computer._program_running = false
+		computer.basic._running = false
+		var sys_addr = computer.cpu.PC
+		computer.cpu.PC = sys_addr
+		computer.cpu.halted = false
+		computer.cpu.step()
+	elif upper.begins_with("G ") or upper.begins_with("GO "):
+		var addr_str = upper.substr(upper.find(" ") + 1).strip_edges()
+		var addr = _parse_hex_addr(addr_str)
+		if addr >= 0:
+			computer.cpu.PC = addr
+			computer.cpu.halted = false
+			_instant_output = true
+			screen.append_text("[color=cyan]Running from $%04X...[/color]\n" % addr)
+			_instant_output = false
+			computer.cpu.step()
+		else:
+			_instant_output = true
+			screen.append_text("[color=red]Invalid address.[/color]\n")
+			_instant_output = false
+	elif upper == "D" or upper.begins_with("D ") or upper.begins_with("DIS ") or upper.begins_with("DISASM"):
+		var count = 16
+		var addr = _monitor_addr
+		if upper.length() > 2 and upper.begins_with("D "):
+			var arg = upper.substr(2).strip_edges()
+			addr = _parse_hex_addr(arg)
+			if addr < 0:
+				addr = _monitor_addr
+		elif upper.begins_with("DIS ") or upper.begins_with("DISASM"):
+			var space_pos = upper.find(" ")
+			if space_pos >= 0:
+				addr = _parse_hex_addr(upper.substr(space_pos + 1).strip_edges())
+				if addr < 0:
+					addr = _monitor_addr
+		_show_disassembly(addr, count)
+		_monitor_addr = addr + count * 3
+	elif upper == "M" or upper.begins_with("M ") or upper.begins_with("MEM "):
+		var count = 64
+		var addr = _monitor_addr
+		if upper.length() > 2:
+			var arg = upper.substr(upper.find(" ") + 1).strip_edges()
+			addr = _parse_hex_addr(arg)
+			if addr < 0:
+				addr = _monitor_addr
+		_show_memory_dump(addr, count)
+		_monitor_addr = addr + count
+	elif upper.begins_with(":") or upper.begins_with("W "):
+		_monitor_write(upper)
+	elif upper == "RESET":
+		computer.reset()
+		_monitor_addr = computer.cpu.PC
+		_instant_output = true
+		screen.append_text("[color=yellow]System reset.[/color]\n")
+		_instant_output = false
+	else:
+		var addr = _parse_hex_addr(upper)
+		if addr >= 0:
+			_monitor_addr = addr
+			_show_memory_dump(addr, 8)
+		else:
+			_instant_output = true
+			screen.append_text("[color=red]Unknown monitor command. Type H for help.[/color]\n")
+			_instant_output = false
+	_instant_output = true
+	screen.append_text("[color=cyan]*[/color] ")
+	_instant_output = false
+
+func _parse_hex_addr(s: String) -> int:
+	s = s.strip_edges()
+	if s.begins_with("$"):
+		s = s.substr(1)
+	if s.begins_with("0X"):
+		s = s.substr(2)
+	if s.is_valid_int():
+		return int(s)
+	if s.is_valid_html_color():
+		return int("0x" + s)
+	return -1
+
+func _show_monitor_help() -> void:
+	_instant_output = true
+	var h = "\n[color=cyan][b]SYSTEM MONITOR COMMANDS[/b][/color]\n"
+	h += "[color=yellow]  <addr>[/color]      - Examine memory at hex addr\n"
+	h += "[color=yellow]  D [addr][/color]     - Disassemble 16 instructions\n"
+	h += "[color=yellow]  M [addr][/color]     - Memory dump (64 bytes)\n"
+	h += "[color=yellow]  :addr:hh hh...[/color] - Write bytes to memory\n"
+	h += "[color=yellow]  R[/color]           - Show CPU registers\n"
+	h += "[color=yellow]  S[/color]           - Single-step one CPU instruction\n"
+	h += "[color=yellow]  G [addr][/color]    - Go (run from addr or current PC)\n"
+	h += "[color=yellow]  RESET[/color]      - Reset CPU and memory\n"
+	h += "[color=yellow]  Q / ESC[/color]    - Exit monitor\n"
+	screen.append_text(h)
+	_instant_output = false
+
+func _show_cpu_reg() -> void:
+	var s = computer.cpu.get_state()
+	var line = "[color=white]A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s%s%s%s%s%s[/color]\n" % [
+		s.A, s.X, s.Y, s.SP, s.PC,
+		"C" if s.C else ".", "Z" if s.Z else ".",
+		"I" if s.I else ".", "D" if s.D else ".",
+		"B.", "V" if s.V else ".", "N" if s.N else "."
+	]
+	_instant_output = true
+	screen.append_text(line)
+	_instant_output = false
+
+func _show_disassembly(addr: int, count: int) -> void:
+	_instant_output = true
+	var disasm = computer.cpu.disassemble(addr, count)
+	for entry in disasm:
+		var a: int = entry["addr"]
+		var num_bytes = 0
+		screen.append_text("[color=white]$%04X: %s[/color]\n" % [a, entry["disasm"]])
+	_instant_output = false
+
+func _show_memory_dump(addr: int, count: int) -> void:
+	_instant_output = true
+	var offset = 0
+	while offset < count:
+		var row_addr = (addr + offset) & 0xFFFF
+		var hex_str = "[color=white]$%04X: " % row_addr
+		var ascii_str = ""
+		for i in range(16):
+			if offset + i >= count:
+				hex_str += "   "
+				ascii_str += " "
+			else:
+				var b = computer.memory.peek(row_addr + i)
+				hex_str += "%02X " % b
+				if b >= 32 and b < 127:
+					ascii_str += char(b)
+				else:
+					ascii_str += "."
+		hex_str += " " + ascii_str + "\n"
+		screen.append_text(hex_str)
+		offset += 16
+	_instant_output = false
+
+func _monitor_write(upper: String) -> void:
+	var cmd = upper
+	if cmd.begins_with("W "):
+		cmd = cmd.substr(2)
+	elif cmd.begins_with(":"):
+		cmd = cmd.substr(1)
+	var parts = cmd.split(":")
+	if parts.size() < 2:
+		_instant_output = true
+		screen.append_text("[color=red]Format: addr:hh hh hh[/color]\n")
+		_instant_output = false
+		return
+	var addr = _parse_hex_addr(parts[0].strip_edges())
+	if addr < 0:
+		_instant_output = true
+		screen.append_text("[color=red]Invalid address.[/color]\n")
+		_instant_output = false
+		return
+	var byte_strs = parts[1].strip_edges().split(" ")
+	for bs in byte_strs:
+		if bs.strip_edges() == "":
+			continue
+		var val = _parse_hex_addr(bs.strip_edges())
+		if val >= 0 and val <= 255:
+			computer.memory.poke(addr, val)
+			addr += 1
+		else:
+			_instant_output = true
+			screen.append_text("[color=red]Invalid byte: %s[/color]\n" % bs)
+			_instant_output = false
+			return
+	_instant_output = true
+	screen.append_text("[color=cyan]Wrote %d bytes.[/color]\n" % byte_strs.size())
+	_instant_output = false
 
 func _on_curvature_changed(value: float) -> void:
 	curvature_label.text = "Curvature: %.4f" % value
