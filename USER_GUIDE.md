@@ -27,7 +27,8 @@ The MOS 6502 is the legendary 8-bit processor that powered the Apple II, Commodo
 | $C002-$C003 | Screen output I/O |
 | $C010-$C011 | Cursor position |
 | $C020 | Random number seed |
-| $C030 | System call |
+| $C030 | Cart select register (cartridge banking) |
+| $E000-$EFFF | Cart workspace (per-cartridge, cleared on swap) |
 | $F000-$F1FF | ROM routines |
 | $FFFA-$FFFF | CPU vectors (NMI, Reset, IRQ) |
 
@@ -60,6 +61,10 @@ The simulated system uses memory-mapped I/O:
 | `DATA` | Define data values | `DATA 10, 20, 30` |
 | `RESTORE` | Reset DATA pointer | `RESTORE` |
 | `POKE` | Write to memory | `POKE 1000, 42` |
+| `BSAVE` | Save memory to binary file | `BSAVE "screen.bin", $2000, 2048` |
+| `BLOAD` | Load binary file to memory | `BLOAD "screen.bin", $4000` |
+| `WRITE` | Write text to file | `WRITE "log.txt", "hello"` |
+| `READFILE` | Read file into string | `READFILE "log.txt", MSG$` |
 | `END` / `STOP` / `BREAK` | End program | `END` or `STOP` or `BREAK` |
 | `REM` | Comment | `REM THIS IS A COMMENT` |
 | `CLR` | Clear variables | `CLR` |
@@ -105,6 +110,18 @@ The simulated system uses memory-mapped I/O:
 - **Numeric**: `A`, `COUNT`, `X1` (default to 0)
 - **String**: `A$`, `NAME$` (default to empty string)
 
+### Hexadecimal Numbers
+
+Numbers can be written in hexadecimal by prefixing with `$`:
+
+```
+PRINT $FF       → 255
+POKE $C002, 65  → same as POKE 49154, 65
+BLOAD "file", $2000
+```
+
+Hex digits are case-insensitive: `$dead` and `$DEAD` are equivalent.
+
 ### String Concatenation
 Use `+` to concatenate strings:
 ```
@@ -142,6 +159,19 @@ A$ = "HELLO" + " " + "WORLD"
 | `DEMO name` | Load a demo program |
 | `DEMO name N` | Load a demo with parameter (e.g., `DEMO PRIMENUMS 100`) |
 | `SYS addr` | Execute 6502 code at address |
+| `CART` | List available ROM cartridges |
+| `CART name` | Switch to a cartridge (e.g., `CART TEXT`, `CART BASIC`) |
+
+### ROM Cartridges
+
+The system supports switchable ROM cartridges. Each cart provides its own command set and prompt:
+
+| Cart | Prompt | Description |
+|------|--------|-------------|
+| BASIC | `READY.` | Default BASIC interpreter with demos and 6502 ROM routines |
+| TEXT | `EDIT>` | Line-numbered text buffer editor with SAVE/LOAD as `.txt` |
+
+Switch carts with `CART name` (e.g., `CART TEXT`). Cart switching preserves main RAM (`$0000-$DFFF`) but clears cart workspace (`$E000-$EFFF`). The active cart is saved and restored with system state.
 
 ### Program Line Entry
 

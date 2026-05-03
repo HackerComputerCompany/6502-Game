@@ -6,7 +6,11 @@ A retro computing environment combining a **BASIC programming language interpret
 
 - **Full MOS 6502 CPU emulation** — all 56 official opcodes, all addressing modes (immediate, zero page, absolute, indirect, indexed, etc.)
 - **Complete BASIC interpreter** — PRINT, INPUT, FOR/NEXT, IF/THEN/ELSE, GOSUB/RETURN, DIM, READ/DATA, POKE/PEEK, string functions, math functions, ON GOTO/GOSUB, colon (`:`) statement separator, BREAK
-- **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030`
+- **Hex number notation** — prefix with `$` (e.g., `$FF`, `$C000`, `$DEAD`)
+- **Binary file I/O** — `BSAVE` saves memory ranges, `BLOAD` loads binary files with optional destination address
+- **Text file I/O** — `WRITE` creates text files, `READFILE` loads text into string variables
+- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor)
+- **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030` and cart banking at `$E000-$EFFF`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
 - **CRT warm-up simulation** — screen starts distorted and flickery, gradually settling over ~2 minutes; cold boot plays CRT static crackle sound
@@ -14,7 +18,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **System Settings panel** — press F3 to adjust curvature, scanlines, vignette, glow, and flicker with sliders, plus save/load state
 - **Baud rate simulation** — characters stream in at 300/1200/2400/9600/14400 baud (F7 to cycle)
 - **4 switchable retro fonts** — VT323, Press Start 2P, Share Tech Mono, IBM Plex Mono (F8 to cycle)
-- **Procedural sound effects** — key clicks (low-pitched thock), bell, line feed, carriage return, CRT crackle
+- **Procedural sound effects** — key clicks, warm bell (800Hz), line feed, carriage return, CRT crackle
 - **Fullscreen by default** — immersive retro experience, mouse hidden until moved
 - **12 built-in demo programs** including ASCII Mandelbrot, prime numbers, and pi calculation
 - **Program line entry** — type `10 PRINT "HELLO"` to add/replace lines, type `10` alone to delete a line
@@ -23,8 +27,9 @@ A retro computing environment combining a **BASIC programming language interpret
 - **File management** — SAVE, LOAD, DIR, SCRATCH (delete), RENAME
 - **System monitor** — Apple II-style hex editor, disassembler, register display, single-step
 - **CPU clock simulation** — 0.5/1/10 MHz (F4 to cycle)
-- **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings
+- **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings, and active cart
 - **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
+- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
 ## Quick Start
@@ -112,13 +117,17 @@ mygodot/
   main.tscn              # Main scene with CRT bezel frame
   scripts/
     basic_interpreter.gd  # BASIC language interpreter (tokenizer, parser, evaluator)
-    computer.gd           # Ties CPU + memory + BASIC together
+    computer.gd           # Ties CPU + memory + BASIC + carts together
     cpu_6502.gd           # Full MOS 6502 CPU emulator with disassembler
-    memory_bus.gd         # 64KB RAM with I/O port mapping
+    memory_bus.gd         # 64KB RAM with I/O port mapping and cart banking
     rom.gd                # ROM routines at $F000+ and demo programs
     sound_manager.gd      # Procedural audio (key click, bell, carriage, crackle)
     terminal.gd           # Terminal UI controller (baud queue, fonts, CRT, monitor)
     debug_manager.gd      # Screenshot and video recording
+    cart_manager.gd       # ROM cartridge switching system
+    rom_cart.gd           # Base class for banked ROM cartridges
+    cart_basic.gd         # BASIC6502 cartridge (default)
+    cart_text.gd          # Line editor cartridge
   shaders/
     crt_overlay.gdshader   # Scanline, vignette, curvature, glow, flicker, brightness, static
   fonts/
@@ -127,12 +136,14 @@ mygodot/
     sharetechmono.ttf      # Retro sci-fi mono
     ibmplexmono.ttf        # Clean corporate mono
   tests/
-    test_regression.gd     # Full regression test suite
+    test_regression.gd     # Full regression test suite (BASIC + CPU)
+    test_cli.gd            # Headless CLI test runner
   GETTING_STARTED.md      # Installation and first steps
   USER_GUIDE.md            # Complete language and command reference
   PLAN.md                  # Architecture and development plan
   TODO.md                  # Boot loader & ROM banking plans
   ASM_AND_C.md             # 6502 assembler & Small-C compiler plan
+  CPU_Emulator_Bugs.md     # Known CPU emulator bugs and fix suggestions
 ```
 
 ## Memory Map

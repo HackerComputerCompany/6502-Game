@@ -80,35 +80,36 @@ func _pull_word() -> int:
 	return (hi << 8) | lo
 
 func _get_addr(mode: String) -> int:
+	## PC points at opcode; operands always follow at PC+1 (and PC+2 for 16-bit).
 	match mode:
 		"ZPG":
-			return _read_byte(PC)
+			return _read_byte(PC + 1)
 		"ZPX":
-			return (_read_byte(PC) + X) & 0xFF
+			return (_read_byte(PC + 1) + X) & 0xFF
 		"ZPY":
-			return (_read_byte(PC) + Y) & 0xFF
+			return (_read_byte(PC + 1) + Y) & 0xFF
 		"ABS":
-			return _read_word(PC)
+			return _read_word(PC + 1)
 		"ABX":
-			return (_read_word(PC) + X) & 0xFFFF
+			return (_read_word(PC + 1) + X) & 0xFFFF
 		"ABY":
-			return (_read_word(PC) + Y) & 0xFFFF
+			return (_read_word(PC + 1) + Y) & 0xFFFF
 		"IND":
-			var ptr = _read_word(PC)
+			var ptr = _read_word(PC + 1)
 			if (ptr & 0xFF) == 0xFF:
 				return (memory.peek(ptr & 0xFF00) << 8) | memory.peek(ptr)
 			return _read_word(ptr)
 		"IZX":
-			var zp = (_read_byte(PC) + X) & 0xFF
+			var zp = (_read_byte(PC + 1) + X) & 0xFF
 			return memory.peek(zp) | (memory.peek((zp + 1) & 0xFF) << 8)
 		"IZY":
-			var zp = _read_byte(PC)
+			var zp = _read_byte(PC + 1)
 			return (memory.peek(zp) | (memory.peek((zp + 1) & 0xFF) << 8)) + Y
 		"REL":
-			var offset = _read_byte(PC)
+			var offset = _read_byte(PC + 1)
 			if offset >= 0x80:
 				offset -= 0x100
-			return (PC + 1 + offset) & 0xFFFF
+			return (PC + 2 + offset) & 0xFFFF
 		"IMP", "ACC":
 			return 0
 	return 0

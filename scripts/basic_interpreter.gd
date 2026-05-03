@@ -16,6 +16,8 @@ var _awaiting_input: bool = false
 var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
+var _skip_next: bool = false
+var _returned: bool = false
 
 enum TT {
 	NUMBER, STRING, IDENT, OP, LPAREN, RPAREN,
@@ -46,7 +48,8 @@ func _setup_keywords() -> void:
 		"PEEK": true, "POKE": true, "SYS": true, "WAIT": true,
 		"CLR": true, "NEW": true, "LIST": true, "RUN": true,
 		"CONT": true, "LOAD": true, "SAVE": true, "MEM": true,
-		"DEF": true, "FN": true, "STOP": true, "BREAK": true,
+		"BSAVE": true, "BLOAD": true, "DEF": true, "FN": true,
+		"STOP": true, "BREAK": true, "WRITE": true, "READFILE": true,
 	}
 
 func load_program(text: String) -> void:
@@ -87,15 +90,27 @@ func run() -> void:
 	_running = true
 	_current_line = 0
 	_data_pointer = 0
-	while _running and _current_line < _program.size():
+	var safety = 0
+	var max_steps = _program.size() * 1000 + 10000
+	while _running and _current_line < _program.size() and safety < max_steps:
 		_execute_line(_program[_current_line])
+		safety += 1
 		if not _running:
 			break
+	if safety >= max_steps:
+		_output_callback.call("ERROR: MAXIMUM EXECUTION LIMIT REACHED\n")
+		_running = false
 
 func continue_run() -> void:
 	_running = true
-	while _running and _current_line < _program.size():
+	var safety = 0
+	var max_steps = _program.size() * 1000 + 10000
+	while _running and _current_line < _program.size() and safety < max_steps:
 		_execute_line(_program[_current_line])
+		safety += 1
+	if safety >= max_steps:
+		_output_callback.call("ERROR: MAXIMUM EXECUTION LIMIT REACHED\n")
+		_running = false
 
 func _execute_line(line_data: Array) -> void:
 	var _line_num: int = line_data[0]
@@ -167,6 +182,10 @@ func _execute_single(stmt: String) -> void:
 			"ON": _exec_on(toks)
 			"POKE": _exec_poke(toks)
 			"SYS": _exec_sys(toks)
+			"BSAVE": _exec_bsave(toks)
+			"BLOAD": _exec_bload(toks)
+			"WRITE": _exec_write(toks)
+			"READFILE": _exec_readfile(toks)
 			"CLR": _variables.clear(); _arrays.clear()
 			"NEW": _program.clear(); _variables.clear(); _arrays.clear(); _running = false
 			"LIST": _exec_list()
@@ -213,6 +232,24 @@ func _tokenize(text: String) -> Array:
 			if pos < text.length():
 				pos += 1
 			tokens.append([TT.STRING, s])
+		elif ch == '$':
+			pos += 1
+			var hex = ""
+			while pos < text.length() and (text[pos].is_valid_int() or (text[pos].to_upper() >= "A" and text[pos].to_upper() <= "F")):
+				hex += text[pos]
+				pos += 1
+			if hex != "":
+				var val: int = 0
+				for c in hex:
+					val = val * 16
+					c = c.to_upper()
+					if c.is_valid_int():
+						val += int(c)
+					else:
+						val += ord(c) - ord("A") + 10
+				tokens.append([TT.NUMBER, float(val)])
+			else:
+				tokens.append([TT.IDENT, "$"])
 		elif ch.is_valid_int() or (ch == '.' and pos + 1 < text.length() and text[pos + 1].is_valid_int()):
 			var num = ""
 			var has_dot = false
@@ -681,8 +718,19 @@ func _exec_for(toks: Array) -> void:
 		pos += 1
 		step_val = _eval(toks, pos)
 		pos = _ep
-	_variables[var_name] = start_val
+	if _returned:
+		_returned = false
+		for i in range(_for_stack.size() - 1, -1, -1):
+			if _for_stack[i]["var"] == var_name:
+				_jumped = false
+				var cur = float(_variables[var_name])
+				var end = float(_for_stack[i]["end"])
+				var step = float(_for_stack[i]["step"])
+				if step > 0 and cur > end or step < 0 and cur < end:
+					_for_stack.resize(i)
+				return
 	_for_stack.append({"var": var_name, "end": end_val, "step": step_val, "line": _current_line})
+	_variables[var_name] = start_val
 
 func _exec_next(toks: Array) -> void:
 	var var_name = ""
@@ -718,6 +766,7 @@ func _exec_next(toks: Array) -> void:
 	else:
 		_current_line = for_info["line"]
 		_jumped = true
+		_returned = true
 
 func _exec_if(toks: Array) -> void:
 	var pos = 1
@@ -819,6 +868,7 @@ func _exec_on(toks: Array) -> void:
 			var idx = _find_line(targets[val - 1])
 			if idx >= 0:
 				_current_line = idx
+				_jumped = true
 				_running = true
 	elif pos < toks.size() and toks[pos][0] == TT.KW and toks[pos][1] == "GOSUB":
 		pos += 1
@@ -832,6 +882,7 @@ func _exec_on(toks: Array) -> void:
 			if idx >= 0:
 				_gosub_stack.append(_current_line + 1)
 				_current_line = idx
+				_jumped = true
 				_running = true
 
 func _exec_poke(toks: Array) -> void:
@@ -847,6 +898,96 @@ func _exec_sys(toks: Array) -> void:
 	var cpu = CPU6502.new(_memory)
 	cpu.PC = addr
 	cpu.run(10000)
+
+func _exec_bsave(toks: Array) -> void:
+	var pos = 1
+	var filename = _eval(toks, pos)
+	pos = _ep
+	pos += 1  # skip comma
+	var start_addr = int(_eval(toks, pos))
+	pos = _ep
+	pos += 1  # skip comma
+	var length = int(_eval(toks, pos))
+	var fpath = "user://" + str(filename)
+	var file = FileAccess.open(fpath, FileAccess.WRITE)
+	if file:
+		file.store_8(start_addr & 0xFF)
+		file.store_8((start_addr >> 8) & 0xFF)
+		for i in range(length):
+			file.store_8(_memory.peek(start_addr + i))
+		file.close()
+		_output_callback.call("SAVED %d BYTES TO %s\n" % [length, fpath])
+	else:
+		_output_callback.call("ERROR: CANNOT WRITE %s\n" % fpath)
+
+func _exec_bload(toks: Array) -> void:
+	var pos = 1
+	var filename = _eval(toks, pos)
+	pos = _ep
+	var dest_addr = -1
+	if pos < toks.size() and toks[pos][0] == TT.COMMA:
+		pos += 1
+		dest_addr = int(_eval(toks, pos))
+	var fpath = "user://" + str(filename)
+	var file = FileAccess.open(fpath, FileAccess.READ)
+	if file:
+		var length = file.get_length()
+		var addr = dest_addr
+		if addr < 0:
+			addr = file.get_8()
+			addr |= file.get_8() << 8
+			length -= 2
+			file.seek(2)
+		else:
+			length -= 2
+			file.seek(2)
+		for i in range(length):
+			_memory.poke(addr + i, file.get_8())
+		file.close()
+		_output_callback.call("LOADED %d BYTES FROM %s TO $%04X\n" % [length, fpath, addr])
+	else:
+		_output_callback.call("ERROR: CANNOT READ %s\n" % fpath)
+
+func _exec_write(toks: Array) -> void:
+	var pos = 1
+	var filename = _eval(toks, pos)
+	pos = _ep
+	var fpath = "user://" + str(filename)
+	var file = FileAccess.open(fpath, FileAccess.WRITE)
+	if not file:
+		_output_callback.call("ERROR: CANNOT WRITE %s\n" % fpath)
+		return
+	var content = ""
+	if pos < toks.size() and toks[pos][0] == TT.COMMA:
+		pos += 1
+		var val = _eval(toks, pos)
+		content = str(val)
+	if file:
+		file.store_string(content)
+		file.close()
+		_output_callback.call("WRITTEN TO %s\n" % fpath)
+
+func _exec_readfile(toks: Array) -> void:
+	var pos = 1
+	var filename = _eval(toks, pos)
+	pos = _ep
+	var var_name = ""
+	if pos < toks.size() and toks[pos][0] == TT.COMMA:
+		pos += 1
+		if pos < toks.size() and toks[pos][0] == TT.IDENT:
+			var_name = toks[pos][1].to_upper()
+	var fpath = "user://" + str(filename)
+	var file = FileAccess.open(fpath, FileAccess.READ)
+	if file:
+		var content = file.get_as_text()
+		file.close()
+		if var_name != "":
+			_variables[var_name] = content
+			_output_callback.call("READ %d CHARS INTO %s\n" % [content.length(), var_name])
+		else:
+			_output_callback.call(content)
+	else:
+		_output_callback.call("ERROR: CANNOT READ %s\n" % fpath)
 
 func _exec_list() -> void:
 	var output = ""
@@ -885,7 +1026,11 @@ func _reconstruct(toks: Array, start: int) -> String:
 	for i in range(start, toks.size()):
 		if toks[i][0] == TT.EOL:
 			break
-		var val = str(toks[i][1])
+		var val: String
+		if toks[i][0] == TT.STRING:
+			val = '"' + str(toks[i][1]) + '"'
+		else:
+			val = str(toks[i][1])
 		if result.length() > 0 and toks[i][0] != TT.LPAREN and toks[i][0] != TT.RPAREN and val != "," and val != ";":
 			if result.length() > 0 and result[-1] != " " and result[-1] != "(":
 				result += " "

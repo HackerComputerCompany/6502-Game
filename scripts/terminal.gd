@@ -89,7 +89,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MouseMode.MOUSE_MODE_HIDDEN
 	computer = Computer.new()
 	computer.output.connect(_on_output)
+	computer.output_richtext.connect(_on_output_richtext)
 	computer.program_finished.connect(_on_program_finished)
+	computer.cart_manager.cart_changed.connect(_on_cart_changed)
 	sound = SoundManager.new()
 	add_child(sound)
 	debug = DebugManager.new()
@@ -250,6 +252,7 @@ func _process_boot(delta: float) -> void:
 		_print_banner()
 		_flush_input_buffer()
 		_update_cmd_display()
+		_update_status()
 
 func _flush_input_buffer() -> void:
 	if _input_buffer == "":
@@ -262,7 +265,7 @@ func _flush_input_buffer() -> void:
 			continue
 		command_history.append(line)
 		_handle_command(line)
-		computer.output.emit("\nREADY.\n")
+		_emit_prompt()
 	history_pos = command_history.size()
 
 func _stream_char_by_char(text: String) -> void:
@@ -313,7 +316,7 @@ func _submit_command() -> void:
 	_update_cmd_display()
 	if text == "":
 		if not computer._program_running:
-			computer.output.emit("\nREADY.\n")
+			_emit_prompt()
 		return
 	_instant_output = true
 	screen.append_text("[color=lime]" + _escape_bbcode(text) + "[/color]\n")
@@ -325,7 +328,7 @@ func _submit_command() -> void:
 	history_pos = command_history.size()
 	_handle_command(text)
 	if not computer._program_running:
-		computer.output.emit("\nREADY.\n")
+		_emit_prompt()
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -474,7 +477,7 @@ func _print_banner() -> void:
 	screen.append_text("[color=green]F1=Help F3=Settings F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
 	screen.append_text("[color=green]Some demos take a number: DEMO PRIMENUMS 100 or DEMO PI 1000\n[/color]")
-	screen.append_text("[color=lime]READY.\n[/color]")
+	screen.append_text("[color=lime]" + computer.cart_manager.get_prompt() + "\n[/color]")
 	_instant_output = false
 
 func _on_output(text: String) -> void:
@@ -484,15 +487,56 @@ func _on_output(text: String) -> void:
 	_output_queue += text
 	_is_streaming = true
 
+func _on_output_richtext(text: String) -> void:
+	if text == "[CLR]":
+		screen.clear()
+		return
+	if "\a" in text:
+		sound.play_bell()
+	for ch in text:
+		if ch == "\n":
+			sound.play_line_feed()
+	screen.append_text(text)
+	screen.scroll_to_line(screen.get_line_count() - 1)
+
 func _on_program_finished() -> void:
-	computer.output.emit("\nREADY.\n")
+	_update_status()
+	_emit_prompt()
+
+func _emit_prompt() -> void:
+	var p: String = computer.cart_manager.get_prompt()
+	computer.output.emit("\n" + p + "\n")
+
+func _on_cart_changed(_cart_name: String) -> void:
+	var b := computer.cart_manager.get_banner_text()
+	if b != "":
+		_instant_output = true
+		screen.append_text(b)
+		_instant_output = false
+	_update_status()
+	sound.play_bell()
+
+func _update_title_bar() -> void:
+	var cart_nm := computer.cart_manager.current.name if computer.cart_manager.current != null else "?"
+	var used: int = computer.memory.get_main_ram_used_high_water()
+	var ram_part := _format_title_ram_usage(used)
+	title_bar.text = "  BASIC6502  |  6502 CPU  |  Cart: %s  |  %s" % [cart_nm, ram_part]
+
+func _format_title_ram_usage(used: int) -> String:
+	const TOTAL_K := 64
+	if used < 1024:
+		return "%d bytes / %dK RAM" % [used, TOTAL_K]
+	return "%dK / %dK RAM" % [used / 1024, TOTAL_K]
 
 func _update_status() -> void:
+	_update_title_bar()
 	var state = computer.cpu.get_state()
 	var rec: String = " [REC]" if debug.is_recording() else ""
 	var run: String = " [RUN]" if computer._program_running else ""
 	var clk: String = _clock_labels[_current_clock_idx]
-	status_bar.text = "A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | %s%s%s | F4=Clock F7=Baud" % [
+	var cart_tag := "[%s] " % computer.cart_manager.current.name if computer.cart_manager.current != null else ""
+	status_bar.text = "%sA:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | %s%s%s | F4=Clock F7=Baud" % [
+		cart_tag,
 		state.A, state.X, state.Y, state.SP, state.PC,
 		"C" if state.C else ".", "Z" if state.Z else ".",
 		"I" if state.I else ".", "D" if state.D else ".",
@@ -540,6 +584,9 @@ func _apply_font() -> void:
 func _handle_command(text: String) -> void:
 	if _monitor_mode:
 		_handle_monitor_command(text)
+		return
+	if computer.cart_manager.handle_command(text):
+		_update_status()
 		return
 	var upper = text.to_upper()
 	if upper == "HELP":
@@ -633,6 +680,12 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
 	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
 	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program (some accept N)\n"
+	help_text += "[color=yellow]  CART      [/color]- List ROM carts (BASIC, TEXT)\n"
+	help_text += "[color=yellow]  CART name [/color]- Hot-swap cartridge (clears $E000-$EFFF)\n"
+	help_text += "[color=yellow]  BSAVE     [/color]- Save memory range as binary (addr, len)\n"
+	help_text += "[color=yellow]  BLOAD     [/color]- Load binary file into memory (addr)\n"
+	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
+	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
 	help_text += "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
 	help_text += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
 	help_text += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
@@ -1942,3 +1995,4 @@ func _apply_saved_state(data: Dictionary) -> void:
 		history_pos = command_history.size()
 	if data.has("computer"):
 		computer.deserialize(data["computer"])
+		_update_status()

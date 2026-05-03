@@ -125,16 +125,16 @@ func _generate_click(freq: float, duration: float, decay: float) -> AudioStreamW
 
 func _generate_bell() -> AudioStreamWAV:
 	var sample_rate = 44100
-	var duration = 0.5
+	var duration = 0.3
 	var samples = int(sample_rate * duration)
 	var data = PackedByteArray()
 	data.resize(samples * 2)
 	for i in range(samples):
 		var t = float(i) / sample_rate
-		var envelope = exp(-t / 0.15)
-		var bell = sin(2.0 * PI * 2000.0 * t) * 0.4
-		bell += sin(2.0 * PI * 3500.0 * t) * 0.2
-		bell += sin(2.0 * PI * 5500.0 * t) * 0.1
+		var envelope = exp(-t / 0.12)
+		var bell = sin(2.0 * PI * 800.0 * t) * 0.6
+		bell += sin(2.0 * PI * 1600.0 * t) * 0.15
+		bell += sin(2.0 * PI * 2400.0 * t) * 0.05
 		var sample = clampf(bell * envelope, -1.0, 1.0)
 		var val = int(sample * 32767.0)
 		data[i * 2] = val & 0xFF

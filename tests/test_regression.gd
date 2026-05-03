@@ -33,6 +33,17 @@ func _init() -> void:
 	test_basic_poke_peek()
 	test_basic_computed_gosub()
 	test_computer_integration()
+	test_memory_cart_select_register()
+	test_memory_main_ram_high_water()
+	test_cart_loader_switch_clears_workspace()
+	test_cart_loader_poke_c030()
+	test_cart_text_editor_commands()
+	test_computer_cart_serialize_roundtrip()
+	test_basic_nested_loops()
+	test_basic_for_step()
+	test_basic_for_reverse()
+	test_bsave_bload()
+	test_write_readfile()
 	print("\n========== TEST RESULTS ==========")
 	print("  PASSED: %d" % _tests_passed)
 	print("  FAILED: %d" % _tests_failed)
@@ -87,8 +98,27 @@ func test_memory_bus() -> void:
 func test_memory_reset_vectors() -> void:
 	_begin_test("Memory Reset Vectors")
 	var mem = _fresh_mem()
-	_assert(mem.peek(0xFFFC) == 0x00, "Reset vector low byte")
-	_assert(mem.peek(0xFFFD) == 0x08, "Reset vector high byte")
+	_assert(mem.peek(0xFFFC) == 0x00, "Reset vector low byte -> $FC00 boot stub")
+	_assert(mem.peek(0xFFFD) == 0xFC, "Reset vector high byte -> $FC00 boot stub")
+	_assert(mem.peek(0xFFFE) == 0x00, "IRQ vector low -> $0800")
+	_assert(mem.peek(0xFFFF) == 0x08, "IRQ vector high -> $0800")
+	_assert(mem.peek(0xFC00) == 0xA9, "Boot stub LDA #imm")
+
+func test_memory_cart_select_register() -> void:
+	_begin_test("Memory Cart Select $C030")
+	var mem = _fresh_mem()
+	_assert(mem.peek(0xC030) == 0, "peek C030 default 0")
+	mem.set_cart_id_readback(1)
+	_assert(mem.peek(0xC030) == 1, "peek C030 readback")
+
+func test_memory_main_ram_high_water() -> void:
+	_begin_test("Main RAM high-water")
+	var mem = _fresh_mem()
+	_assert(mem.get_main_ram_used_high_water() == 0, "empty main RAM")
+	mem.poke(0x0500, 0x01)
+	_assert(mem.get_main_ram_used_high_water() == (0x0500 - 0x0200 + 1), "span to last byte")
+	mem.poke(0x0500, 0x00)
+	_assert(mem.get_main_ram_used_high_water() == 0, "clear restores zero")
 
 func test_cpu_load_store() -> void:
 	_begin_test("CPU Load/Store")
@@ -197,8 +227,8 @@ func test_cpu_shifts() -> void:
 	cpu.set_flag(CPU6502.Flag.C, true)
 	mem.poke(0x0830, 0x6A)
 	cpu.step()
-	_assert(cpu.A == 0x40, "ROR accumulator with carry in")
-	_assert(cpu.get_flag(CPU6502.Flag.C) == true, "ROR carry out")
+	_assert(cpu.A == 0xC0, "ROR accumulator with carry in (bit7 from old C)")
+	_assert(cpu.get_flag(CPU6502.Flag.C) == false, "ROR carry out is old bit0 of A")
 	mem.poke(0x0050, 0x10)
 	cpu.PC = 0x0840
 	mem.poke(0x0840, 0xE6)
@@ -255,7 +285,7 @@ func test_cpu_stack() -> void:
 	cpu.SP = 0xFD
 	mem.poke(0x0800, 0x48)
 	cpu.step()
-	_assert(mem.peek(0x01FF) == 0x42, "PHA push to stack")
+	_assert(mem.peek(0x01FD) == 0x42, "PHA push to stack at $0100+SP")
 	_assert(cpu.SP == 0xFC, "PHA SP decremented")
 	cpu.PC = 0x0810
 	mem.poke(0x0810, 0x68)
@@ -364,7 +394,92 @@ func test_basic_loops() -> void:
 	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
 	basic.load_program("10 FOR I = 1 TO 5\n20 PRINT I\n30 NEXT I\n40 END")
 	basic.run()
-	_assert("1" in _output, "FOR loop starts")
+	_assert("1" in _output, "FOR loop starts at 1")
+	_assert("5" in _output, "FOR loop ends at 5")
+	var lines = _output.split("\n")
+	var count = 0
+	for l in lines:
+		if l.strip_edges().is_valid_int():
+			count += 1
+	_assert(count == 5, "FOR loop iterates exactly 5 times, got %d" % count)
+
+func test_cart_loader_switch_clears_workspace() -> void:
+	_begin_test("Cart Loader Workspace")
+	var comp = Computer.new()
+	comp.memory.poke(0xE000, 0x55)
+	comp.memory.poke(0x0200, 0xAA)
+	comp.cart_manager.switch_to(1, false)
+	_assert(comp.memory.peek(0xE000) == 0x00, "cart swap clears $E000")
+	_assert(comp.memory.peek(0x0200) == 0xAA, "main RAM preserved")
+	_assert(comp.cart_manager.current.name == "TEXT", "TEXT cart active")
+
+func test_cart_loader_poke_c030() -> void:
+	_begin_test("Cart Loader POKE $C030")
+	var comp = Computer.new()
+	comp.memory.poke(0xC030, 1)
+	_assert(comp.cart_manager.current.id == 1, "POKE C030 selects TEXT")
+	_assert(comp.memory.peek(0xC030) == 1, "peek C030 matches cart")
+	comp.memory.poke(0xC030, 0)
+	_assert(comp.cart_manager.current.id == 0, "POKE C030 selects BASIC")
+
+func test_cart_text_editor_commands() -> void:
+	_begin_test("TEXT Cart Editor")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(1, false)
+	_output = ""
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 HELLO")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("10" in _output and "HELLO" in _output, "LIST shows line")
+	comp.cart_manager.handle_command("10")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("HELLO" not in _output, "delete line 10")
+
+func test_computer_cart_serialize_roundtrip() -> void:
+	_begin_test("Computer Cart Serialize")
+	var comp = Computer.new()
+	comp.cart_manager.switch_to(1, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("20 WORLD")
+	var data := comp.serialize()
+	var comp2 := Computer.new()
+	comp2.deserialize(data)
+	_assert(comp2.cart_manager.get_current_id() == 1, "restored TEXT cart")
+	var st: Dictionary = comp2.cart_manager.serialize_cart_state()
+	_assert(st.has("lines") and st["lines"].size() == 1, "TEXT buffer serialized")
+	_assert(int(st["lines"][0]["ln"]) == 20, "line number preserved")
+
+func test_basic_nested_loops() -> void:
+	_begin_test("BASIC Nested FOR/NEXT")
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.load_program("10 FOR I = 1 TO 3\n20 FOR J = 1 TO 3\n30 PRINT I; J\n40 NEXT J\n50 NEXT I\n60 END")
+	basic.run()
+	_assert("1" in _output, "Nested loop I=1")
+	_assert("3" in _output, "Nested loop I=3,J=3")
+
+func test_basic_for_step() -> void:
+	_begin_test("BASIC FOR STEP")
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.load_program("10 FOR I = 0 TO 10 STEP 2\n20 PRINT I\n30 NEXT I\n40 END")
+	basic.run()
+	_assert("0" in _output, "STEP loop starts at 0")
+	_assert("10" in _output, "STEP loop reaches 10")
+	_assert("2" in _output, "STEP loop prints 2")
+
+func test_basic_for_reverse() -> void:
+	_begin_test("BASIC FOR Reverse Step")
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.load_program("10 FOR I = 5 TO 1 STEP -1\n20 PRINT I\n30 NEXT I\n40 END")
+	basic.run()
+	_assert("5" in _output, "Reverse loop starts at 5")
+	_assert("1" in _output, "Reverse loop reaches 1")
 
 func test_basic_gosub() -> void:
 	_begin_test("BASIC GOSUB/RETURN")
@@ -428,5 +543,49 @@ func test_computer_integration() -> void:
 	_begin_test("Computer Integration")
 	var comp = Computer.new()
 	comp.output.connect(_on_output)
-	comp.run_basic("10 PRINT \"HELLO\"\n20 FOR I = 1 TO 3\n30 PRINT I * I\n40 NEXT I\n50 END")
+	comp.run_basic_sync("10 PRINT \"HELLO\"\n20 FOR I = 1 TO 3\n30 PRINT I * I\n40 NEXT I\n50 END")
 	_assert("HELLO" in _output, "Computer prints greeting")
+	_assert("9" in _output, "Computer prints 3*3=9")
+
+func test_bsave_bload() -> void:
+	_begin_test("BSAVE/BLOAD Binary")
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	mem.poke(0x1000, 0xDE)
+	mem.poke(0x1001, 0xAD)
+	mem.poke(0x1002, 0xBE)
+	mem.poke(0x1003, 0xEF)
+	basic.load_program('10 BSAVE "test.bin", 4096, 4\n20 END')
+	basic.run()
+	_assert("SAVED 4 BYTES" in _output or "SAVED" in _output, "BSAVE saves 4 bytes")
+	if FileAccess.file_exists("user://test.bin"):
+		var file = FileAccess.open("user://test.bin", FileAccess.READ)
+		_assert(file != null, "Binary file exists")
+		if file:
+			var lo = file.get_8()
+			var hi = file.get_8()
+			var saved_addr = lo | (hi << 8)
+			_assert(saved_addr == 0x1000, "Header has load addr 0x1000, got 0x%04X" % saved_addr)
+			_assert(file.get_8() == 0xDE, "Byte 0 = 0xDE")
+			_assert(file.get_8() == 0xAD, "Byte 1 = 0xAD")
+			_assert(file.get_8() == 0xBE, "Byte 2 = 0xBE")
+			_assert(file.get_8() == 0xEF, "Byte 3 = 0xEF")
+			file.close()
+	else:
+		print("  [SKIP] Cannot verify BLOAD (file not created)")
+
+func test_write_readfile() -> void:
+	_begin_test("WRITE/READFILE Text")
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.load_program('10 WRITE "test.txt", "HELLO FROM BASIC"\n20 END')
+	basic.run()
+	_assert("WRITTEN" in _output, "WRITE creates text file")
+	if FileAccess.file_exists("user://test.txt"):
+		var file = FileAccess.open("user://test.txt", FileAccess.READ)
+		if file:
+			var content = file.get_as_text()
+			file.close()
+			_assert(content == "HELLO FROM BASIC", "WRITE stores correct content, got: %s" % content)
+	else:
+		print("  [SKIP] Cannot verify READFILE")

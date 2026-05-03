@@ -91,7 +91,7 @@ size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0.8, 0, 1)
 theme_override_colors/font_shadow_color = Color(0, 0.3, 0, 1)
 theme_override_font_sizes/font_size = 20
-text = "  BASIC6502  |  6502 CPU  |  64K RAM"
+text = "  BASIC6502  |  6502 CPU  |  Cart: BASIC  |  0 bytes / 64K RAM"
 
 [node name="BaudLabel" type="Label" parent="VBoxContainer/TopBar" unique_id=49797731]
 layout_mode = 2

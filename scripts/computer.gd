@@ -5,6 +5,7 @@ var memory: MemoryBus
 var cpu: CPU6502
 var basic: BasicInterpreter
 var rom: ROM
+var cart_manager: CartManager
 
 var _output_buffer: String = ""
 var _ready: bool = false
@@ -13,14 +14,23 @@ var _program_running: bool = false
 var _awaiting_input: bool = false
 
 signal output(text: String)
+## BBCode-safe output for RichTextLabel (not streamed through baud escape).
+signal output_richtext(text: String)
 signal ready_for_input()
 signal program_finished()
+
+func emit_richtext(text: String) -> void:
+	output_richtext.emit(text)
 
 func _init() -> void:
 	memory = MemoryBus.new()
 	cpu = CPU6502.new(memory)
 	basic = BasicInterpreter.new(memory, _on_output, _on_input)
-	rom = ROM.new(memory)
+	cart_manager = CartManager.new(self)
+	cart_manager.register(CartBasic.new())
+	cart_manager.register(CartText.new())
+	memory.cart_switch_requested.connect(cart_manager._on_cart_switch_requested)
+	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)
 	memory.output_ready.connect(_on_output_ready)
 	_ready = true
@@ -60,6 +70,11 @@ func run_basic(program: String, start_line: int = -1) -> void:
 	basic._data_pointer = 0
 	_program_running = true
 	_awaiting_input = false
+
+func run_basic_sync(program: String, start_line: int = -1) -> void:
+	run_basic(program, start_line)
+	while _program_running:
+		step_basic(1000)
 
 func step_basic(max_lines: int) -> bool:
 	if not _program_running:
@@ -114,11 +129,8 @@ func _flush_output() -> void:
 
 func reset() -> void:
 	memory.reset()
-	rom = ROM.new(memory)
-	cpu.reset()
 	basic = BasicInterpreter.new(memory, _on_output, _on_input)
-	memory.char_output.connect(_on_char_output)
-	memory.output_ready.connect(_on_output_ready)
+	cart_manager.switch_to(0, true)
 	_output_buffer = ""
 	_ready = true
 
@@ -127,16 +139,20 @@ func serialize() -> Dictionary:
 		"memory": memory.serialize(),
 		"cpu": cpu.serialize(),
 		"basic": basic.serialize(),
+		"cart_id": cart_manager.get_current_id(),
+		"cart_state": cart_manager.serialize_cart_state(),
 	}
 
 func deserialize(data: Dictionary) -> void:
 	if data.has("memory"):
 		memory.deserialize(data["memory"])
-		rom = ROM.new(memory)
 	if data.has("cpu"):
 		cpu.deserialize(data["cpu"])
 	if data.has("basic"):
 		basic.deserialize(data["basic"])
+	var cid := int(data.get("cart_id", 0))
+	cart_manager.set_active_without_swap(cid)
+	cart_manager.deserialize_cart_state(data.get("cart_state", {}))
 
 func load_demo(name: String) -> String:
 	return rom.load_demo_program(name)

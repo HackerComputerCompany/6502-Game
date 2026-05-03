@@ -22,9 +22,15 @@
 │  │  │  A X Y  │ │ 64KB RAM  │ │  Tokenizer  │ │    │
 │  │  │  SP PC  │ │ + I/O ports│ │  Parser     │ │    │
 │  │  │  Flags  │ │ + ROM area │ │  Evaluator  │ │    │
-│  │  │  Step() │ │            │ │  Executor   │ │    │
-│  │  │  Disasm │ │            │ │  Colon :sep │ │    │
+│  │  │  Step() │ │ + cart     │ │  Executor   │ │    │
+│  │  │  Disasm │ │  banking   │ │             │ │    │
 │  │  └──────────┘ └───────────┘ └─────────────┘ │    │
+│  ┌──────────────────────────────────────────────┐    │
+│  │           cart_manager.gd                     │    │
+│  │  ┌──────────────┐  ┌──────────────┐          │    │
+│  │  │ cart_basic   │  │ cart_text    │          │    │
+│  │  │ (BASIC IDE)  │  │ (Line Editor)│          │    │
+│  │  └──────────────┘  └──────────────┘          │    │
 │  └──────────────────────────────────────────────┘    │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐    │
@@ -41,12 +47,12 @@
 │  └──────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────┘
 
-         ┌───────────────────────┐
-         │    crt_overlay.gdshader │
-         │  (Scanlines, vignette,  │
-         │   glow, flicker, curve,  │
-         │   brightness, static)    │
-         └───────────────────────┘
+          ┌───────────────────────┐
+          │    crt_overlay.gdshader │
+          │  (Scanlines, vignette,  │
+          │   glow, flicker, curve,  │
+          │   brightness, static)    │
+          └───────────────────────┘
 ```
 
 ## Data Flow
@@ -89,6 +95,9 @@ The ROM is loaded into memory at init time by `rom.gd`. It writes machine code b
 
 ### BASIC Interpreter
 - Full statement set: PRINT, INPUT, FOR/NEXT, IF/THEN/ELSE, GOSUB/RETURN, DIM, READ/DATA, POKE/PEEK, ON GOTO/GOSUB
+- Binary file I/O: BSAVE (memory → binary file), BLOAD (binary file → memory, with optional dest address)
+- Text file I/O: WRITE (create text files), READFILE (load text into string variables)
+- Hexadecimal numbers: prefix with `$` (e.g., `$FF`, `$C000`)
 - Colon (`:`) statement separator on program lines
 - BREAK/STOP as program breakpoints
 - Program line entry: `10 PRINT "HI"` adds/replaces, `10` deletes
@@ -96,6 +105,15 @@ The ROM is loaded into memory at init time by `rom.gd`. It writes machine code b
 - RUN with parameters: `RUN 100, N=10`
 - Context-sensitive HELP: `HELP PRINT`, `HELP FOR`, etc. (40+ topics)
 - 40+ built-in functions: INT, RND, ABS, SQR, SIN, COS, TAN, ATN, LOG, EXP, SGN, LEN, CHR$, ASC, LEFT$, RIGHT$, MID$, STR$, VAL, PEEK, TAB
+- Safety limits: execution capped at `program_size * 1000 + 10000` steps to prevent infinite hangs
+
+### ROM Cartridge System
+- `CartManager` handles cartridge switching via `CART` command or `$C030` I/O port
+- `ROMCart` base class: `install()`, `uninstall()`, `handle_command()`, `serialize()`/`deserialize()`
+- **Cart 0 — BASIC**: Default BASIC interpreter, creates ROM routines on install
+- **Cart 1 — TEXT**: Line-numbered text buffer editor with SAVE/LOAD as `.txt`, workspace at `$E000-$EFFF`
+- Cart switching preserves main RAM (`$0000-$DFFF`), clears cart workspace (`$E000-$EFFF`)
+- Active cart is saved/restored with system state
 
 ### Demo Programs
 - 12 built-in demos including ASCII Mandelbrot, prime numbers, pi calculation
@@ -108,27 +126,35 @@ The ROM is loaded into memory at init time by `rom.gd`. It writes machine code b
 - CRT static crackle sound on cold boot
 - 4 switchable retro fonts (F8), 5 baud rates (F7), 3 CPU clock speeds (F4)
 - Fullscreen by default, mouse auto-hides after 3 seconds
+- Dynamic prompt per active cart (`READY.` for BASIC, `EDIT>` for TEXT)
+- RichText output path for cart messages (bypasses baud-rate streaming)
 
 ### File Management
 - SAVE, LOAD, DIR (with file sizes), SCRATCH/DELETE, RENAME
+- BSAVE/BLOAD for binary files (Commodore-style 2-byte load address header)
+- WRITE/READFILE for text files
 - **System Settings panel (F3)** — CRT sliders, save/load state, reset to defaults
 
 ### System Monitor
 - Apple II-style monitor: memory examine/modify, disassembly, register display
 - Single-step (STEP), run (G), halt (HALT)
 
-## Sound Generation
-
+### Sound Generation
 All sounds are generated procedally at runtime via `AudioStreamWAV` — no audio files needed:
 
 | Sound | Generation |
 |-------|-----------|
 | Key click | 400Hz sine + noise, 25ms, tight decay |
-| Bell | 2000/3500/5500Hz harmonics, 500ms, exponential decay |
+| Bell | 800/1600/2400Hz harmonics, 300ms, exponential decay (warm tone) |
 | Line feed | 300Hz sine + noise, 60ms |
 | Carriage return | 120Hz + noise, 150ms, fast decay |
 | CRT crackle | Random pops + hiss, 1.5s, exponential envelope |
 | Error | 200Hz sine + noise, 80ms |
+
+### Testing
+- `test_regression.gd`: Full regression suite covering Memory Bus, CPU, BASIC, and Computer integration
+- `test_cli.gd`: Headless CLI test runner for quick iteration (`godot --headless -s test_cli.gd`)
+- 71 BASIC tests pass; 12 pre-existing CPU tests remain (see `CPU_Emulator_Bugs.md`)
 
 ## Font System
 
@@ -154,10 +180,19 @@ Four fonts are bundled and switchable with F8:
 - [x] Colon statement separator
 - [x] BREAK/STOP
 - [x] LIST with ranges
-- [ ] Boot loader / ROM banking system (see TODO.md)
+- [x] Hexadecimal number notation (`$FF`, `$C000`)
+- [x] Binary file I/O (BSAVE/BLOAD)
+- [x] Text file I/O (WRITE/READFILE)
+- [x] ROM cartridge system (CartManager, ROMCart base, CART command)
+- [x] TEXT cartridge (line editor)
+- [x] Safety limits to prevent infinite execution hangs
+- [x] Headless CLI test runner (test_cli.gd)
+- [ ] Boot loader menu (see TODO.md)
+- [ ] Disk storage with 420KB limit (see TODO.md)
+- [ ] Cartridge hot-swap from within running programs
 - [ ] 6502 assembler editor + two-pass assembler (see ASM_AND_C.md)
 - [ ] Small-C compiler (see ASM_AND_C.md)
+- [ ] Fix pre-existing CPU emulator bugs (see CPU_Emulator_Bugs.md)
 - [ ] Screen editor mode (edit previously typed lines)
 - [ ] Color support (PETSCII-style color codes)
-- [ ] More CPU tests (all addressing modes, decimal mode)
 - [ ] Web export compatibility
