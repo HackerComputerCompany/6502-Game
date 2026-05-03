@@ -86,7 +86,7 @@ const COLD_GLOW: float = 0.6
 const COLD_FLICKER: float = 0.05
 
 func _ready() -> void:
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	Input.mouse_mode = Input.MouseMode.MOUSE_MODE_HIDDEN
 	computer = Computer.new()
 	computer.output.connect(_on_output)
 	computer.program_finished.connect(_on_program_finished)
@@ -164,8 +164,8 @@ func _apply_font_deferred() -> void:
 
 func _process(delta: float) -> void:
 	_mouse_hide_timer -= delta
-	if _mouse_hide_timer <= 0 and Input.mouse_mode != Input.MOUSE_MODE_HIDDEN:
-		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	if _mouse_hide_timer <= 0 and Input.mouse_mode != Input.MouseMode.MOUSE_MODE_HIDDEN:
+		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_HIDDEN
 	if not _warmup_done:
 		_process_warmup(delta)
 	if not _boot_done:
@@ -329,15 +329,15 @@ func _submit_command() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 	if event is InputEventMouseButton:
-		Input.mouse_mode = Input.MOUSE_MODE.VISIBLE
+		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and _monitor_mode:
