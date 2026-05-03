@@ -10,8 +10,12 @@ var _output_buffer: String = ""
 var _ready: bool = false
 var _mode: String = "BASIC"
 
+var _program_running: bool = false
+var _awaiting_input: bool = false
+
 signal output(text: String)
 signal ready_for_input()
+signal program_finished()
 
 func _init() -> void:
 	memory = MemoryBus.new()
@@ -45,22 +49,52 @@ func _on_input(prompt: String) -> Variant:
 func run_basic(program: String) -> void:
 	_output_buffer = ""
 	basic.load_program(program)
-	basic.run()
-	if _output_buffer.length() > 0:
-		output.emit(_output_buffer)
-		_output_buffer = ""
+	basic._running = true
+	basic._current_line = 0
+	basic._data_pointer = 0
+	_program_running = true
+	_awaiting_input = false
 
-func execute_basic_line(line: String) -> void:
-	_output_buffer = ""
-	basic.execute_line(line)
-	if _output_buffer.length() > 0:
-		output.emit(_output_buffer)
-		_output_buffer = ""
+func step_basic(max_lines: int) -> bool:
+	if not _program_running:
+		return false
+	if not basic._running or basic._current_line >= basic._program.size():
+		_program_running = false
+		_flush_output()
+		program_finished.emit()
+		return false
+	if _awaiting_input:
+		return true
+	var lines_executed = 0
+	while basic._running and basic._current_line < basic._program.size() and lines_executed < max_lines:
+		basic._execute_line(basic._program[basic._current_line])
+		if basic._running:
+			basic._current_line += 1
+		if basic._sleeping:
+			_awaiting_input = true
+			_flush_output()
+			return true
+		lines_executed += 1
+	if not basic._running or basic._current_line >= basic._program.size():
+		_program_running = false
+		_flush_output()
+		program_finished.emit()
+		return false
+	_flush_output()
+	return true
 
 func submit_input(text: String) -> void:
 	memory.push_input(text)
 	if basic._running and basic._sleeping:
-		basic.continue_run()
+		basic._sleeping = false
+		_awaiting_input = false
+
+func execute_basic_line(line: String) -> void:
+	_output_buffer = ""
+	basic.execute_line(line)
+	_flush_output()
+
+func _flush_output() -> void:
 	if _output_buffer.length() > 0:
 		output.emit(_output_buffer)
 		_output_buffer = ""

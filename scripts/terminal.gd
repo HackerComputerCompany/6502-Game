@@ -40,6 +40,12 @@ var _current_font_idx: int = 0
 var _baud_rates: Array = [300, 1200, 2400, 9600, 14400]
 var _current_baud_idx: int = 2
 
+var _clock_speeds: Array = [0.5, 1.0, 10.0]
+var _clock_labels: Array = ["0.5 MHz", "1 MHz", "10 MHz"]
+var _current_clock_idx: int = 1
+
+var _cycles_per_line: int = 1000
+
 var _output_queue: String = ""
 var _output_timer: float = 0.0
 var _is_streaming: bool = false
@@ -117,6 +123,10 @@ func _process(delta: float) -> void:
 		_process_warmup(delta)
 	if not _boot_done:
 		_process_boot(delta)
+	if computer._program_running and not computer._awaiting_input:
+		var mhz = _clock_speeds[_current_clock_idx]
+		var lines_per_frame = max(1, int((mhz * 1e6) / _cycles_per_line / 60.0))
+		computer.step_basic(lines_per_frame)
 	if debug.is_recording():
 		var fc = debug.get_frame_count()
 		if fc % 30 == 0:
@@ -240,6 +250,9 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F3:
 			_debug_visible = not _debug_visible
 			settings_panel.visible = _debug_visible
+		elif event.keycode == KEY_F4:
+			_current_clock_idx = (_current_clock_idx + 1) % _clock_speeds.size()
+			_update_clock_label()
 		elif event.keycode == KEY_F5:
 			_run_program()
 			input_line.grab_focus()
@@ -274,7 +287,7 @@ func _print_banner() -> void:
 	_instant_output = true
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
-	screen.append_text("[color=green]F1=Help F3=CRT F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=green]F1=Help F3=CRT F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
@@ -283,27 +296,27 @@ func _on_output(text: String) -> void:
 	if text == "[CLR]":
 		screen.clear()
 		return
-	if _instant_output:
-		var escaped = text
-		escaped = escaped.replace("&", "&amp;")
-		escaped = escaped.replace("[", "&lsqb;")
-		escaped = escaped.replace("]", "&rsqb;")
-		screen.append_text("[color=lime]" + escaped + "[/color]")
-		screen.scroll_to_line(screen.get_line_count() - 1)
-		return
 	_output_queue += text
 	_is_streaming = true
 
 func _update_status() -> void:
 	var state = computer.cpu.get_state()
-	var rec = " [REC]" if debug.is_recording() else ""
-	status_bar.text = "A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | MEM:64K%s | F7=Baud F8=Font" % [
+	var rec: String = " [REC]" if debug.is_recording() else ""
+	var run: String = " [RUN]" if computer._program_running else ""
+	var clk: String = _clock_labels[_current_clock_idx]
+	status_bar.text = "A:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | %s%s%s | F4=Clock F7=Baud" % [
 		state.A, state.X, state.Y, state.SP, state.PC,
 		"C" if state.C else ".", "Z" if state.Z else ".",
 		"I" if state.I else ".", "D" if state.D else ".",
 		".", "V" if state.V else ".", "N" if state.N else ".", ".",
-		rec
+		clk, rec, run
 	]
+
+func _update_clock_label() -> void:
+	_instant_output = true
+	screen.append_text("\n[color=cyan]CPU Clock: " + _clock_labels[_current_clock_idx] + "[/color]\n")
+	_instant_output = false
+	sound.play_bell()
 
 func _update_baud_label() -> void:
 	var rate = _baud_rates[_current_baud_idx]
@@ -412,6 +425,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program\n"
 	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
 	help_text += "[color=yellow]  F3  [/color]- Toggle CRT settings panel\n"
+	help_text += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
 	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	help_text += "[color=yellow]  F8  [/color]- Cycle font\n"
 	help_text += "[color=yellow]  F9  [/color]- Take screenshot\n"
@@ -1071,6 +1085,7 @@ func _on_save_state() -> void:
 		},
 		"font_idx": _current_font_idx,
 		"baud_idx": _current_baud_idx,
+		"clock_idx": _current_clock_idx,
 		"command_history": command_history,
 		"computer": computer.serialize(),
 	}
@@ -1160,6 +1175,8 @@ func _apply_saved_state(data: Dictionary) -> void:
 	if data.has("baud_idx"):
 		_current_baud_idx = int(data["baud_idx"])
 		_update_baud_label()
+	if data.has("clock_idx"):
+		_current_clock_idx = int(data["clock_idx"])
 	if data.has("command_history"):
 		command_history = data["command_history"]
 		history_pos = command_history.size()
