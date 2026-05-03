@@ -350,6 +350,7 @@ func _apply_font() -> void:
 		font_size = max(_base_font_size - 4, 10)
 	screen.add_theme_font_override("normal_font", dynamic_font)
 	screen.add_theme_font_size_override("normal_font_size", font_size)
+	input_line.add_theme_font_override("font", dynamic_font)
 	input_line.add_theme_font_size_override("font_size", font_size)
 	sound.play_key()
 

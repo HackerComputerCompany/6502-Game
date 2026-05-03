@@ -819,10 +819,11 @@ func _reconstruct(toks: Array, start: int) -> String:
 	for i in range(start, toks.size()):
 		if toks[i][0] == TT.EOL:
 			break
-		if result.length() > 0 and toks[i][0] != TT.LPAREN and toks[i][0] != TT.RPAREN and toks[i][1] != "," and toks[i][1] != ";":
+		var val = str(toks[i][1])
+		if result.length() > 0 and toks[i][0] != TT.LPAREN and toks[i][0] != TT.RPAREN and val != "," and val != ";":
 			if result.length() > 0 and result[-1] != " " and result[-1] != "(":
 				result += " "
-		result += str(toks[i][1])
+		result += val
 	return result
 
 func set_variable(name: String, value: Variant) -> void:
