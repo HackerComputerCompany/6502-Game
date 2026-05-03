@@ -77,6 +77,7 @@ const COLD_FLICKER: float = 0.05
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
+	computer.program_finished.connect(_on_program_finished)
 	sound = SoundManager.new()
 	add_child(sound)
 	debug = DebugManager.new()
@@ -299,6 +300,11 @@ func _on_output(text: String) -> void:
 	_output_queue += text
 	_is_streaming = true
 
+func _on_program_finished() -> void:
+	_instant_output = true
+	screen.append_text("\n[color=lime]READY.\n[/color]")
+	_instant_output = false
+
 func _update_status() -> void:
 	var state = computer.cpu.get_state()
 	var rec: String = " [REC]" if debug.is_recording() else ""
@@ -357,6 +363,9 @@ func _on_input_line_text_submitted(text: String) -> void:
 	input_line.grab_focus()
 	if not _boot_done:
 		_input_buffer += text.strip_edges() + "\n"
+		return
+	if computer._awaiting_input:
+		computer.submit_input(text.strip_edges())
 		return
 	command_history.append(text.strip_edges())
 	history_pos = command_history.size()

@@ -67,13 +67,17 @@ func step_basic(max_lines: int) -> bool:
 		return true
 	var lines_executed = 0
 	while basic._running and basic._current_line < basic._program.size() and lines_executed < max_lines:
-		basic._execute_line(basic._program[basic._current_line])
-		if basic._running:
-			basic._current_line += 1
-		if basic._sleeping:
+		if basic._awaiting_input:
 			_awaiting_input = true
 			_flush_output()
 			return true
+		basic._execute_line(basic._program[basic._current_line])
+		if basic._awaiting_input:
+			_awaiting_input = true
+			_flush_output()
+			return true
+		if basic._running:
+			basic._current_line += 1
 		lines_executed += 1
 	if not basic._running or basic._current_line >= basic._program.size():
 		_program_running = false
@@ -85,8 +89,13 @@ func step_basic(max_lines: int) -> bool:
 
 func submit_input(text: String) -> void:
 	memory.push_input(text)
-	if basic._running and basic._sleeping:
-		basic._sleeping = false
+	if basic._awaiting_input:
+		var value = text.strip_edges()
+		var parts = value.split(",")
+		var values = []
+		for p in parts:
+			values.append(p.strip_edges())
+		basic.provide_input(values)
 		_awaiting_input = false
 
 func execute_basic_line(line: String) -> void:

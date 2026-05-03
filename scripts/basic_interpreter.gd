@@ -11,6 +11,8 @@ var _data_values: Array = []
 var _data_pointer: int = 0
 var _running: bool = false
 var _current_line: int = 0
+var _awaiting_input: bool = false
+var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
 
@@ -547,11 +549,30 @@ func _exec_input(toks: Array) -> Variant:
 		if toks[pos][0] == TT.IDENT:
 			vars.append(toks[pos][1])
 		pos += 1
+	if _running:
+		_awaiting_input = true
+		_input_vars = vars
+		_output_callback.call(prompt)
+		return null
 	var values = _input_callback.call(prompt)
 	if values == null:
-		return null
-	for i in range(min(vars.size(), values.size())):
-		var vname = str(vars[i]).to_upper()
+		for vname in vars:
+			_variables[vname.to_upper()] = 0
+	else:
+		for i in range(min(vars.size(), values.size())):
+			var vname = str(vars[i]).to_upper()
+			var val = values[i]
+			if val.is_valid_int():
+				_variables[vname] = int(val)
+			elif val.is_valid_float():
+				_variables[vname] = float(val)
+			else:
+				_variables[vname] = val
+	return null
+
+func provide_input(values: Array) -> void:
+	for i in range(min(_input_vars.size(), values.size())):
+		var vname = str(_input_vars[i]).to_upper()
 		var val = values[i]
 		if val.is_valid_int():
 			_variables[vname] = int(val)
@@ -559,7 +580,10 @@ func _exec_input(toks: Array) -> Variant:
 			_variables[vname] = float(val)
 		else:
 			_variables[vname] = val
-	return null
+	for vname in _input_vars:
+		if not _variables.has(vname.to_upper()):
+			_variables[vname.to_upper()] = 0
+	_awaiting_input = false
 
 func _exec_goto(toks: Array) -> void:
 	var target = _eval(toks, 1)
