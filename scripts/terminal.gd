@@ -297,8 +297,16 @@ func _on_output(text: String) -> void:
 	if text == "[CLR]":
 		screen.clear()
 		return
-	_output_queue += text
-	_is_streaming = true
+	if computer._program_running and not computer._awaiting_input:
+		_output_queue += text
+		_is_streaming = true
+	else:
+		var escaped = text
+		escaped = escaped.replace("&", "&amp;")
+		escaped = escaped.replace("[", "&lsqb;")
+		escaped = escaped.replace("]", "&rsqb;")
+		screen.append_text("[color=lime]" + escaped + "[/color]")
+		screen.scroll_to_line(screen.get_line_count() - 1)
 
 func _on_program_finished() -> void:
 	_instant_output = true
