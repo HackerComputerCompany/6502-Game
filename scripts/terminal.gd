@@ -356,6 +356,8 @@ func _handle_command(text: String) -> void:
 	var upper = text.to_upper()
 	if upper == "HELP":
 		_show_help()
+	elif upper.begins_with("HELP "):
+		_show_help_topic(text.substr(5).strip_edges().to_upper())
 	elif upper == "CLEAR" or upper == "CLS":
 		screen.clear()
 	elif upper == "RESET":
@@ -408,13 +410,11 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
 	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
 	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program\n"
-	help_text += "[color=yellow]  SYS addr  [/color]- Execute machine code at address\n"
-	help_text += "[color=yellow]  PEEK(addr)[/color]- Read memory location\n"
 	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
 	help_text += "[color=yellow]  F3  [/color]- Toggle CRT settings panel\n"
 	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
-	help_text += "[color=yellow]  F8  [/color]- Cycle font (VT323/Press Start 2P/Share Tech/IBM Plex)\n"
-	help_text += "[color=yellow]  F9  [/color]- Take screenshot (saved to user://debug/screenshots/)\n"
+	help_text += "[color=yellow]  F8  [/color]- Cycle font\n"
+	help_text += "[color=yellow]  F9  [/color]- Take screenshot\n"
 	help_text += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
 	help_text += "[color=yellow]  F1  [/color]- Show this help\n"
 	help_text += "[color=yellow]  F5  [/color]- Run program\n"
@@ -432,8 +432,454 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  INT(), RND(), ABS(), SQR(), SIN(), COS()[/color]\n"
 	help_text += "[color=yellow]  TAN(), ATN(), LOG(), EXP(), SGN()[/color]\n"
 	help_text += "[color=yellow]  LEN(), CHR$(), ASC(), LEFT$(), RIGHT$()[/color]\n"
-	help_text += "[color=yellow]  MID$(), STR$(), VAL(), PEEK(), TAB()[/color]\n\n"
+	help_text += "[color=yellow]  MID$(), STR$(), VAL(), PEEK(), TAB()[/color]\n"
+	help_text += "\n[color=lime]Type HELP <topic> for details. Examples: HELP PRINT, HELP FOR, HELP POKE[/color]\n"
 	screen.append_text(help_text)
+	_instant_output = false
+
+var _help_topics: Dictionary = {}
+
+func _init_help_topics() -> void:
+	if _help_topics.size() > 0:
+		return
+	_help_topics = {
+		"PRINT": {
+			"syntax": "PRINT expr [;|, expr ...]",
+			"desc": "Output text, numbers, or expressions to the screen. Semicolons join output without spaces; commas add tab stops. A trailing semicolon suppresses the newline.",
+			"examples": [
+				'PRINT "HELLO WORLD"',
+				'PRINT 42 + 8',
+				'PRINT "SCORE: "; SCORE',
+				'10 PRINT "VALUE: "; X; " UNITS"',
+			]
+		},
+		"INPUT": {
+			"syntax": 'INPUT [prompt$]; var$',
+			"desc": "Display a prompt and wait for the user to type a value. Assigns the entered value to a variable.",
+			"examples": [
+				'INPUT "YOUR NAME? "; N$',
+				'10 INPUT "GUESS A NUMBER: "; G',
+				'INPUT A',
+			]
+		},
+		"GOTO": {
+			"syntax": "GOTO linenum",
+			"desc": "Jump unconditionally to the specified line number. Often used for simple loops. Use with caution — infinite loops can occur.",
+			"examples": [
+				'GOTO 100',
+				'10 PRINT "HELLO": GOTO 10',
+			]
+		},
+		"GOSUB": {
+			"syntax": "GOSUB linenum",
+			"desc": "Call a subroutine at the given line number. Execution returns to the next line after RETURN. GOSUB/RETURN forms a call stack up to ~100 levels deep.",
+			"examples": [
+				'10 GOSUB 500',
+				'20 PRINT "BACK": END',
+				'500 PRINT "IN SUB": RETURN',
+			]
+		},
+		"RETURN": {
+			"syntax": "RETURN",
+			"desc": "Return from a subroutine called by GOSUB. Execution continues after the GOSUB statement.",
+			"examples": [
+				'500 PRINT "IN SUB": RETURN',
+			]
+		},
+		"FOR": {
+			"syntax": "FOR var = start TO end [STEP incr]",
+			"desc": "Begin a counted loop. The variable counts from start to end. Optional STEP sets the increment (default 1). The loop body ends with NEXT var.",
+			"examples": [
+				'10 FOR I = 1 TO 10',
+				'20 PRINT I',
+				'30 NEXT I',
+				'FOR X = 0 TO 100 STEP 5',
+			]
+		},
+		"NEXT": {
+			"syntax": "NEXT var",
+			"desc": "End a FOR loop. Increments the loop variable and jumps back to the FOR line if the end value has not been reached.",
+			"examples": [
+				'10 FOR I = 1 TO 5',
+				'20 PRINT I',
+				'30 NEXT I',
+			]
+		},
+		"IF": {
+			"syntax": "IF condition THEN statement [ELSE statement]",
+			"desc": "Conditional execution. If the condition is true, the THEN clause runs. Optional ELSE runs when the condition is false. Use GOTO or any statement after THEN.",
+			"examples": [
+				'IF X > 10 THEN PRINT "BIG"',
+				'IF A = B THEN PRINT "SAME" ELSE PRINT "DIFFERENT"',
+				'10 IF G < N THEN PRINT "TOO LOW"',
+			]
+		},
+		"THEN": {
+			"syntax": "IF condition THEN statement",
+			"desc": "Used after IF to specify what to do when the condition is true. See HELP IF for details.",
+			"examples": [
+				'IF X > 0 THEN PRINT "POSITIVE"',
+			]
+		},
+		"ELSE": {
+			"syntax": "IF condition THEN stmt1 ELSE stmt2",
+			"desc": "Optional part of IF — provides an alternative when the condition is false. See HELP IF for details.",
+			"examples": [
+				'IF A > B THEN PRINT "A" ELSE PRINT "B"',
+			]
+		},
+		"LET": {
+			"syntax": "LET var = expr",
+			"desc": "Assign a value to a variable. LET is optional — you can assign with just var = expr.",
+			"examples": [
+				'LET X = 42',
+				'X = 42',
+				'LET NAME$ = "BASIC"',
+			]
+		},
+		"DIM": {
+			"syntax": "DIM var(size) [, var(size) ...]",
+			"desc": "Declare an array with the given size. Arrays are 0-indexed. If not DIMmed, arrays auto-size on first use.",
+			"examples": [
+				'DIM A(10)',
+				'DIM A(10), B$(20)',
+				'10 DIM SCORES(100)',
+			]
+		},
+		"READ": {
+			"syntax": "READ var [, var ...]",
+			"desc": "Read values from DATA statements into variables. Use RESTORE to reset the data pointer.",
+			"examples": [
+				'10 READ A, B, C',
+				'20 DATA 10, 20, 30',
+			]
+		},
+		"DATA": {
+			"syntax": "DATA value [, value ...]",
+			"desc": "Define data values to be read by READ statements. Values are read sequentially. Use RESTORE to start over.",
+			"examples": [
+				'10 DATA 10, 20, 30',
+				'10 DATA "HELLO", "WORLD"',
+			]
+		},
+		"RESTORE": {
+			"syntax": "RESTORE",
+			"desc": "Reset the DATA pointer so the next READ starts from the first DATA statement again.",
+			"examples": [
+				'30 RESTORE',
+			]
+		},
+		"POKE": {
+			"syntax": "POKE address, value",
+			"desc": "Write a byte (0-255) to a memory address. Used for direct hardware access, screen control, and machine language programming. Common addresses: $C002 (screen char), $C003 (screen ctrl: 12=clear, 13=newline).",
+			"examples": [
+				'POKE 49152, 65',
+				'10 POKE $C002, 65',
+				'POKE 49155, 12',
+			]
+		},
+		"PEEK": {
+			"syntax": "PEEK(addr)",
+			"desc": "Read a byte from a memory address. Returns a value 0-255. Useful for reading hardware ports and examining memory. Address $C000 is keyboard data, $C001 is keyboard status.",
+			"examples": [
+				'PRINT PEEK(49152)',
+				'A = PEEK($C000)',
+				'10 PRINT PEEK(2048)',
+			]
+		},
+		"ON": {
+			"syntax": "ON expr GOTO line1, line2, ... | ON expr GOSUB line1, line2, ...",
+			"desc": "Computed branch — jumps to the Nth line number in the list based on the expression value (1-based). Equivalent to a switch/case.",
+			"examples": [
+				'10 ON X GOTO 100, 200, 300',
+				'10 ON CHOICE GOSUB 500, 600, 700',
+			]
+		},
+		"END": {
+			"syntax": "END",
+			"desc": "Stop program execution immediately. Same as STOP.",
+			"examples": [
+				'99 END',
+				'10 PRINT "DONE": END',
+			]
+		},
+		"STOP": {
+			"syntax": "STOP",
+			"desc": "Stop program execution. Same as END.",
+			"examples": [
+				'50 STOP',
+			]
+		},
+		"REM": {
+			"syntax": "REM comment text",
+			"desc": "Add a comment to your program. Everything after REM on that line is ignored. Comments help document your code.",
+			"examples": [
+				'10 REM THIS IS A COMMENT',
+				'100 REM --- MAIN LOOP ---',
+			]
+		},
+		"CLR": {
+			"syntax": "CLR",
+			"desc": "Clear all variables and arrays from memory, but keep the program text intact. Different from NEW which also clears the program.",
+			"examples": [
+				'CLR',
+			]
+		},
+		"NEW": {
+			"syntax": "NEW",
+			"desc": "Clear the current program and all variables from memory. Starts fresh.",
+			"examples": [
+				'NEW',
+			]
+		},
+		"LIST": {
+			"syntax": "LIST",
+			"desc": "Display all lines of the current program in memory.",
+			"examples": [
+				'LIST',
+			]
+		},
+		"RUN": {
+			"syntax": "RUN",
+			"desc": "Execute the current program from the first line number.",
+			"examples": [
+				'RUN',
+			]
+		},
+		"CLEAR": {
+			"syntax": "CLEAR  or  CLS",
+			"desc": "Clear the terminal screen. Does not affect the program or variables.",
+			"examples": [
+				'CLEAR',
+				'CLS',
+			]
+		},
+		"RESET": {
+			"syntax": "RESET",
+			"desc": "Full system reset — clears all memory, reloads ROM, resets CPU registers, and reinitializes the BASIC interpreter.",
+			"examples": [
+				'RESET',
+			]
+		},
+		"CPU": {
+			"syntax": "CPU",
+			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X, Y (index), SP (stack pointer), PC (program counter), and status flags.",
+			"examples": [
+				'CPU',
+			]
+		},
+		"SYS": {
+			"syntax": "SYS address",
+			"desc": "Execute 6502 machine code at the given memory address. The CPU jumps to that address and runs until it encounters an RTS (return from subroutine). Used with POKE to run custom assembly.",
+			"examples": [
+				'SYS $F000',
+				'10 POKE 768,169: POKE 769,65: SYS 768',
+			]
+		},
+		"SAVE": {
+			"syntax": "SAVE filename",
+			"desc": "Save the current BASIC program to disk (stored in user:// directory as filename.bas).",
+			"examples": [
+				'SAVE MYPROG',
+				'SAVE TEST1',
+			]
+		},
+		"LOAD": {
+			"syntax": "LOAD filename",
+			"desc": "Load a previously saved BASIC program from disk (from user:// directory).",
+			"examples": [
+				'LOAD MYPROG',
+				'LOAD TEST1',
+			]
+		},
+		"DIR": {
+			"syntax": "DIR  or  CATALOG",
+			"desc": "List all saved BASIC program files on disk.",
+			"examples": [
+				'DIR',
+				'CATALOG',
+			]
+		},
+		"DEMO": {
+			"syntax": "DEMO  or  DEMO name",
+			"desc": "With no argument, lists available demo programs. With a name, loads that demo into memory. Type RUN afterwards to execute it.",
+			"examples": [
+				'DEMO',
+				'DEMO HELLO',
+				'DEMO MANDELBROT',
+			]
+		},
+		"INT": {
+			"syntax": "INT(x)",
+			"desc": "Return the integer part of x (truncate toward zero).",
+			"examples": [
+				'PRINT INT(3.7)   -> 3',
+				'PRINT INT(-2.3)  -> -2',
+				'10 N = INT(RND(1) * 100)',
+			]
+		},
+		"RND": {
+			"syntax": "RND(x)",
+			"desc": "Return a random number between 0 and 1. The argument is ignored — each call returns a new random value.",
+			"examples": [
+				'PRINT RND(1)',
+				'10 N = INT(RND(1) * 100) + 1',
+			]
+		},
+		"ABS": {
+			"syntax": "ABS(x)",
+			"desc": "Return the absolute value of x.",
+			"examples": [
+				'PRINT ABS(-5)  -> 5',
+				'PRINT ABS(3)   -> 3',
+			]
+		},
+		"SQR": {
+			"syntax": "SQR(x)",
+			"desc": "Return the square root of x.",
+			"examples": [
+				'PRINT SQR(16)  -> 4',
+				'PRINT SQR(2)   -> 1.414...',
+			]
+		},
+		"SIN": {
+			"syntax": "SIN(x)",
+			"desc": "Return the sine of x (x in radians).",
+			"examples": [
+				'PRINT SIN(3.14159)',
+			]
+		},
+		"COS": {
+			"syntax": "COS(x)",
+			"desc": "Return the cosine of x (x in radians).",
+			"examples": [
+				'PRINT COS(0)  -> 1',
+			]
+		},
+		"TAN": {
+			"syntax": "TAN(x)",
+			"desc": "Return the tangent of x (x in radians).",
+			"examples": [
+				'PRINT TAN(0.7854)',
+			]
+		},
+		"ATN": {
+			"syntax": "ATN(x)",
+			"desc": "Return the arctangent of x (result in radians).",
+			"examples": [
+				'PRINT ATN(1)  -> 0.785...',
+			]
+		},
+		"LOG": {
+			"syntax": "LOG(x)",
+			"desc": "Return the natural logarithm of x (base e).",
+			"examples": [
+				'PRINT LOG(2.71828)  -> ~1',
+			]
+		},
+		"EXP": {
+			"syntax": "EXP(x)",
+			"desc": "Return e raised to the power of x.",
+			"examples": [
+				'PRINT EXP(1)  -> 2.718...',
+			]
+		},
+		"SGN": {
+			"syntax": "SGN(x)",
+			"desc": "Return -1 if x is negative, 0 if zero, 1 if positive.",
+			"examples": [
+				'PRINT SGN(-10)  -> -1',
+				'PRINT SGN(0)    -> 0',
+				'PRINT SGN(42)   -> 1',
+			]
+		},
+		"LEN": {
+			"syntax": "LEN(s$)",
+			"desc": "Return the number of characters in string s$.",
+			"examples": [
+				'PRINT LEN("HELLO")  -> 5',
+				'10 L = LEN(N$)',
+			]
+		},
+		"CHR$": {
+			"syntax": "CHR$(n)",
+			"desc": "Return the character with ASCII code n (0-255).",
+			"examples": [
+				'PRINT CHR$(65)  -> A',
+				'10 PRINT CHR$(7)  : REM bell',
+			]
+		},
+		"ASC": {
+			"syntax": "ASC(s$)",
+			"desc": "Return the ASCII code of the first character of string s$.",
+			"examples": [
+				'PRINT ASC("A")  -> 65',
+				'10 CODE = ASC(K$)',
+			]
+		},
+		"LEFT$": {
+			"syntax": "LEFT$(s$, n)",
+			"desc": "Return the first n characters of string s$.",
+			"examples": [
+				'PRINT LEFT$("HELLO", 3)  -> HEL',
+			]
+		},
+		"RIGHT$": {
+			"syntax": 'RIGHT$(s$, n)',
+			"desc": "Return the last n characters of string s$.",
+			"examples": [
+				'PRINT RIGHT$("HELLO", 3)  -> LLO',
+			]
+		},
+		"MID$": {
+			"syntax": "MID$(s$, start, length)",
+			"desc": "Return a substring of s$ starting at position start (1-based) with the given length.",
+			"examples": [
+				'PRINT MID$("HELLO", 2, 3)  -> ELL',
+			]
+		},
+		"STR$": {
+			"syntax": "STR$(n)",
+			"desc": "Convert a number to a string representation.",
+			"examples": [
+				'PRINT STR$(42)  -> "42"',
+				'A$ = STR$(X)',
+			]
+		},
+		"VAL": {
+			"syntax": "VAL(s$)",
+			"desc": "Convert a string to a number. Returns 0 if the string is not a valid number.",
+			"examples": [
+				'PRINT VAL("42")  -> 42',
+				'10 N = VAL(A$)',
+			]
+		},
+		"TAB": {
+			"syntax": "TAB(n)",
+			"desc": "In a PRINT statement, move the cursor to column n (1-based). Used for formatting output.",
+			"examples": [
+				'10 PRINT TAB(10); "X"',
+				'PRINT TAB(5); NAME$; TAB(20); SCORE',
+			]
+		},
+	}
+
+func _show_help_topic(topic: String) -> void:
+	_init_help_topics()
+	_instant_output = true
+	if _help_topics.has(topic):
+		var info = _help_topics[topic]
+		var t = "\n[color=cyan][b]" + topic + "[/b][/color]\n\n"
+		t += "[color=white]Syntax:  [/color][color=lime]" + info["syntax"] + "[/color]\n\n"
+		t += "[color=white]" + info["desc"] + "[/color]\n\n"
+		t += "[color=cyan]Examples:[/color]\n"
+		for ex in info["examples"]:
+			t += "[color=lime]  " + ex + "[/color]\n"
+		t += "\n"
+		screen.append_text(t)
+	else:
+		screen.append_text("\n[color=red]No help for: " + topic + "[/color]\n")
+		screen.append_text("[color=yellow]Type HELP for a list of commands, or try: HELP PRINT, HELP FOR, HELP POKE[/color]\n\n")
 	_instant_output = false
 
 func _list_program() -> void:
