@@ -17,8 +17,6 @@ var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
 
-var _demos_with_param: Array = ["primenums", "pi"]
-
 enum TT {
 	NUMBER, STRING, IDENT, OP, LPAREN, RPAREN,
 	COMMA, SEMI, KW, EOL, NEQ, LTE, GTE, COLON
@@ -173,6 +171,9 @@ func _execute_single(stmt: String) -> void:
 			"NEW": _program.clear(); _variables.clear(); _arrays.clear(); _running = false
 			"LIST": _exec_list()
 			"RUN": _current_line = 0; _data_pointer = 0
+			_:
+				_output_callback.call("ERROR: UNKNOWN COMMAND '%s'\n" % t[1])
+				_running = false
 	elif t[0] == TT.IDENT:
 		var pos = 0
 		var name = t[1].to_upper()
@@ -183,6 +184,15 @@ func _execute_single(stmt: String) -> void:
 			pos += 1
 			var val = _eval(toks, pos)
 			_variables[name] = val
+		else:
+			var val = _eval(toks, 0)
+			_output_callback.call(str(val) + "\n")
+	elif t[0] == TT.NUMBER or t[0] == TT.OP or t[0] == TT.LPAREN or t[0] == TT.STRING:
+		var val = _eval(toks, 0)
+		_output_callback.call(str(val) + "\n")
+	elif t[0] == TT.NEQ:
+		_output_callback.call("ERROR: SYNTAX ERROR\n")
+		_running = false
 
 func _tokenize(text: String) -> Array:
 	var tokens: Array = []
@@ -211,7 +221,7 @@ func _tokenize(text: String) -> Array:
 					has_dot = true
 				num += text[pos]
 				pos += 1
-			tokens.append([TT.NUMBER, float(num) if has_dot else int(num)])
+			tokens.append([TT.NUMBER, float(num)])
 		elif ch == '<':
 			pos += 1
 			if pos < text.length() and text[pos] == '=':

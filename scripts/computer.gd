@@ -8,7 +8,6 @@ var rom: ROM
 
 var _output_buffer: String = ""
 var _ready: bool = false
-var _mode: String = "BASIC"
 
 var _program_running: bool = false
 var _awaiting_input: bool = false

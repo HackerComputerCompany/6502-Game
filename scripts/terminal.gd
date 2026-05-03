@@ -1,7 +1,12 @@
 extends Control
 
 @onready var screen: RichTextLabel = $VBoxContainer/Screen
-@onready var input_line: LineEdit = $VBoxContainer/InputLine
+var _cmd_line: String = ""
+var _cmd_cursor: int = 0
+var _cursor_visible: bool = true
+var _cursor_timer: float = 0.0
+var _cmd_display: RichTextLabel
+var input_line: LineEdit
 @onready var status_bar: Label = $VBoxContainer/StatusBar
 @onready var title_bar: Label = $VBoxContainer/TopBar/TitleBar
 @onready var baud_label: Label = $VBoxContainer/TopBar/BaudLabel
@@ -37,6 +42,7 @@ var _available_fonts: Array = [
 ]
 var _current_font_idx: int = 0
 
+var _demos_with_param: Array = ["primenums", "pi"]
 var _baud_rates: Array = [300, 1200, 2400, 9600, 14400]
 var _current_baud_idx: int = 2
 
@@ -88,7 +94,34 @@ func _ready() -> void:
 	add_child(sound)
 	debug = DebugManager.new()
 	add_child(debug)
-	input_line.text_submitted.connect(_on_input_line_text_submitted)
+	input_line = $VBoxContainer/InputLine
+	input_line.visible = false
+	input_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cmd_display = RichTextLabel.new()
+	_cmd_display.name = "CommandLine"
+	_cmd_display.bbcode_enabled = true
+	_cmd_display.fit_content = true
+	_cmd_display.scroll_active = false
+	_cmd_display.custom_minimum_size = Vector2(0, 36)
+	_cmd_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var _cmd_style = StyleBoxFlat.new()
+	_cmd_style.bg_color = Color(0.02, 0.02, 0.06)
+	_cmd_style.content_margin_top = 6
+	_cmd_style.content_margin_left = 5
+	_cmd_style.content_margin_bottom = 4
+	_cmd_style.border_width_left = 3
+	_cmd_style.border_width_bottom = 3
+	_cmd_style.border_width_right = 3
+	_cmd_style.border_color = Color(0.3, 0.35, 0.3, 1)
+	_cmd_style.corner_radius_bottom_left = 4
+	_cmd_style.corner_radius_bottom_right = 4
+	_cmd_display.add_theme_stylebox_override("normal", _cmd_style)
+	_cmd_display.add_theme_color_override("default_color", Color(0.2, 1, 0.2))
+	var _vbox = screen.get_parent()
+	var _screen_idx = screen.get_index()
+	_vbox.add_child(_cmd_display)
+	_vbox.move_child(_cmd_display, _screen_idx + 1)
+	_update_cmd_display()
 	curvature_slider.value_changed.connect(_on_curvature_changed)
 	scanline_slider.value_changed.connect(_on_scanline_changed)
 	vignette_slider.value_changed.connect(_on_vignette_changed)
@@ -97,7 +130,6 @@ func _ready() -> void:
 	reset_btn.pressed.connect(_on_reset_settings)
 	save_btn.pressed.connect(_on_save_state)
 	load_btn.pressed.connect(_on_load_state)
-	input_line.grab_focus()
 	_update_status()
 	_update_baud_label()
 	_update_font_label()
@@ -157,8 +189,11 @@ func _process(delta: float) -> void:
 			_is_streaming = false
 	else:
 		_is_streaming = false
-	if not input_line.has_focus() and _boot_done:
-		input_line.grab_focus()
+	_cursor_timer += delta
+	if _cursor_timer >= 0.5:
+		_cursor_timer -= 0.5
+		_cursor_visible = not _cursor_visible
+		_update_cmd_display()
 
 func _process_warmup(delta: float) -> void:
 	_warmup_elapsed += delta
@@ -214,7 +249,7 @@ func _process_boot(delta: float) -> void:
 		_boot_done = true
 		_print_banner()
 		_flush_input_buffer()
-		input_line.grab_focus()
+		_update_cmd_display()
 
 func _flush_input_buffer() -> void:
 	if _input_buffer == "":
@@ -240,16 +275,60 @@ func _stream_char_by_char(text: String) -> void:
 				continue
 			_:
 				sound.play_key()
-		var escaped = ch
-		escaped = escaped.replace("&", "&amp;")
-		escaped = escaped.replace("[", "&lsqb;")
-		escaped = escaped.replace("]", "&rsqb;")
+		var escaped = _escape_bbcode(ch)
 		screen.append_text("[color=lime]" + escaped + "[/color]")
 	screen.scroll_to_line(screen.get_line_count() - 1)
 
+func _escape_bbcode(text: String) -> String:
+	text = text.replace("&", "&amp;")
+	text = text.replace("[", "&lsqb;")
+	text = text.replace("]", "&rsqb;")
+	return text
+
+func _update_cmd_display() -> void:
+	if not _cmd_display:
+		return
+	var before = _cmd_line.substr(0, _cmd_cursor)
+	var after = _cmd_line.substr(_cmd_cursor)
+	var cursor_char = "[color=white]█[/color]" if _cursor_visible else " "
+	var escaped_before = _escape_bbcode(before)
+	var escaped_after = _escape_bbcode(after)
+	_cmd_display.clear()
+	_cmd_display.append_text("[color=lime]" + escaped_before + "[/color]" + cursor_char + "[color=lime]" + escaped_after + "[/color]")
+
+func _submit_command() -> void:
+	if not _boot_done:
+		if _cmd_line.strip_edges() != "":
+			_input_buffer += _cmd_line.strip_edges() + "\n"
+		_cmd_line = ""
+		_cmd_cursor = 0
+		_update_cmd_display()
+		return
+	sound.play_carriage()
+	var text = _cmd_line.strip_edges()
+	_cmd_line = ""
+	_cmd_cursor = 0
+	_cursor_visible = true
+	_cursor_timer = 0.0
+	_update_cmd_display()
+	if text == "":
+		if not computer._program_running:
+			computer.output.emit("\nREADY.\n")
+		return
+	_instant_output = true
+	screen.append_text("[color=lime]" + _escape_bbcode(text) + "[/color]\n")
+	_instant_output = false
+	if computer._awaiting_input:
+		computer.submit_input(text)
+		return
+	command_history.append(text)
+	history_pos = command_history.size()
+	_handle_command(text)
+	if not computer._program_running:
+		computer.output.emit("\nREADY.\n")
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		input_line.grab_focus()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 
@@ -257,60 +336,135 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
-	if event is InputEventKey and event.pressed:
+	if event is InputEventMouseButton:
+		Input.mouse_mode = Input.MOUSE_MODE.VISIBLE
+		_mouse_hide_timer = 3.0
+	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE and _monitor_mode:
 			_exit_monitor()
 			return
-		if event.keycode == KEY_UP:
-			if history_pos > 0:
-				history_pos -= 1
-				input_line.text = command_history[history_pos]
-				input_line.caret_column = input_line.text.length()
-		elif event.keycode == KEY_DOWN:
-			if history_pos < command_history.size() - 1:
-				history_pos += 1
-				input_line.text = command_history[history_pos]
-			else:
-				history_pos = command_history.size()
-				input_line.text = ""
-			input_line.caret_column = input_line.text.length()
-		elif event.keycode == KEY_F1:
-			_show_help()
-		elif event.keycode == KEY_F3:
-			_debug_visible = not _debug_visible
-			settings_panel.visible = _debug_visible
-		elif event.keycode == KEY_F4:
-			_current_clock_idx = (_current_clock_idx + 1) % _clock_speeds.size()
-			_update_clock_label()
-		elif event.keycode == KEY_F5:
-			_run_program()
-			input_line.grab_focus()
-		elif event.keycode == KEY_F6:
-			debug.toggle_recording()
-			_instant_output = true
-			if debug.is_recording():
-				screen.append_text("\n[color=yellow] Recording ON (F6 to stop) [/color]\n")
-			else:
-				screen.append_text("\n[color=yellow] Recording OFF - frames saved [/color]\n")
-			_instant_output = false
-		elif event.keycode == KEY_F7:
-			_current_baud_idx = (_current_baud_idx + 1) % _baud_rates.size()
-			_update_baud_label()
-		elif event.keycode == KEY_F8:
-			_current_font_idx = (_current_font_idx + 1) % _available_fonts.size()
-			_apply_font()
-			_update_font_label()
-		elif event.keycode == KEY_F9:
-			var path = debug.take_screenshot()
-			_instant_output = true
-			screen.append_text("\n[color=green]Screenshot: " + path + "[/color]\n")
-			_instant_output = false
-		elif event.keycode == KEY_F10:
-			computer.reset()
-			screen.clear()
-			_print_banner()
-			_update_status()
-			input_line.grab_focus()
+		var handled = false
+		match event.keycode:
+			KEY_F1:
+				_show_help()
+				handled = true
+			KEY_F3:
+				_debug_visible = not _debug_visible
+				settings_panel.visible = _debug_visible
+				handled = true
+			KEY_F4:
+				_current_clock_idx = (_current_clock_idx + 1) % _clock_speeds.size()
+				_update_clock_label()
+				handled = true
+			KEY_F5:
+				_run_program()
+				handled = true
+			KEY_F6:
+				debug.toggle_recording()
+				_instant_output = true
+				if debug.is_recording():
+					screen.append_text("\n[color=yellow] Recording ON (F6 to stop) [/color]\n")
+				else:
+					screen.append_text("\n[color=yellow] Recording OFF - frames saved [/color]\n")
+				_instant_output = false
+				handled = true
+			KEY_F7:
+				_current_baud_idx = (_current_baud_idx + 1) % _baud_rates.size()
+				_update_baud_label()
+				handled = true
+			KEY_F8:
+				_current_font_idx = (_current_font_idx + 1) % _available_fonts.size()
+				_apply_font()
+				_update_font_label()
+				handled = true
+			KEY_F9:
+				var path = debug.take_screenshot()
+				_instant_output = true
+				screen.append_text("\n[color=green]Screenshot: " + path + "[/color]\n")
+				_instant_output = false
+				handled = true
+			KEY_F10:
+				computer.reset()
+				_cmd_line = ""
+				_cmd_cursor = 0
+				screen.clear()
+				_print_banner()
+				_update_status()
+				_update_cmd_display()
+				handled = true
+		if handled:
+			return
+		var unicode_val = event.unicode
+		if unicode_val > 0 and not event.ctrl_pressed and not event.meta_pressed:
+			if not _boot_done:
+				return
+			_cmd_line = _cmd_line.insert(_cmd_cursor, char(unicode_val))
+			_cmd_cursor += 1
+			_cursor_visible = true
+			_cursor_timer = 0.0
+			sound.play_key()
+			_update_cmd_display()
+			return
+		match event.keycode:
+			KEY_BACKSPACE:
+				if _cmd_cursor > 0:
+					_cmd_line = _cmd_line.substr(0, _cmd_cursor - 1) + _cmd_line.substr(_cmd_cursor)
+					_cmd_cursor -= 1
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					sound.play_key()
+					_update_cmd_display()
+			KEY_DELETE:
+				if _cmd_cursor < _cmd_line.length():
+					_cmd_line = _cmd_line.substr(0, _cmd_cursor) + _cmd_line.substr(_cmd_cursor + 1)
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					sound.play_key()
+					_update_cmd_display()
+			KEY_LEFT:
+				if _cmd_cursor > 0:
+					_cmd_cursor -= 1
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					_update_cmd_display()
+			KEY_RIGHT:
+				if _cmd_cursor < _cmd_line.length():
+					_cmd_cursor += 1
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					_update_cmd_display()
+			KEY_HOME:
+				_cmd_cursor = 0
+				_cursor_visible = true
+				_cursor_timer = 0.0
+				_update_cmd_display()
+			KEY_END:
+				_cmd_cursor = _cmd_line.length()
+				_cursor_visible = true
+				_cursor_timer = 0.0
+				_update_cmd_display()
+			KEY_ENTER, KEY_KP_ENTER:
+				_submit_command()
+			KEY_UP:
+				if _boot_done and history_pos > 0:
+					history_pos -= 1
+					_cmd_line = command_history[history_pos]
+					_cmd_cursor = _cmd_line.length()
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					_update_cmd_display()
+			KEY_DOWN:
+				if _boot_done and command_history.size() > 0:
+					if history_pos < command_history.size() - 1:
+						history_pos += 1
+						_cmd_line = command_history[history_pos]
+					else:
+						history_pos = command_history.size()
+						_cmd_line = ""
+					_cmd_cursor = _cmd_line.length()
+					_cursor_visible = true
+					_cursor_timer = 0.0
+					_update_cmd_display()
 
 func _print_banner() -> void:
 	_instant_output = true
@@ -378,32 +532,10 @@ func _apply_font() -> void:
 		font_size = max(_base_font_size - 4, 10)
 	screen.add_theme_font_override("normal_font", dynamic_font)
 	screen.add_theme_font_size_override("normal_font_size", font_size)
-	input_line.add_theme_font_override("font", dynamic_font)
-	input_line.add_theme_font_size_override("font_size", font_size)
+	if _cmd_display:
+		_cmd_display.add_theme_font_override("normal_font", dynamic_font)
+		_cmd_display.add_theme_font_size_override("normal_font_size", font_size)
 	sound.play_key()
-
-func _on_input_line_text_submitted(text: String) -> void:
-	if not _boot_done:
-		if text.strip_edges() != "":
-			_input_buffer += text.strip_edges() + "\n"
-		input_line.clear()
-		input_line.grab_focus()
-		return
-	sound.play_carriage()
-	input_line.clear()
-	input_line.grab_focus()
-	if text.strip_edges() == "":
-		if not computer._program_running:
-			computer.output.emit("\nREADY.\n")
-		return
-	if computer._awaiting_input:
-		computer.submit_input(text.strip_edges())
-		return
-	command_history.append(text.strip_edges())
-	history_pos = command_history.size()
-	_handle_command(text.strip_edges())
-	if not computer._program_running:
-		computer.output.emit("\nREADY.\n")
 
 func _handle_command(text: String) -> void:
 	if _monitor_mode:
@@ -418,6 +550,8 @@ func _handle_command(text: String) -> void:
 		screen.clear()
 	elif upper == "RESET":
 		computer.reset()
+		_cmd_line = ""
+		_cmd_cursor = 0
 		screen.clear()
 		_print_banner()
 		_update_status()
@@ -1213,7 +1347,11 @@ func _add_program_line(text: String) -> void:
 		computer.basic._program.sort_custom(func(a, b): return a[0] < b[0])
 	computer.basic._collect_data()
 	_instant_output = true
-	screen.append_text("[color=lime]%5d %s\n[/color]" % [line_num, stmt])
+	if replaced:
+		screen.append_text("[color=cyan]UPDATED LINE %d\n[/color]" % line_num)
+	else:
+		screen.append_text("[color=lime]INSERTED LINE %d\n[/color]" % line_num)
+	screen.append_text("[color=white]%5d %s\n[/color]" % [line_num, stmt])
 	_instant_output = false
 
 func _save_program(filename: String) -> void:
@@ -1293,9 +1431,9 @@ func _format_size(bytes: int) -> String:
 	if bytes < 1024:
 		return str(bytes) + " B"
 	elif bytes < 1048576:
-		return str(bytes / 1024) + " KB"
+		return str(bytes / 1024.0) + " KB"
 	else:
-		return str(bytes / 1048576) + " MB"
+		return str(bytes / 1048576.0) + " MB"
 
 func _scratch_program(filename: String) -> void:
 	if filename == "":
@@ -1386,7 +1524,7 @@ func _load_demo(name: String, param: String = "") -> void:
 		computer.basic.load_program(program)
 		computer.basic._running = false
 		computer._program_running = false
-		if param != "" and computer.basic._demos_with_param.has(name):
+		if param != "" and _demos_with_param.has(name):
 			computer.basic._variables["N"] = float(param)
 		_instant_output = true
 		screen.append_text("[color=lime]Loaded demo: " + name + "\n[/color]")
@@ -1763,12 +1901,14 @@ func _load_state_silent() -> void:
 	_warmup_done = true
 	crt_overlay.material.set_shader_parameter("brightness", 1.0)
 	crt_overlay.material.set_shader_parameter("static_intensity", 0.0)
+	_cmd_line = ""
+	_cmd_cursor = 0
 	screen.clear()
 	_print_banner()
 	_instant_output = true
 	screen.append_text("[color=green]Previous state restored. Press F3 to adjust settings.[/color]\n\n")
 	_instant_output = false
-	input_line.grab_focus()
+	_update_cmd_display()
 
 func _apply_saved_state(data: Dictionary) -> void:
 	if data.has("crt"):
