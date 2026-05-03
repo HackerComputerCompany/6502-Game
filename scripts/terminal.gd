@@ -205,9 +205,7 @@ func _flush_input_buffer() -> void:
 			continue
 		command_history.append(line)
 		_handle_command(line)
-		_instant_output = true
-		screen.append_text("[color=lime]\nREADY.\n[/color]")
-		_instant_output = false
+		computer.output.emit("\nREADY.\n")
 	history_pos = command_history.size()
 
 func _stream_char_by_char(text: String) -> void:
@@ -297,21 +295,11 @@ func _on_output(text: String) -> void:
 	if text == "[CLR]":
 		screen.clear()
 		return
-	if computer._program_running and not computer._awaiting_input:
-		_output_queue += text
-		_is_streaming = true
-	else:
-		var escaped = text
-		escaped = escaped.replace("&", "&amp;")
-		escaped = escaped.replace("[", "&lsqb;")
-		escaped = escaped.replace("]", "&rsqb;")
-		screen.append_text("[color=lime]" + escaped + "[/color]")
-		screen.scroll_to_line(screen.get_line_count() - 1)
+	_output_queue += text
+	_is_streaming = true
 
 func _on_program_finished() -> void:
-	_instant_output = true
-	screen.append_text("\n[color=lime]READY.\n[/color]")
-	_instant_output = false
+	computer.output.emit("\nREADY.\n")
 
 func _update_status() -> void:
 	var state = computer.cpu.get_state()
@@ -363,15 +351,18 @@ func _apply_font() -> void:
 	sound.play_key()
 
 func _on_input_line_text_submitted(text: String) -> void:
-	if text.strip_edges() == "":
+	if not _boot_done:
+		if text.strip_edges() != "":
+			_input_buffer += text.strip_edges() + "\n"
 		input_line.clear()
 		input_line.grab_focus()
 		return
 	sound.play_carriage()
 	input_line.clear()
 	input_line.grab_focus()
-	if not _boot_done:
-		_input_buffer += text.strip_edges() + "\n"
+	if text.strip_edges() == "":
+		if not computer._program_running:
+			computer.output.emit("\nREADY.\n")
 		return
 	if computer._awaiting_input:
 		computer.submit_input(text.strip_edges())
@@ -379,9 +370,8 @@ func _on_input_line_text_submitted(text: String) -> void:
 	command_history.append(text.strip_edges())
 	history_pos = command_history.size()
 	_handle_command(text.strip_edges())
-	_instant_output = true
-	screen.append_text("[color=lime]\nREADY.\n[/color]")
-	_instant_output = false
+	if not computer._program_running:
+		computer.output.emit("\nREADY.\n")
 
 func _handle_command(text: String) -> void:
 	var upper = text.to_upper()
