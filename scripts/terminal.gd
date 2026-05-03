@@ -63,6 +63,7 @@ const SAVE_PATH = "user://savestate.json"
 
 const WARMUP_DURATION: float = 120.0
 const BOOT_DURATION: float = 5.0
+const BOOT_FADE_DURATION: float = 4.0
 
 var _warmup_elapsed: float = 0.0
 var _boot_elapsed: float = 0.0
@@ -70,6 +71,7 @@ var _boot_phase: int = 0
 var _boot_done: bool = false
 var _warmup_done: bool = false
 var _input_buffer: String = ""
+var _mouse_hide_timer: float = 0.0
 
 const COLD_CURVATURE: float = 0.10
 const COLD_SCANLINE: float = 0.15
@@ -78,6 +80,7 @@ const COLD_GLOW: float = 0.6
 const COLD_FLICKER: float = 0.05
 
 func _ready() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	computer = Computer.new()
 	computer.output.connect(_on_output)
 	computer.program_finished.connect(_on_program_finished)
@@ -109,12 +112,17 @@ func _start_cold_boot() -> void:
 		_on_vignette_changed(vignette_slider.value)
 		_on_glow_changed(glow_slider.value)
 		_on_flicker_changed(flicker_slider.value)
+		crt_overlay.material.set_shader_parameter("brightness", 1.0)
+		crt_overlay.material.set_shader_parameter("static_intensity", 0.0)
 		return
 	crt_overlay.material.set_shader_parameter("crt_curvature", COLD_CURVATURE)
 	crt_overlay.material.set_shader_parameter("scanline_intensity", COLD_SCANLINE)
 	crt_overlay.material.set_shader_parameter("vignette_intensity", COLD_VIGNETTE)
 	crt_overlay.material.set_shader_parameter("glow_intensity", COLD_GLOW)
 	crt_overlay.material.set_shader_parameter("flicker_intensity", COLD_FLICKER)
+	crt_overlay.material.set_shader_parameter("brightness", 0.0)
+	crt_overlay.material.set_shader_parameter("static_intensity", 1.0)
+	sound.play_crackle()
 
 func _apply_font_deferred() -> void:
 	if _fonts_loaded:
@@ -123,6 +131,9 @@ func _apply_font_deferred() -> void:
 	_fonts_loaded = true
 
 func _process(delta: float) -> void:
+	_mouse_hide_timer -= delta
+	if _mouse_hide_timer <= 0 and Input.mouse_mode != Input.MOUSE_MODE_HIDDEN:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	if not _warmup_done:
 		_process_warmup(delta)
 	if not _boot_done:
@@ -170,12 +181,20 @@ func _process_warmup(delta: float) -> void:
 		_on_vignette_changed(vignette_slider.value)
 		_on_glow_changed(glow_slider.value)
 		_on_flicker_changed(flicker_slider.value)
+		crt_overlay.material.set_shader_parameter("brightness", 1.0)
+		crt_overlay.material.set_shader_parameter("static_intensity", 0.0)
 
 func _process_boot(delta: float) -> void:
 	_boot_elapsed += delta
+	var fade_t = clampf(_boot_elapsed / BOOT_FADE_DURATION, 0.0, 1.0)
+	var brightness = fade_t * fade_t
+	var static_amt = max(0.0, 1.0 - fade_t * 3.0)
+	crt_overlay.material.set_shader_parameter("brightness", brightness)
+	crt_overlay.material.set_shader_parameter("static_intensity", static_amt)
 	var phases = [
 		{"time": 0.0, "msg": null},
-		{"time": 0.5, "msg": "[color=green][b]BASIC6502 BIOS v1.4[/b][/color]\n"},
+		{"time": 0.5, "msg": "[color=green][b]Hacker Computer Company[/b][/color]\n"},
+		{"time": 1.0, "msg": "[color=green][b]BASIC6502 BIOS v1.4[/b][/color]\n"},
 		{"time": 1.2, "msg": "[color=green]Testing RAM... 65536 bytes OK[/color]\n"},
 		{"time": 2.0, "msg": "[color=green]6502 CPU @ 1MHz... OK[/color]\n"},
 		{"time": 2.6, "msg": "[color=green]ROM at $F000... OK[/color]\n"},
@@ -231,8 +250,13 @@ func _stream_char_by_char(text: String) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		input_line.grab_focus()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_mouse_hide_timer = 3.0
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_mouse_hide_timer = 3.0
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE and _monitor_mode:
 			_exit_monitor()
@@ -279,7 +303,7 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F9:
 			var path = debug.take_screenshot()
 			_instant_output = true
-			screen.append_text("\n[color=cyan]Screenshot: " + path + "[/color]\n")
+			screen.append_text("\n[color=green]Screenshot: " + path + "[/color]\n")
 			_instant_output = false
 		elif event.keycode == KEY_F10:
 			computer.reset()
@@ -290,10 +314,12 @@ func _input(event: InputEvent) -> void:
 
 func _print_banner() -> void:
 	_instant_output = true
+	screen.append_text("[color=green][b]Hacker Computer Company[/b][/color]\n")
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
-	screen.append_text("[color=green]F1=Help F3=CRT F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=green]F1=Help F3=Settings F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
+	screen.append_text("[color=green]Some demos take a number: DEMO PRIMENUMS 100 or DEMO PI 1000\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
 
@@ -322,7 +348,7 @@ func _update_status() -> void:
 
 func _update_clock_label() -> void:
 	_instant_output = true
-	screen.append_text("\n[color=cyan]CPU Clock: " + _clock_labels[_current_clock_idx] + "[/color]\n")
+	screen.append_text("\n[color=green]CPU Clock: " + _clock_labels[_current_clock_idx] + "[/color]\n")
 	_instant_output = false
 	sound.play_bell()
 
@@ -410,19 +436,35 @@ func _handle_command(text: String) -> void:
 		_enter_monitor()
 	elif upper == "LIST":
 		_list_program()
-	elif upper.begins_with("RUN"):
+	elif upper.begins_with("LIST "):
+		_list_program(text.substr(5).strip_edges())
+	elif upper == "RUN":
 		_run_program()
+	elif upper.begins_with("RUN ") or upper == "RUN,":
+		_run_program_with_args(text.substr(3).strip_edges())
 	elif upper.begins_with("SAVE "):
 		_save_program(text.substr(5).strip_edges())
 	elif upper.begins_with("LOAD "):
 		_load_program(text.substr(5).strip_edges())
 	elif upper == "DIR" or upper == "CATALOG":
 		_show_catalog()
+	elif upper.begins_with("SCRATCH ") or upper.begins_with("DELETE "):
+		_scratch_program(text.substr(text.find(" ") + 1).strip_edges())
+	elif upper.begins_with("RENAME "):
+		_rename_program(text.substr(7).strip_edges())
 	elif upper == "DEMO" or upper == "DEMOS":
 		_show_demos()
 	elif upper.begins_with("DEMO ") or upper.begins_with("DEMOS "):
-		var demo_name = text.substr(5).strip_edges().to_lower()
-		_load_demo(demo_name)
+		var demo_arg = text.substr(5).strip_edges()
+		var space_pos = demo_arg.find(" ")
+		var demo_name: String
+		var demo_param: String = ""
+		if space_pos >= 0:
+			demo_name = demo_arg.substr(0, space_pos).to_lower()
+			demo_param = demo_arg.substr(space_pos + 1).strip_edges()
+		else:
+			demo_name = demo_arg.to_lower()
+		_load_demo(demo_name, demo_param)
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
@@ -438,43 +480,45 @@ func _handle_command(text: String) -> void:
 
 func _show_help() -> void:
 	_instant_output = true
-	var help_text = "\n[color=cyan][b]BASIC6502 Commands:[/b][/color]\n"
-	help_text += "[color=yellow]  RUN       [/color]- Run the current program\n"
-	help_text += "[color=yellow]  LIST      [/color]- List the current program\n"
+	var help_text = "\n[color=cyan]BASIC6502 Commands:[/color]\n"
+	help_text += "[color=yellow]  RUN [n]   [/color]- Run program (optionally from line n)\n"
+	help_text += "[color=yellow]  LIST [n]  [/color]- List program (or line range)\n"
 	help_text += "[color=yellow]  NEW       [/color]- Clear the program and variables\n"
 	help_text += "[color=yellow]  CLEAR     [/color]- Clear the screen\n"
 	help_text += "[color=yellow]  RESET     [/color]- Full system reset\n"
 	help_text += "[color=yellow]  CPU       [/color]- Show CPU registers\n"
-	help_text += "[color=yellow]  STOP      [/color]- Break running program\n"
+	help_text += "[color=yellow]  STOP/BREAK[/color]- Break running program\n"
 	help_text += "[color=yellow]  HALT      [/color]- Halt the CPU\n"
 	help_text += "[color=yellow]  STEP      [/color]- Single-step one CPU instruction\n"
 	help_text += "[color=yellow]  MONITOR   [/color]- Enter system monitor (Apple II style)\n"
 	help_text += "[color=yellow]  POWEROFF  [/color]- Shut down\n"
 	help_text += "[color=yellow]  SAVE name [/color]- Save program to disk\n"
 	help_text += "[color=yellow]  LOAD name [/color]- Load program from disk\n"
+	help_text += "[color=yellow]  SCRATCH   [/color]- Delete a saved program (or DELETE)\n"
+	help_text += "[color=yellow]  RENAME    [/color]- Rename a saved program\n"
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
 	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
-	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program\n"
-	help_text += "\n[color=cyan][b]Keyboard Shortcuts:[/b][/color]\n"
-	help_text += "[color=yellow]  F3  [/color]- Toggle CRT settings panel\n"
+	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program (some accept N)\n"
+	help_text += "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
+	help_text += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
 	help_text += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
 	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	help_text += "[color=yellow]  F8  [/color]- Cycle font\n"
 	help_text += "[color=yellow]  F9  [/color]- Take screenshot\n"
 	help_text += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
 	help_text += "[color=yellow]  F1  [/color]- Show this help\n"
-	help_text += "[color=yellow]  F5  [/color]- Run program\n"
+	help_text += "[color=yellow]  F5  [/color]- Run program (from start)\n"
 	help_text += "[color=yellow]  F10 [/color]- Reset system\n"
-	help_text += "\n[color=cyan][b]Save/Load (in CRT Settings panel - F3):[/b][/color]\n"
-	help_text += "[color=yellow]  Save State[/color] - Save CRT settings, program, variables & memory\n"
+	help_text += "\n[color=cyan]Save/Load (in System Settings panel - F3):[/color]\n"
+	help_text += "[color=yellow]  Save State[/color] - Save system settings, program, variables & memory\n"
 	help_text += "[color=yellow]  Load State[/color] - Restore a previously saved state\n"
 	help_text += "[color=yellow]  Reset to Defaults[/color] - Reset CRT sliders to defaults\n"
-	help_text += "\n[color=cyan][b]BASIC Statements:[/b][/color]\n"
+	help_text += "\n[color=cyan]BASIC Statements:[/color]\n"
 	help_text += "[color=yellow]  PRINT, INPUT, GOTO, GOSUB, RETURN[/color]\n"
 	help_text += "[color=yellow]  FOR..TO..STEP..NEXT, IF..THEN[/color]\n"
 	help_text += "[color=yellow]  LET, DIM, READ, DATA, RESTORE[/color]\n"
-	help_text += "[color=yellow]  POKE, ON..GOTO/GOSUB, END[/color]\n"
-	help_text += "\n[color=cyan][b]BASIC Functions:[/b][/color]\n"
+	help_text += "[color=yellow]  POKE, ON..GOTO/GOSUB, END, STOP, BREAK[/color]\n"
+	help_text += "\n[color=cyan]BASIC Functions:[/color]\n"
 	help_text += "[color=yellow]  INT(), RND(), ABS(), SQR(), SIN(), COS()[/color]\n"
 	help_text += "[color=yellow]  TAN(), ATN(), LOG(), EXP(), SGN()[/color]\n"
 	help_text += "[color=yellow]  LEN(), CHR$(), ASC(), LEFT$(), RIGHT$()[/color]\n"
@@ -493,449 +537,561 @@ func _init_help_topics() -> void:
 			"syntax": "PRINT expr [;|, expr ...]",
 			"desc": "Output text, numbers, or expressions to the screen. Semicolons join output without spaces; commas add tab stops. A trailing semicolon suppresses the newline.",
 			"examples": [
-				'PRINT "HELLO WORLD"',
-				'PRINT 42 + 8',
-				'PRINT "SCORE: "; SCORE',
-				'10 PRINT "VALUE: "; X; " UNITS"',
+				'PRINT "HELLO WORLD"        -> displays HELLO WORLD',
+				'10 PRINT "SCORE: "; SCORE   -> with semicolon, no space before value',
+				'PRINT 42 + 8                -> displays 50',
+				'PRINT A; " "; B             -> multiple expressions separated by ;',
 			]
 		},
 		"INPUT": {
-			"syntax": 'INPUT [prompt$]; var$',
-			"desc": "Display a prompt and wait for the user to type a value. Assigns the entered value to a variable.",
+			"syntax": 'INPUT [prompt$]; var[, var ...]',
+			"desc": "Display a prompt and wait for the user to type a value. Assigns the entered value to a variable. Multiple variables separated by commas accept multiple inputs.",
 			"examples": [
-				'INPUT "YOUR NAME? "; N$',
-				'10 INPUT "GUESS A NUMBER: "; G',
-				'INPUT A',
+				'10 INPUT "YOUR NAME? "; N$   -> prompts then reads string',
+				'20 INPUT "AGE? "; A           -> prompts then reads number',
+				'INPUT X                       -> reads a number with ? prompt',
 			]
 		},
 		"GOTO": {
 			"syntax": "GOTO linenum",
-			"desc": "Jump unconditionally to the specified line number. Often used for simple loops. Use with caution — infinite loops can occur.",
+			"desc": "Jump unconditionally to the specified line number. Often used for simple loops. Can cause infinite loops if not paired with a condition.",
 			"examples": [
-				'GOTO 100',
-				'10 PRINT "HELLO": GOTO 10',
+				'10 PRINT "AGAIN": GOTO 10    -> infinite loop',
+				'50 IF X > 10 THEN GOTO 100   -> conditional jump',
+				'99 GOTO 10                    -> jump back to start',
 			]
 		},
 		"GOSUB": {
 			"syntax": "GOSUB linenum",
-			"desc": "Call a subroutine at the given line number. Execution returns to the next line after RETURN. GOSUB/RETURN forms a call stack up to ~100 levels deep.",
+			"desc": "Call a subroutine at the given line number. Execution returns to the line after GOSUB when RETURN is hit. Supports nesting up to ~100 levels deep.",
 			"examples": [
-				'10 GOSUB 500',
-				'20 PRINT "BACK": END',
-				'500 PRINT "IN SUB": RETURN',
+				'10 GOSUB 500                  -> call subroutine at line 500',
+				'20 PRINT "BACK": END           -> continues here after RETURN',
+				'500 PRINT "IN SUB": RETURN    -> subroutine definition',
 			]
 		},
 		"RETURN": {
 			"syntax": "RETURN",
-			"desc": "Return from a subroutine called by GOSUB. Execution continues after the GOSUB statement.",
+			"desc": "Return from a subroutine called by GOSUB. Execution continues at the line after the GOSUB. Causes ERROR if no GOSUB is active.",
 			"examples": [
-				'500 PRINT "IN SUB": RETURN',
+				'500 PRINT "HELLO": RETURN     -> simple subroutine',
+				'300 RETURN                     -> return to caller',
+				'10 GOSUB 100: PRINT "DONE"    -> GOSUB/RETURN pair',
 			]
 		},
 		"FOR": {
 			"syntax": "FOR var = start TO end [STEP incr]",
-			"desc": "Begin a counted loop. The variable counts from start to end. Optional STEP sets the increment (default 1). The loop body ends with NEXT var.",
+			"desc": "Begin a counted loop. Variable counts from start to end. STEP is optional (default 1). Loop body ends with NEXT var. Nested FOR loops are supported.",
 			"examples": [
-				'10 FOR I = 1 TO 10',
-				'20 PRINT I',
-				'30 NEXT I',
-				'FOR X = 0 TO 100 STEP 5',
+				'10 FOR I = 1 TO 10            -> count from 1 to 10',
+				'20 FOR X = 0 TO 100 STEP 5    -> count by 5',
+				'10 FOR I = 10 TO 1 STEP -1    -> count backwards',
 			]
 		},
 		"NEXT": {
 			"syntax": "NEXT var",
-			"desc": "End a FOR loop. Increments the loop variable and jumps back to the FOR line if the end value has not been reached.",
+			"desc": "End a FOR loop. Increments the loop variable by STEP and jumps back to the FOR line if the end value hasn't been reached. Must match a FOR statement. NEXT without a variable matches the innermost FOR.",
 			"examples": [
-				'10 FOR I = 1 TO 5',
-				'20 PRINT I',
-				'30 NEXT I',
+				'30 NEXT I                      -> end of FOR I loop',
+				'20 NEXT                         -> end of innermost FOR loop',
+				'10 FOR X = 1 TO 5: PRINT X: NEXT X  -> single-line loop',
 			]
 		},
 		"IF": {
-			"syntax": "IF condition THEN statement [ELSE statement]",
-			"desc": "Conditional execution. If the condition is true, the THEN clause runs. Optional ELSE runs when the condition is false. Use GOTO or any statement after THEN.",
+			"syntax": "IF condition THEN statement [: ELSE statement]",
+			"desc": "Conditional execution. If the condition is true, the THEN clause runs. Optional ELSE runs when false. THEN can be followed by a line number (GOTO) or any statement. Use colon : to separate multiple statements.",
 			"examples": [
-				'IF X > 10 THEN PRINT "BIG"',
-				'IF A = B THEN PRINT "SAME" ELSE PRINT "DIFFERENT"',
-				'10 IF G < N THEN PRINT "TOO LOW"',
+				'10 IF X > 10 THEN PRINT "BIG"       -> simple condition',
+				'20 IF A = B THEN GOTO 100            -> THEN with line number',
+				'30 IF N < 0 THEN PRINT "NEG" ELSE PRINT "POS"  -> with ELSE',
 			]
 		},
 		"THEN": {
 			"syntax": "IF condition THEN statement",
-			"desc": "Used after IF to specify what to do when the condition is true. See HELP IF for details.",
+			"desc": "Used after IF to specify what to do when the condition is true. Can be followed by a line number (implicit GOTO) or any BASIC statement. See HELP IF for full details.",
 			"examples": [
-				'IF X > 0 THEN PRINT "POSITIVE"',
+				'10 IF X > 0 THEN PRINT "POSITIVE"',
+				'20 IF A = 1 THEN 100              -> shorthand for GOTO 100',
+				'30 IF DONE THEN END                -> end program if DONE is true',
 			]
 		},
 		"ELSE": {
 			"syntax": "IF condition THEN stmt1 ELSE stmt2",
-			"desc": "Optional part of IF — provides an alternative when the condition is false. See HELP IF for details.",
+			"desc": "Optional part of IF — provides an alternative when the condition is false. Must appear on the same line as the IF. See HELP IF for full details.",
 			"examples": [
-				'IF A > B THEN PRINT "A" ELSE PRINT "B"',
+				'10 IF A > B THEN PRINT "A" ELSE PRINT "B"',
+				'20 IF X THEN PRINT "YES" ELSE PRINT "NO"',
+				'30 IF N >= 0 THEN GOTO 100 ELSE GOTO 200',
 			]
 		},
 		"LET": {
-			"syntax": "LET var = expr",
-			"desc": "Assign a value to a variable. LET is optional — you can assign with just var = expr.",
+			"syntax": "[LET] var = expr",
+			"desc": "Assign a value to a variable. LET is optional — you can assign with just var = expr. Supports numbers, strings (var$), and expressions.",
 			"examples": [
-				'LET X = 42',
-				'X = 42',
-				'LET NAME$ = "BASIC"',
+				'10 LET X = 42                  -> explicit assignment',
+				'20 X = X + 1                    -> implicit (no LET needed)',
+				'30 NAME$ = "BASIC"              -> string assignment',
 			]
 		},
 		"DIM": {
 			"syntax": "DIM var(size) [, var(size) ...]",
-			"desc": "Declare an array with the given size. Arrays are 0-indexed. If not DIMmed, arrays auto-size on first use.",
+			"desc": "Declare an array with the given size. Arrays are 0-indexed. If not DIMmed, arrays auto-size on first use up to 10 elements. Multiple arrays can be declared on one line.",
 			"examples": [
-				'DIM A(10)',
-				'DIM A(10), B$(20)',
-				'10 DIM SCORES(100)',
+				'10 DIM A(10)                    -> array of 11 elements (0-10)',
+				'20 DIM A(10), B$(20)            -> two arrays at once',
+				'30 DIM SCORES(100)              -> large array for scores',
 			]
 		},
 		"READ": {
 			"syntax": "READ var [, var ...]",
-			"desc": "Read values from DATA statements into variables. Use RESTORE to reset the data pointer.",
+			"desc": "Read values from DATA statements into variables. Values are read sequentially from all DATA lines. Use RESTORE to reset the data pointer.",
 			"examples": [
-				'10 READ A, B, C',
-				'20 DATA 10, 20, 30',
+				'10 READ A, B, C                 -> read three numbers',
+				'20 READ NAME$                    -> read a string',
+				'10 FOR I = 1 TO 5: READ N(I): NEXT I  -> fill array from DATA',
 			]
 		},
 		"DATA": {
 			"syntax": "DATA value [, value ...]",
-			"desc": "Define data values to be read by READ statements. Values are read sequentially. Use RESTORE to start over.",
+			"desc": "Define data values to be read by READ statements. Values are read sequentially across all DATA lines. Strings should be quoted if they contain commas.",
 			"examples": [
-				'10 DATA 10, 20, 30',
-				'10 DATA "HELLO", "WORLD"',
+				'10 DATA 10, 20, 30              -> three numbers',
+				'20 DATA "HELLO", "WORLD"        -> two strings',
+				'100 DATA 1, 2, 3, 4, 5          -> five numbers',
 			]
 		},
 		"RESTORE": {
 			"syntax": "RESTORE",
-			"desc": "Reset the DATA pointer so the next READ starts from the first DATA statement again.",
+			"desc": "Reset the DATA pointer so the next READ starts from the first DATA statement again. Useful for re-reading data values.",
 			"examples": [
-				'30 RESTORE',
+				'30 RESTORE                       -> reset to start of DATA',
+				'10 FOR I = 1 TO 2: READ X: NEXT I: RESTORE  -> read then reset',
+				'100 RESTORE                      -> allows DATA to be read again',
 			]
 		},
 		"POKE": {
 			"syntax": "POKE address, value",
-			"desc": "Write a byte (0-255) to a memory address. Used for direct hardware access, screen control, and machine language programming. Common addresses: $C002 (screen char), $C003 (screen ctrl: 12=clear, 13=newline).",
+			"desc": "Write a byte (0-255) to a memory address. Used for direct hardware access and machine language programming. Key addresses: $C002 (screen char), $C003 (control: 12=clear, 13=newline).",
 			"examples": [
-				'POKE 49152, 65',
-				'10 POKE $C002, 65',
-				'POKE 49155, 12',
+				'10 POKE 49152, 65              -> write A to screen port',
+				'20 POKE $C002, 65              -> same using hex address',
+				'30 POKE 49155, 12              -> clear screen (12 = form feed)',
 			]
 		},
 		"PEEK": {
 			"syntax": "PEEK(addr)",
-			"desc": "Read a byte from a memory address. Returns a value 0-255. Useful for reading hardware ports and examining memory. Address $C000 is keyboard data, $C001 is keyboard status.",
+			"desc": "Read a byte from a memory address. Returns a value 0-255. Key addresses: $C000 (keyboard data), $C001 (keyboard status). Can be used in expressions.",
 			"examples": [
-				'PRINT PEEK(49152)',
-				'A = PEEK($C000)',
-				'10 PRINT PEEK(2048)',
+				'10 PRINT PEEK(49152)          -> read screen port',
+				'20 A = PEEK($C000)             -> read keyboard data',
+				'30 IF PEEK($C001) THEN GOTO 10 -> check if key pressed',
 			]
 		},
 		"ON": {
 			"syntax": "ON expr GOTO line1, line2, ... | ON expr GOSUB line1, line2, ...",
-			"desc": "Computed branch — jumps to the Nth line number in the list based on the expression value (1-based). Equivalent to a switch/case.",
+			"desc": "Computed branch — jumps to the Nth line number in the list based on the expression value (1-based). If expr is 0 or exceeds the list, no jump occurs.",
 			"examples": [
-				'10 ON X GOTO 100, 200, 300',
-				'10 ON CHOICE GOSUB 500, 600, 700',
+				'10 ON X GOTO 100, 200, 300     -> jump to line 100, 200, or 300',
+				'20 ON CHOICE GOSUB 500, 600, 700 -> call subroutine 500, 600, or 700',
+				'30 ON MENU GOTO 50, 100, 150, 200  -> four-way branch',
 			]
 		},
 		"END": {
-			"syntax": "END  or  STOP",
-			"desc": "Stop program execution. END and STOP are interchangeable in BASIC.",
+			"syntax": "END  |  STOP  |  BREAK",
+			"desc": "Stop program execution immediately. END, STOP, and BREAK are interchangeable. Shows 'BREAK AT LINE n' when used in a program.",
 			"examples": [
-				'99 END',
-				'10 PRINT "DONE": END',
+				'99 END                          -> normal program termination',
+				'50 IF X < 0 THEN STOP           -> conditional stop for debugging',
+				'10 PRINT "TEST": BREAK           -> stop and show line number',
+			]
+		},
+		"STOP": {
+			"syntax": "STOP  |  BREAK",
+			"desc": "Stop the currently running program. In a program, shows 'BREAK AT LINE n'. At the command line, stops any running program. Also triggered by the F5 key.",
+			"examples": [
+				'STOP                             -> break running program',
+				'BREAK                             -> same as STOP',
+				'50 IF ERROR THEN STOP             -> conditional breakpoint',
+			]
+		},
+		"BREAK": {
+			"syntax": "BREAK  |  STOP",
+			"desc": "Break (stop) the currently running program. Same as STOP. Shows the line number where execution stopped.",
+			"examples": [
+				'BREAK                            -> break running program',
+				'STOP                              -> same as BREAK',
+				'50 IF DONE THEN BREAK             -> stop if condition met',
 			]
 		},
 		"REM": {
 			"syntax": "REM comment text",
-			"desc": "Add a comment to your program. Everything after REM on that line is ignored. Comments help document your code.",
+			"desc": "Add a comment (remark) to your program. Everything after REM on that line is ignored. Comments help document your code. Cannot be followed by more statements.",
 			"examples": [
-				'10 REM THIS IS A COMMENT',
-				'100 REM --- MAIN LOOP ---',
+				'10 REM THIS IS A COMMENT        -> explanatory note',
+				'100 REM --- MAIN LOOP ---       -> section divider',
+				'50 REM X INCREASES BY 1 EACH LOOP -> algorithm note',
 			]
 		},
 		"CLR": {
 			"syntax": "CLR",
-			"desc": "Clear all variables and arrays from memory, but keep the program text intact. Different from NEW which also clears the program.",
+			"desc": "Clear all variables and arrays from memory, but keep the program text intact. Different from NEW which also clears the program. Useful for resetting state without losing your program.",
 			"examples": [
-				'CLR',
+				'CLR                              -> clear all variables',
+				'10 CLR                            -> clear vars from within program',
+				'100 CLR: FOR I = 1 TO 10          -> reset then start fresh loop',
 			]
 		},
 		"NEW": {
 			"syntax": "NEW",
-			"desc": "Clear the current program and all variables from memory. Starts fresh.",
+			"desc": "Clear the current program and all variables from memory. Starts fresh. This cannot be undone — make sure you SAVE first if needed.",
 			"examples": [
-				'NEW',
+				'NEW                               -> clear everything and start over',
+				'10 REM Type NEW to begin a fresh program',
+				'-> After NEW, LIST shows no program lines',
 			]
 		},
 		"LIST": {
-			"syntax": "LIST",
-			"desc": "Display all lines of the current program in memory.",
+			"syntax": "LIST  |  LIST linenum  |  LIST start end",
+			"desc": "Display program lines in memory. With no arguments, lists all lines. With one line number, shows just that line. With two numbers, shows all lines in that range. Typing a line number with no statement deletes that line.",
 			"examples": [
-				'LIST',
+				'LIST                              -> show all program lines',
+				'LIST 30                            -> show only line 30',
+				'LIST 10 100                        -> show lines 10 through 100',
 			]
 		},
 		"RUN": {
-			"syntax": "RUN",
-			"desc": "Execute the current program from the first line number.",
+			"syntax": "RUN  |  RUN linenum  |  RUN var=val, ...  |  RUN linenum, var=val, ...",
+			"desc": "Execute the current program. With a line number, start at that line. With variable assignments, set variables before running. Assignments can include numbers, strings, and expressions.",
 			"examples": [
-				'RUN',
+				'RUN                               -> start from first line',
+				'RUN 100                            -> start at line 100',
+				'RUN N=10                           -> set N=10 then run from start',
+				'RUN 100, N=10, S$="HELLO"         -> start at line 100, set N and S$',
 			]
 		},
 		"CLEAR": {
-			"syntax": "CLEAR  or  CLS",
-			"desc": "Clear the terminal screen. Does not affect the program or variables.",
+			"syntax": "CLEAR  |  CLS",
+			"desc": "Clear the terminal screen. Does not affect the program or variables. Use NEW to clear the program, CLR to clear variables only.",
 			"examples": [
-				'CLEAR',
-				'CLS',
+				'CLEAR                             -> clear the screen',
+				'CLS                               -> same as CLEAR',
+				'10 CLEAR                          -> clear screen from within program',
 			]
 		},
 		"RESET": {
 			"syntax": "RESET",
-			"desc": "Full system reset — clears all memory, reloads ROM, resets CPU registers, and reinitializes the BASIC interpreter.",
+			"desc": "Full system reset — clears all memory, reloads ROM, resets CPU registers, and reinitializes the BASIC interpreter. The screen is cleared and the boot banner is shown.",
 			"examples": [
-				'RESET',
+				'RESET                             -> full system restart',
+				'-> Use when the system is in a bad state',
+				'-> All program and variable data is lost',
 			]
 		},
 		"CPU": {
 			"syntax": "CPU",
-			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X, Y (index), SP (stack pointer), PC (program counter), and status flags.",
+			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X and Y (index), SP (stack pointer), PC (program counter), and status flags (NVDIZC).",
 			"examples": [
-				'CPU',
+				'CPU                               -> show all CPU registers',
+				'-> Useful after STEP or HALT for debugging',
+				'10 SYS 61488: CPU                  -> run 6502 code then show regs',
 			]
 		},
 		"SYS": {
 			"syntax": "SYS address",
-			"desc": "Execute 6502 machine code at the given memory address. The CPU jumps to that address and runs until it encounters an RTS (return from subroutine). Used with POKE to run custom assembly.",
+			"desc": "Execute 6502 machine code at the given memory address. The CPU jumps to that address and runs until RTS (return from subroutine). Use POKE to load code before calling SYS. Address can be decimal or hex with $ prefix.",
 			"examples": [
-				'SYS $F000',
-				'10 POKE 768,169: POKE 769,65: SYS 768',
+				'10 SYS 61488                       -> call ROM routine at $F000',
+				'20 POKE 768,169: POKE 769,65: SYS 768  -> load and run machine code',
+				'SYS $F040                           -> call counter routine in hex',
 			]
 		},
 		"SAVE": {
 			"syntax": "SAVE filename",
-			"desc": "Save the current BASIC program to disk (stored in user:// directory as filename.bas).",
+			"desc": "Save the current BASIC program to disk (stored in user:// directory as filename.bas). The file contains program text only, not variable values.",
 			"examples": [
-				'SAVE MYPROG',
-				'SAVE TEST1',
+				'SAVE MYPROG                       -> save as MYPROG.bas',
+				'SAVE TEST1                         -> save as TEST1.bas',
+				'SAVE "COOL GAME"                   -> save with spaces',
 			]
 		},
 		"LOAD": {
 			"syntax": "LOAD filename",
-			"desc": "Load a previously saved BASIC program from disk (from user:// directory).",
+			"desc": "Load a previously saved BASIC program from disk (from user:// directory). Replaces the current program and clears all variables.",
 			"examples": [
-				'LOAD MYPROG',
-				'LOAD TEST1',
+				'LOAD MYPROG                       -> load MYPROG.bas',
+				'LOAD TEST1                         -> load TEST1.bas',
+				'-> Type RUN after LOAD to execute',
 			]
 		},
 		"DIR": {
-			"syntax": "DIR  or  CATALOG",
-			"desc": "List all saved BASIC program files on disk.",
+			"syntax": "DIR  |  CATALOG",
+			"desc": "List all saved BASIC program files on disk. Shows filename and size. Use LOAD filename to load a program, then RUN to execute it.",
 			"examples": [
-				'DIR',
-				'CATALOG',
+				'DIR                               -> list all saved programs',
+				'CATALOG                            -> same as DIR',
+				'-> After DIR, use LOAD <name> to retrieve a program',
+			]
+		},
+		"SCRATCH": {
+			"syntax": "SCRATCH filename  |  DELETE filename",
+			"desc": "Delete a saved program file from disk. The file is permanently removed. Use DIR first to see what files exist.",
+			"examples": [
+				'SCRATCH MYPROG                  -> delete MYPROG.bas',
+				'DELETE TEST1                      -> same as SCRATCH',
+				'-> Use DIR to list files before deleting',
+			]
+		},
+		"DELETE": {
+			"syntax": "DELETE filename  |  SCRATCH filename",
+			"desc": "Delete a saved program file from disk. Same as SCRATCH. The file is permanently removed.",
+			"examples": [
+				'DELETE MYPROG                    -> delete MYPROG.bas',
+				'SCRATCH OLDGAME                  -> same as DELETE',
+				'-> Be sure you want to delete before using this command',
+			]
+		},
+		"RENAME": {
+			"syntax": "RENAME oldname newname",
+			"desc": "Rename a saved program file on disk. The old name must exist and the new name must not already exist.",
+			"examples": [
+				'RENAME MYPROG COOLPROG          -> rename file',
+				'RENAME TEST1 BACKUP              -> rename TEST1 to BACKUP',
+				'-> Use DIR to verify the new name appears',
 			]
 		},
 		"DEMO": {
-			"syntax": "DEMO  or  DEMO name",
-			"desc": "With no argument, lists available demo programs. With a name, loads that demo into memory. Type RUN afterwards to execute it.",
+			"syntax": "DEMO  |  DEMO name  |  DEMO name N",
+			"desc": "With no argument, lists available demo programs. With a name, loads that demo into memory (does not auto-run). Some demos accept a number N as a parameter (e.g. PRIMENUMS and PI). Type RUN afterwards to execute.",
 			"examples": [
-				'DEMO',
-				'DEMO HELLO',
-				'DEMO MANDELBROT',
-			]
-		},
-		"STOP": {
-			"syntax": "STOP  or  BREAK",
-			"desc": "Break (stop) the currently running program. Shows the line number where execution stopped.",
-			"examples": [
-				'STOP',
-				'BREAK',
+				'DEMO                               -> list all demos',
+				'DEMO MANDELBROT                    -> load Mandelbrot demo',
+				'DEMO PRIMENUMS 100                -> find first 100 primes',
+				'DEMO PI 1000                      -> calculate pi with 1000 terms',
 			]
 		},
 		"HALT": {
 			"syntax": "HALT",
-			"desc": "Halt the 6502 CPU immediately. The CPU will not execute further until you type STEP, enter the MONITOR, or RESET. Useful for debugging machine code.",
+			"desc": "Halt the 6502 CPU immediately. The CPU will not execute further until you type STEP, enter the MONITOR, or RESET. Useful for debugging machine code programs.",
 			"examples": [
-				'HALT',
+				'HALT                               -> freeze the CPU',
+				'10 SYS $F000: HALT                  -> run code then freeze',
+				'-> Use STEP or MONITOR to continue after HALT',
 			]
 		},
 		"STEP": {
 			"syntax": "STEP",
-			"desc": "Execute a single 6502 CPU instruction at the current PC, then display the instruction and registers.",
+			"desc": "Execute a single 6502 CPU instruction at the current program counter, then display the instruction and registers. Useful for debugging machine code. Only works when CPU is halted.",
 			"examples": [
-				'STEP',
+				'STEP                               -> execute one CPU instruction',
+				'-> Use after HALT or in MONITOR mode',
+				'-> Shows the instruction that was just executed',
 			]
 		},
 		"MONITOR": {
-			"syntax": "MONITOR  or  MON",
+			"syntax": "MONITOR  |  MON",
 			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list.",
 			"examples": [
-				'MONITOR',
-				'MON',
+				'MONITOR                            -> enter monitor mode',
+				'MON                                -> same shortcut',
+				'-> Type H inside monitor for help, ESC to exit',
 			]
 		},
 		"POWEROFF": {
 			"syntax": "POWEROFF",
-			"desc": "Shut down the BASIC6502 application.",
+			"desc": "Shut down the BASIC6502 application. Same as closing the window. All unsaved program data is lost.",
 			"examples": [
-				'POWEROFF',
+				'POWEROFF                           -> quit the application',
+				'-> Make sure you SAVE before POWEROFF',
+				'-> Equivalent to clicking the window close button',
 			]
 		},
 		"INT": {
 			"syntax": "INT(x)",
-			"desc": "Return the integer part of x (truncate toward zero).",
+			"desc": "Return the integer part of x, truncated toward zero. The fractional part is discarded.",
 			"examples": [
-				'PRINT INT(3.7)   -> 3',
-				'PRINT INT(-2.3)  -> -2',
-				'10 N = INT(RND(1) * 100)',
+				'PRINT INT(3.7)     -> 3           -> positive truncation',
+				'PRINT INT(-2.3)    -> -2          -> negative truncation',
+				'10 N = INT(RND(1) * 100) + 1     -> random integer 1-100',
 			]
 		},
 		"RND": {
 			"syntax": "RND(x)",
-			"desc": "Return a random number between 0 and 1. The argument is ignored — each call returns a new random value.",
+			"desc": "Return a random number between 0 and 1. The argument is ignored — each call returns a new random value. Use INT and multiplication to get integers in a range.",
 			"examples": [
-				'PRINT RND(1)',
-				'10 N = INT(RND(1) * 100) + 1',
+				'PRINT RND(1)       -> 0.xxxxxxxx  -> random float 0-1',
+				'10 N = INT(RND(1) * 100) + 1     -> random integer 1-100',
+				'10 D = INT(RND(1) * 6) + 1       -> dice roll 1-6',
 			]
 		},
 		"ABS": {
 			"syntax": "ABS(x)",
-			"desc": "Return the absolute value of x.",
+			"desc": "Return the absolute value of x — the distance from zero, always positive.",
 			"examples": [
-				'PRINT ABS(-5)  -> 5',
-				'PRINT ABS(3)   -> 3',
+				'PRINT ABS(-5)      -> 5           -> negative becomes positive',
+				'PRINT ABS(3)        -> 3           -> positive stays positive',
+				'10 D = ABS(X2 - X1)               -> calculate distance',
 			]
 		},
 		"SQR": {
 			"syntax": "SQR(x)",
-			"desc": "Return the square root of x.",
+			"desc": "Return the square root of x. x must be non-negative.",
 			"examples": [
-				'PRINT SQR(16)  -> 4',
-				'PRINT SQR(2)   -> 1.414...',
+				'PRINT SQR(16)      -> 4          -> 4 squared is 16',
+				'PRINT SQR(2)        -> 1.4142...  -> irrational result',
+				'10 H = SQR(A*A + B*B)            -> hypotenuse (Pythagoras)',
 			]
 		},
 		"SIN": {
 			"syntax": "SIN(x)",
-			"desc": "Return the sine of x (x in radians).",
+			"desc": "Return the sine of x, where x is in radians. To convert degrees to radians, multiply by PI/180.",
 			"examples": [
-				'PRINT SIN(3.14159)',
+				'PRINT SIN(3.14159)  -> ~0 (sin of pi)',
+				'10 S = SIN(ANGLE * 3.14159 / 180) -> sin of degrees',
+				'PRINT SIN(0)        -> 0          -> sin of zero',
 			]
 		},
 		"COS": {
 			"syntax": "COS(x)",
-			"desc": "Return the cosine of x (x in radians).",
+			"desc": "Return the cosine of x, where x is in radians. Commonly used with SIN for rotation and wave calculations.",
 			"examples": [
-				'PRINT COS(0)  -> 1',
+				'PRINT COS(0)        -> 1          -> cosine of zero',
+				'10 X = COS(ANGLE * 3.14159 / 180) -> cos of degrees',
+				'PRINT COS(3.14159)  -> ~-1         -> cos of pi',
 			]
 		},
 		"TAN": {
 			"syntax": "TAN(x)",
-			"desc": "Return the tangent of x (x in radians).",
+			"desc": "Return the tangent of x (sin/cos), where x is in radians. Undefined at odd multiples of PI/2.",
 			"examples": [
-				'PRINT TAN(0.7854)',
+				'PRINT TAN(0)         -> 0          -> tangent of zero',
+				'PRINT TAN(0.7854)   -> ~1         -> tangent of pi/4',
+				'10 T = TAN(ANGLE * 3.14159 / 180)  -> tan of degrees',
 			]
 		},
 		"ATN": {
 			"syntax": "ATN(x)",
-			"desc": "Return the arctangent of x (result in radians).",
+			"desc": "Return the arctangent of x (result in radians). Can compute PI as 4*ATN(1). Result range is -PI/2 to PI/2.",
 			"examples": [
-				'PRINT ATN(1)  -> 0.785...',
+				'PRINT ATN(1)         -> 0.7854...  -> arctan(1) = pi/4',
+				'10 PI = 4 * ATN(1)   -> calculate pi accurately',
+				'10 A = ATN(Y / X)    -> angle from rise/run',
 			]
 		},
 		"LOG": {
 			"syntax": "LOG(x)",
-			"desc": "Return the natural logarithm of x (base e).",
+			"desc": "Return the natural logarithm of x (base e). x must be positive. For log base 10, use LOG(x)/LOG(10).",
 			"examples": [
-				'PRINT LOG(2.71828)  -> ~1',
+				'PRINT LOG(2.71828)  -> ~1         -> log of e',
+				'10 L10 = LOG(X) / LOG(10)        -> log base 10',
+				'PRINT LOG(1)          -> 0          -> log of 1 is always 0',
 			]
 		},
 		"EXP": {
 			"syntax": "EXP(x)",
-			"desc": "Return e raised to the power of x.",
+			"desc": "Return e (2.71828...) raised to the power of x. Inverse of LOG.",
 			"examples": [
-				'PRINT EXP(1)  -> 2.718...',
+				'PRINT EXP(1)         -> 2.718...   -> e to the 1st power',
+				'PRINT EXP(0)          -> 1          -> e to the 0th power',
+				'10 Y = EXP(X)                     -> exponential function',
 			]
 		},
 		"SGN": {
 			"syntax": "SGN(x)",
-			"desc": "Return -1 if x is negative, 0 if zero, 1 if positive.",
+			"desc": "Return the sign of x: -1 if negative, 0 if zero, 1 if positive.",
 			"examples": [
-				'PRINT SGN(-10)  -> -1',
-				'PRINT SGN(0)    -> 0',
-				'PRINT SGN(42)   -> 1',
+				'PRINT SGN(-10)      -> -1         -> negative number',
+				'PRINT SGN(0)          -> 0          -> zero',
+				'PRINT SGN(42)        -> 1          -> positive number',
 			]
 		},
 		"LEN": {
 			"syntax": "LEN(s$)",
-			"desc": "Return the number of characters in string s$.",
+			"desc": "Return the number of characters in string s$. Useful for loops and string validation.",
 			"examples": [
-				'PRINT LEN("HELLO")  -> 5',
-				'10 L = LEN(N$)',
+				'PRINT LEN("HELLO")  -> 5          -> five characters',
+				'10 L = LEN(N$)                     -> store length in variable',
+				'10 IF LEN(A$) > 10 THEN PRINT "LONG STRING"',
 			]
 		},
 		"CHR$": {
 			"syntax": "CHR$(n)",
-			"desc": "Return the character with ASCII code n (0-255).",
+			"desc": "Return the character with ASCII code n (0-255). Inverse of ASC(). Common codes: 7=bell, 10=linefeed, 13=carriage return.",
 			"examples": [
-				'PRINT CHR$(65)  -> A',
-				'10 PRINT CHR$(7)  : REM bell',
+				'PRINT CHR$(65)       -> A          -> ASCII 65 is A',
+				'10 PRINT CHR$(7)     -> bell sound (alert)',
+				'10 PRINT CHR$(13); CHR$(10)       -> newline',
 			]
 		},
 		"ASC": {
 			"syntax": "ASC(s$)",
-			"desc": "Return the ASCII code of the first character of string s$.",
+			"desc": "Return the ASCII code of the first character of string s$. Inverse of CHR$(). Values range 0-255.",
 			"examples": [
-				'PRINT ASC("A")  -> 65',
-				'10 CODE = ASC(K$)',
+				'PRINT ASC("A")      -> 65         -> A is ASCII 65',
+				'10 CODE = ASC(K$)                  -> get key code',
+				'10 IF ASC(A$) >= 65 THEN PRINT "LETTER"',
 			]
 		},
 		"LEFT$": {
 			"syntax": "LEFT$(s$, n)",
-			"desc": "Return the first n characters of string s$.",
+			"desc": "Return the first n characters of string s$. If n exceeds the string length, the entire string is returned.",
 			"examples": [
-				'PRINT LEFT$("HELLO", 3)  -> HEL',
+				'PRINT LEFT$("HELLO", 3)  -> HEL  -> first 3 chars',
+				'10 A$ = LEFT$(NAME$, 1)            -> first character only',
+				'10 PRINT LEFT$(TXT$, 10)            -> first 10 chars',
 			]
 		},
 		"RIGHT$": {
 			"syntax": 'RIGHT$(s$, n)',
-			"desc": "Return the last n characters of string s$.",
+			"desc": "Return the last n characters of string s$. If n exceeds string length, the entire string is returned.",
 			"examples": [
-				'PRINT RIGHT$("HELLO", 3)  -> LLO',
+				'PRINT RIGHT$("HELLO", 3)  -> LLO  -> last 3 chars',
+				'10 EXT$ = RIGHT$(FNAME$, 3)       -> get file extension',
+				'10 PRINT RIGHT$(TXT$, 10)          -> last 10 chars',
 			]
 		},
 		"MID$": {
 			"syntax": "MID$(s$, start, length)",
-			"desc": "Return a substring of s$ starting at position start (1-based) with the given length.",
+			"desc": "Return a substring of s$ starting at position start (1-based) with the given length. If length is omitted, returns from start to end of string.",
 			"examples": [
-				'PRINT MID$("HELLO", 2, 3)  -> ELL',
+				'PRINT MID$("HELLO", 2, 3)  -> ELL  -> chars 2-4',
+				'10 PRINT MID$(A$, 5)              -> from char 5 to end',
+				'10 PART$ = MID$(TEXT$, P, 1)       -> single character at P',
 			]
 		},
 		"STR$": {
 			"syntax": "STR$(n)",
-			"desc": "Convert a number to a string representation.",
+			"desc": "Convert a number to a string. Positive numbers include a leading space. Inverse of VAL().",
 			"examples": [
-				'PRINT STR$(42)  -> "42"',
-				'A$ = STR$(X)',
+				'PRINT STR$(42)       -> " 42"      -> number to string',
+				'10 A$ = STR$(X)                    -> store number as string',
+				'10 PRINT "VALUE: " + STR$(SCORE)    -> concatenate with text',
 			]
 		},
 		"VAL": {
 			"syntax": "VAL(s$)",
-			"desc": "Convert a string to a number. Returns 0 if the string is not a valid number.",
+			"desc": "Convert a string to a number. Returns 0 if the string is not a valid number. Inverse of STR$().",
 			"examples": [
-				'PRINT VAL("42")  -> 42',
-				'10 N = VAL(A$)',
+				'PRINT VAL("42")       -> 42        -> string to number',
+				'10 N = VAL(A$)                     -> convert input to number',
+				'PRINT VAL("HELLO")   -> 0          -> invalid string',
 			]
 		},
 		"TAB": {
 			"syntax": "TAB(n)",
-			"desc": "In a PRINT statement, move the cursor to column n (1-based). Used for formatting output.",
+			"desc": "In a PRINT statement, move the cursor to column n (1-based). Used for formatting tabular output. Only meaningful inside PRINT.",
 			"examples": [
-				'10 PRINT TAB(10); "X"',
-				'PRINT TAB(5); NAME$; TAB(20); SCORE',
+				'10 PRINT TAB(10); "X"             -> print X at column 10',
+				'10 PRINT TAB(5); NAME$; TAB(20); SCORE  -> two-column display',
+				'10 FOR I = 1 TO N: PRINT TAB(I); "*": NEXT I -> diagonal',
+			]
+		},
+		"COLON": {
+			"syntax": "statement : statement",
+			"desc": "Colon separates multiple statements on one program line. Each statement is executed in order. If a GOTO or STOP is encountered, remaining statements are skipped.",
+			"examples": [
+				'10 X = 1 : PRINT X               -> two statements on one line',
+				'20 IF A > B THEN PRINT "A" : GOTO 100  -> colon in IF',
+				'30 A = 10 : B = 20 : PRINT A + B   -> three statements',
 			]
 		},
 	}
@@ -945,7 +1101,7 @@ func _show_help_topic(topic: String) -> void:
 	_instant_output = true
 	if _help_topics.has(topic):
 		var info = _help_topics[topic]
-		var t = "\n[color=cyan][b]" + topic + "[/b][/color]\n\n"
+		var t = "\n[color=cyan]" + topic + "[/color]\n\n"
 		t += "[color=white]Syntax:  [/color][color=lime]" + info["syntax"] + "[/color]\n\n"
 		t += "[color=white]" + info["desc"] + "[/color]\n\n"
 		t += "[color=cyan]Examples:[/color]\n"
@@ -958,15 +1114,26 @@ func _show_help_topic(topic: String) -> void:
 		screen.append_text("[color=yellow]Type HELP for a list of commands, or try: HELP PRINT, HELP FOR, HELP POKE[/color]\n\n")
 	_instant_output = false
 
-func _list_program() -> void:
+func _list_program(range_str: String = "") -> void:
 	var prog = computer.basic._program
 	if prog.size() == 0:
 		screen.append_text("[color=yellow]No program in memory.\n[/color]")
 		return
+	var start_line: int = -1
+	var end_line: int = 999999999
+	if range_str != "":
+		var parts = range_str.split(" ")
+		if parts.size() == 1:
+			start_line = int(parts[0])
+			end_line = start_line
+		elif parts.size() >= 2:
+			start_line = int(parts[0])
+			end_line = int(parts[1])
 	_instant_output = true
 	var text = "\n"
 	for entry in prog:
-		text += "[color=white]%5d %s\n[/color]" % [entry[0], entry[1]]
+		if entry[0] >= start_line and entry[0] <= end_line:
+			text += "[color=white]%5d %s\n[/color]" % [entry[0], entry[1]]
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
@@ -979,8 +1146,75 @@ func _run_program() -> void:
 	var program = "\n".join(prog_lines)
 	computer.run_basic(program)
 
+func _run_program_with_args(args_str: String) -> void:
+	if computer.basic._program.size() == 0:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: NO PROGRAM IN MEMORY\n[/color]")
+		return
+	screen.append_text("\n")
+	var start_line: int = -1
+	var rest: String = args_str
+	if rest.length() > 0 and rest[0].is_valid_int():
+		var num_end = 0
+		while num_end < rest.length() and (rest[num_end].is_valid_int() or rest[num_end] == '.'):
+			num_end += 1
+		var num_str = rest.substr(0, num_end)
+		start_line = int(num_str)
+		rest = rest.substr(num_end).strip_edges()
+		if rest.begins_with(","):
+			rest = rest.substr(1).strip_edges()
+	var assignments = rest.split(",", false)
+	for assignment in assignments:
+		assignment = assignment.strip_edges()
+		if assignment == "":
+			continue
+		var eq_pos = assignment.find("=")
+		if eq_pos < 0:
+			sound.play_error()
+			screen.append_text("[color=red]ERROR: INVALID PARAMETER: %s\n[/color]" % assignment)
+			return
+		var var_name = assignment.substr(0, eq_pos).strip_edges().to_upper()
+		var var_value_str = assignment.substr(eq_pos + 1).strip_edges()
+		computer.basic.execute_line("LET " + var_name + " = " + var_value_str)
+	var prog_lines: Array = []
+	for entry in computer.basic._program:
+		prog_lines.append(str(entry[0]) + " " + str(entry[1]))
+	var program = "\n".join(prog_lines)
+	computer.run_basic(program, start_line)
+
 func _add_program_line(text: String) -> void:
-	pass
+	var parsed = computer.basic._parse_line(text.strip_edges())
+	if parsed == null:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: INVALID LINE NUMBER\n[/color]")
+		return
+	var line_num = parsed[0]
+	var stmt = parsed[1]
+	if stmt.strip_edges() == "":
+		var idx = -1
+		for i in range(computer.basic._program.size()):
+			if computer.basic._program[i][0] == line_num:
+				idx = i
+				break
+		if idx >= 0:
+			computer.basic._program.remove_at(idx)
+			screen.append_text("[color=yellow]DELETED LINE %d\n[/color]" % line_num)
+		else:
+			screen.append_text("[color=yellow]NO LINE %d TO DELETE\n[/color]" % line_num)
+		return
+	var replaced = false
+	for i in range(computer.basic._program.size()):
+		if computer.basic._program[i][0] == line_num:
+			computer.basic._program[i] = parsed
+			replaced = true
+			break
+	if not replaced:
+		computer.basic._program.append(parsed)
+		computer.basic._program.sort_custom(func(a, b): return a[0] < b[0])
+	computer.basic._collect_data()
+	_instant_output = true
+	screen.append_text("[color=lime]%5d %s\n[/color]" % [line_num, stmt])
+	_instant_output = false
 
 func _save_program(filename: String) -> void:
 	if filename == "":
@@ -1033,23 +1267,86 @@ func _show_catalog() -> void:
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
 		_instant_output = true
-		screen.append_text("\n[color=cyan][b]SAVED PROGRAMS:[/b][/color]\n")
+		screen.append_text("\n[color=cyan]SAVED PROGRAMS:[/color]\n")
 		var count = 0
+		var total_bytes = 0
 		while file_name != "":
 			if file_name.ends_with(".bas"):
-				screen.append_text("[color=yellow]  " + file_name.replace(".bas", "") + "\n[/color]")
+				var f = FileAccess.open("user://" + file_name, FileAccess.READ)
+				var size = f.get_length() if f else 0
+				if f:
+					f.close()
+				total_bytes += size
+				var name = file_name.replace(".bas", "")
+				var size_str = _format_size(size)
+				screen.append_text("[color=yellow]  %-16s %s\n[/color]" % [name, size_str])
 				count += 1
 			file_name = dir.get_next()
 		if count == 0:
 			screen.append_text("[color=yellow]  (none)\n[/color]")
+		screen.append_text("[color=white]  %d file(s), %s used\n[/color]" % [count, _format_size(total_bytes)])
 		screen.append_text("\n")
 		dir.list_dir_end()
 		_instant_output = false
 
+func _format_size(bytes: int) -> String:
+	if bytes < 1024:
+		return str(bytes) + " B"
+	elif bytes < 1048576:
+		return str(bytes / 1024) + " KB"
+	else:
+		return str(bytes / 1048576) + " MB"
+
+func _scratch_program(filename: String) -> void:
+	if filename == "":
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: MISSING FILENAME\n[/color]")
+		return
+	var path = "user://" + filename + ".bas"
+	if FileAccess.file_exists(path):
+		var dir = DirAccess.open("user://")
+		if dir and dir.remove(filename + ".bas") == OK:
+			screen.append_text("[color=lime]DELETED: " + filename + "\n[/color]")
+		else:
+			sound.play_error()
+			screen.append_text("[color=red]ERROR: CANNOT DELETE FILE\n[/color]")
+	else:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: FILE NOT FOUND\n[/color]")
+
+func _rename_program(args: String) -> void:
+	var parts = args.split(" ")
+	if parts.size() < 2:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: RENAME OLD NEW\n[/color]")
+		return
+	var old_name = parts[0].strip_edges()
+	var new_name = parts[1].strip_edges()
+	if old_name == "" or new_name == "":
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: RENAME OLD NEW\n[/color]")
+		return
+	var old_path = "user://" + old_name + ".bas"
+	var new_path = "user://" + new_name + ".bas"
+	if not FileAccess.file_exists(old_path):
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: FILE NOT FOUND: " + old_name + "\n[/color]")
+		return
+	if FileAccess.file_exists(new_path):
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: FILE ALREADY EXISTS: " + new_name + "\n[/color]")
+		return
+	var dir = DirAccess.open("user://")
+	if dir and dir.rename(old_name + ".bas", new_name + ".bas") == OK:
+		screen.append_text("[color=lime]RENAMED: " + old_name + " -> " + new_name + "\n[/color]")
+	else:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: CANNOT RENAME FILE\n[/color]")
+
 func _show_cpu_state() -> void:
 	_instant_output = true
 	var state = computer.cpu.get_state()
-	var text = "\n[color=cyan][b]6502 CPU STATE:[/b][/color]\n"
+	var text = "\n[color=cyan]6502 CPU STATE:[/color]\n"
 	text += "[color=white]  A:  $%02X (%d)\n[/color]" % [state.A, state.A]
 	text += "[color=white]  X:  $%02X (%d)\n[/color]" % [state.X, state.X]
 	text += "[color=white]  Y:  $%02X (%d)\n[/color]" % [state.Y, state.Y]
@@ -1066,12 +1363,12 @@ func _show_cpu_state() -> void:
 
 func _show_demos() -> void:
 	_instant_output = true
-	var text = "\n[color=cyan][b]BUILT-IN DEMO PROGRAMS:[/b][/color]\n"
+	var text = "\n[color=cyan]BUILT-IN DEMO PROGRAMS:[/color]\n"
 	text += "[color=yellow]  Type DEMO name to load, then RUN[/color]\n\n"
 	var demos = computer.rom.get_demo_list()
 	for d in demos:
 		text += "[color=white]  %-14s[/color] %s\n" % [d["name"], d["desc"]]
-	text += "\n[color=cyan][b]ROM ROUTINES (use with SYS):[/b][/color]\n"
+	text += "\n[color=cyan]ROM ROUTINES (use with SYS):[/color]\n"
 	text += "[color=white]  $F000[/color]  Warm boot (prints message)\n"
 	text += "[color=white]  $F040[/color]  Counter (prints 0-9)\n"
 	text += "[color=white]  $F060[/color]  Add 2 to accumulator\n"
@@ -1083,12 +1380,14 @@ func _show_demos() -> void:
 	screen.append_text(text)
 	_instant_output = false
 
-func _load_demo(name: String) -> void:
+func _load_demo(name: String, param: String = "") -> void:
 	var program = computer.load_demo(name)
 	if program != "":
 		computer.basic.load_program(program)
 		computer.basic._running = false
 		computer._program_running = false
+		if param != "" and computer.basic._demos_with_param.has(name):
+			computer.basic._variables["N"] = float(param)
 		_instant_output = true
 		screen.append_text("[color=lime]Loaded demo: " + name + "\n[/color]")
 		_list_program()
@@ -1137,7 +1436,7 @@ func _cmd_step() -> void:
 	var disasm = computer.cpu.disassemble(old_pc, 1)
 	var line_text = "$" + ("%04X" % old_pc) + ": " + disasm[0]["disasm"] + "\n"
 	_instant_output = true
-	screen.append_text("[color=cyan]" + line_text + "[/color]")
+	screen.append_text("[color=green]" + line_text + "[/color]")
 	_show_cpu_reg()
 	_instant_output = false
 
@@ -1152,16 +1451,16 @@ func _enter_monitor() -> void:
 	_monitor_mode = true
 	_monitor_addr = computer.cpu.PC
 	_instant_output = true
-	screen.append_text("\n[color=cyan][b]*** SYSTEM MONITOR ***[/b][/color]\n")
-	screen.append_text("[color=cyan]Type H for monitor commands. ESC or Q to exit.[/color]\n")
-	screen.append_text("[color=cyan]*[/color] ")
+	screen.append_text("\n[color=cyan]*** SYSTEM MONITOR ***[/color]\n")
+	screen.append_text("[color=green]Type H for monitor commands. ESC or Q to exit.[/color]\n")
+	screen.append_text("[color=green]*[/color] ")
 	_instant_output = false
 	sound.play_bell()
 
 func _exit_monitor() -> void:
 	_monitor_mode = false
 	_instant_output = true
-	screen.append_text("\n[color=cyan]Exit monitor.[/color]\n")
+	screen.append_text("\n[color=green]Exit monitor.[/color]\n")
 	_instant_output = false
 
 func _handle_monitor_command(text: String) -> void:
@@ -1184,8 +1483,8 @@ func _handle_monitor_command(text: String) -> void:
 	elif upper == "G" or upper == "GO":
 		computer.cpu.halted = false
 		_instant_output = true
-		screen.append_text("[color=cyan]Running from $%04X...[/color]\n" % computer.cpu.PC)
-		screen.append_text("[color=cyan]Type STOP to break.[/color]\n")
+		screen.append_text("[color=green]Running from $%04X...[/color]\n" % computer.cpu.PC)
+		screen.append_text("[color=green]Type STOP to break.[/color]\n")
 		_instant_output = false
 		computer._program_running = false
 		computer.basic._running = false
@@ -1200,7 +1499,7 @@ func _handle_monitor_command(text: String) -> void:
 			computer.cpu.PC = addr
 			computer.cpu.halted = false
 			_instant_output = true
-			screen.append_text("[color=cyan]Running from $%04X...[/color]\n" % addr)
+			screen.append_text("[color=green]Running from $%04X...[/color]\n" % addr)
 			_instant_output = false
 			computer.cpu.step()
 		else:
@@ -1251,7 +1550,7 @@ func _handle_monitor_command(text: String) -> void:
 			screen.append_text("[color=red]Unknown monitor command. Type H for help.[/color]\n")
 			_instant_output = false
 	_instant_output = true
-	screen.append_text("[color=cyan]*[/color] ")
+	screen.append_text("[color=green]*[/color] ")
 	_instant_output = false
 
 func _parse_hex_addr(s: String) -> int:
@@ -1268,7 +1567,7 @@ func _parse_hex_addr(s: String) -> int:
 
 func _show_monitor_help() -> void:
 	_instant_output = true
-	var h = "\n[color=cyan][b]SYSTEM MONITOR COMMANDS[/b][/color]\n"
+	var h = "\n[color=cyan]SYSTEM MONITOR COMMANDS[/color]\n"
 	h += "[color=yellow]  <addr>[/color]      - Examine memory at hex addr\n"
 	h += "[color=yellow]  D [addr][/color]     - Disassemble 16 instructions\n"
 	h += "[color=yellow]  M [addr][/color]     - Memory dump (64 bytes)\n"
@@ -1357,7 +1656,7 @@ func _monitor_write(upper: String) -> void:
 			_instant_output = false
 			return
 	_instant_output = true
-	screen.append_text("[color=cyan]Wrote %d bytes.[/color]\n" % byte_strs.size())
+	screen.append_text("[color=green]Wrote %d bytes.[/color]\n" % byte_strs.size())
 	_instant_output = false
 
 func _on_curvature_changed(value: float) -> void:
@@ -1413,7 +1712,7 @@ func _on_save_state() -> void:
 		file.store_string(JSON.stringify(data, "\t"))
 		file.close()
 		_instant_output = true
-		screen.append_text("\n[color=cyan]State saved.[/color]\n")
+		screen.append_text("\n[color=green]State saved.[/color]\n")
 		_instant_output = false
 		sound.play_bell()
 	else:
@@ -1444,7 +1743,7 @@ func _on_load_state() -> void:
 	var data = json.data
 	_apply_saved_state(data)
 	_instant_output = true
-	screen.append_text("\n[color=cyan]State loaded.[/color]\n")
+	screen.append_text("\n[color=green]State loaded.[/color]\n")
 	_instant_output = false
 	sound.play_bell()
 
@@ -1462,10 +1761,12 @@ func _load_state_silent() -> void:
 	_apply_saved_state(json.data)
 	_boot_done = true
 	_warmup_done = true
+	crt_overlay.material.set_shader_parameter("brightness", 1.0)
+	crt_overlay.material.set_shader_parameter("static_intensity", 0.0)
 	screen.clear()
 	_print_banner()
 	_instant_output = true
-	screen.append_text("[color=cyan]Previous state restored. Press F3 to adjust CRT settings.[/color]\n\n")
+	screen.append_text("[color=green]Previous state restored. Press F3 to adjust settings.[/color]\n\n")
 	_instant_output = false
 	input_line.grab_focus()
 

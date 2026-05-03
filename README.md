@@ -5,17 +5,26 @@ A retro computing environment combining a **BASIC programming language interpret
 ## Features
 
 - **Full MOS 6502 CPU emulation** — all 56 official opcodes, all addressing modes (immediate, zero page, absolute, indirect, indexed, etc.)
-- **Complete BASIC interpreter** — PRINT, INPUT, FOR/NEXT, IF/THEN, GOSUB/RETURN, DIM, READ/DATA, POKE/PEEK, string functions, math functions, ON GOTO/GOSUB
+- **Complete BASIC interpreter** — PRINT, INPUT, FOR/NEXT, IF/THEN/ELSE, GOSUB/RETURN, DIM, READ/DATA, POKE/PEEK, string functions, math functions, ON GOTO/GOSUB, colon (`:`) statement separator, BREAK
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
-- **CRT warm-up simulation** — screen starts distorted and flickery, gradually settling over ~2 minutes
-- **Boot sequence** — 5-second BIOS POST animation on startup
-- **Real-time CRT settings panel** — press F3 to adjust curvature, scanlines, vignette, glow, and flicker with sliders
+- **CRT warm-up simulation** — screen starts distorted and flickery, gradually settling over ~2 minutes; cold boot plays CRT static crackle sound
+- **Boot sequence** — 5-second BIOS POST animation with "Hacker Computer Company" branding
+- **System Settings panel** — press F3 to adjust curvature, scanlines, vignette, glow, and flicker with sliders, plus save/load state
 - **Baud rate simulation** — characters stream in at 300/1200/2400/9600/14400 baud (F7 to cycle)
 - **4 switchable retro fonts** — VT323, Press Start 2P, Share Tech Mono, IBM Plex Mono (F8 to cycle)
-- **Procedural sound effects** — key clicks, carriage returns, bell, line feed
-- **10 built-in demo programs** including an ASCII Mandelbrot set
+- **Procedural sound effects** — key clicks (low-pitched thock), bell, line feed, carriage return, CRT crackle
+- **Fullscreen by default** — immersive retro experience, mouse hidden until moved
+- **12 built-in demo programs** including ASCII Mandelbrot, prime numbers, and pi calculation
+- **Program line entry** — type `10 PRINT "HELLO"` to add/replace lines, type `10` alone to delete a line
+- **LIST with ranges** — `LIST 30` shows one line, `LIST 10 100` shows a range
+- **RUN with parameters** — `RUN N=10` sets variables before running; `RUN 100` starts at line 100
+- **File management** — SAVE, LOAD, DIR, SCRATCH (delete), RENAME
+- **System monitor** — Apple II-style hex editor, disassembler, register display, single-step
+- **CPU clock simulation** — 0.5/1/10 MHz (F4 to cycle)
+- **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings
+- **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
 ## Quick Start
@@ -39,9 +48,44 @@ PRINT "HELLO WORLD"
 Type `HELP` for a full command reference, or `DEMO` to see built-in programs.
 
 ```
-DEMO          → lists all demos
-DEMO mandelbrot → loads the Mandelbrot demo
-RUN           → runs the loaded program
+DEMO                → lists all demos
+DEMO mandelbrot     → loads the Mandelbrot demo
+DEMO primenums 100  → finds first 100 primes
+DEMO pi 1000        → calculates pi with 1000 terms
+RUN                 → runs the loaded program
+```
+
+### Entering Programs
+
+Type a line number followed by a statement to add it to the program:
+
+```
+10 PRINT "HELLO"
+20 END
+LIST
+RUN
+```
+
+Type a line number alone to delete it: `10` (deletes line 10).  
+Use `:` to put multiple statements on one line: `10 A = 1 : PRINT A`
+
+### Running with Parameters
+
+```
+RUN              → start from first line
+RUN 100          → start at line 100
+RUN N=10         → set N=10, then run
+RUN 100, N=10    → start at line 100, set N=10
+```
+
+### File Management
+
+```
+SAVE MYPROG      → save program to disk
+LOAD MYPROG      → load program from disk
+DIR              → list saved programs (with sizes)
+SCRATCH MYPROG   → delete a saved program (or DELETE)
+RENAME OLD NEW   → rename a saved program
 ```
 
 ### Keyboard Shortcuts
@@ -49,7 +93,8 @@ RUN           → runs the loaded program
 | Key | Action |
 |-----|--------|
 | F1 | Show help |
-| F3 | Toggle CRT settings panel |
+| F3 | Toggle System Settings panel |
+| F4 | Cycle CPU clock (0.5/1/10 MHz) |
 | F5 | Run program |
 | F6 | Start/stop video recording |
 | F7 | Cycle baud rate (300/1200/2400/9600/14400) |
@@ -57,33 +102,37 @@ RUN           → runs the loaded program
 | F9 | Take screenshot |
 | F10 | Full system reset |
 | Up/Down | Command history |
+| Escape | Exit monitor mode |
 
 ## Project Structure
 
 ```
 mygodot/
-  project.godot          # Godot project configuration (4:3 aspect, GL compat renderer)
+  project.godot          # Godot project configuration (4:3, fullscreen, GL compat)
   main.tscn              # Main scene with CRT bezel frame
   scripts/
-    basic_interpreter.gd  # BASIC language interpreter
+    basic_interpreter.gd  # BASIC language interpreter (tokenizer, parser, evaluator)
     computer.gd           # Ties CPU + memory + BASIC together
-    cpu_6502.gd           # Full MOS 6502 CPU emulator
+    cpu_6502.gd           # Full MOS 6502 CPU emulator with disassembler
     memory_bus.gd         # 64KB RAM with I/O port mapping
     rom.gd                # ROM routines at $F000+ and demo programs
-    sound_manager.gd      # Procedural audio (key click, bell, carriage, etc.)
-    terminal.gd           # Terminal UI controller (baud queue, fonts, CRT)
+    sound_manager.gd      # Procedural audio (key click, bell, carriage, crackle)
+    terminal.gd           # Terminal UI controller (baud queue, fonts, CRT, monitor)
+    debug_manager.gd      # Screenshot and video recording
   shaders/
-    crt_overlay.gdshader  # Scanline, vignette, curvature, glow shader
+    crt_overlay.gdshader   # Scanline, vignette, curvature, glow, flicker, brightness, static
   fonts/
-    vt323.ttf             # Retro terminal font (default)
-    pressstart2p.ttf      # 8-bit pixel font
-    sharetechmono.ttf     # Retro sci-fi mono
-    ibmplexmono.ttf       # Clean corporate mono
+    vt323.ttf              # Retro terminal font (default)
+    pressstart2p.ttf       # 8-bit pixel font
+    sharetechmono.ttf      # Retro sci-fi mono
+    ibmplexmono.ttf        # Clean corporate mono
   tests/
-    test_regression.gd    # Full regression test suite
-  GETTING_STARTED.md     # Installation and first steps
-  USER_GUIDE.md           # Complete language and command reference
-  PLAN.md                 # Architecture and development plan
+    test_regression.gd     # Full regression test suite
+  GETTING_STARTED.md      # Installation and first steps
+  USER_GUIDE.md            # Complete language and command reference
+  PLAN.md                  # Architecture and development plan
+  TODO.md                  # Boot loader & ROM banking plans
+  ASM_AND_C.md             # 6502 assembler & Small-C compiler plan
 ```
 
 ## Memory Map
@@ -120,15 +169,18 @@ The ROM is loaded automatically at startup. Use with `SYS` from BASIC:
 
 ### Window and Display
 
-The project is configured for a **4:3 aspect ratio** (960x720) to match classic CRT monitors. Settings are in `project.godot`:
+The project starts in **fullscreen** mode for an immersive retro experience. The internal resolution is **960x720** (4:3 aspect ratio) matching classic CRT monitors. Settings are in `project.godot`:
 
 ```
 [display]
 window/size/viewport_width=960
 window/size/viewport_height=720
+window/size/mode=3          # 3 = fullscreen
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+window/resizable=true
 ```
+
+The mouse cursor is hidden by default and appears when you move the mouse, disappearing after 3 seconds of inactivity.
 
 ### CRT Bezel / Border Image
 
@@ -140,21 +192,13 @@ The terminal is wrapped in a `PanelContainer` with a `StyleBoxFlat` that provide
 4. Edit `main.tscn` and replace `BezelPanel`'s style with a `StyleBoxTexture` pointing to your image
 5. Adjust `VBoxContainer` margins to match the cutout area in your bezel image
 
-**Bezel image specification:**
-- **Aspect ratio**: 4:3 (width:height) — e.g., 1920x1440 for high-DPI
-- **Format**: PNG with alpha channel
-- **Center cutout**: Leave the terminal area transparent so the green text shows through
-- **Outer area**: The bezel/body of the CRT monitor — can be any retro aesthetic (beige plastic, wood grain, metal, etc.)
-- **Inner shadow**: Add a subtle inner shadow around the cutout to simulate screen depth
-- **Corner radius**: The screen cutout should have ~4-8px radius to match the scene's StyleBox corner radius
+### System Settings Panel (F3)
 
-### CRT Settings Panel (F3)
-
-Press **F3** to open the CRT settings panel on the right side of the screen. Five sliders control the CRT effect in real-time:
+Press **F3** to open the System Settings panel on the right side of the screen. Five sliders control the CRT effect in real-time:
 
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
-| Curvature | 0.01 | 0.0–1.0 | Barrel distortion (0=flat, 0.01=subtle, 0.5=strong, 1.0=extreme) |
+| Curvature | 0.01 | 0.0–1.0 | Barrel distortion (0=flat, 0.01=subtle, 1.0=extreme) |
 | Scanlines | 0.04 | 0.0–0.3 | Horizontal scanline darkness |
 | Vignette | 0.18 | 0.0–1.0 | Edge darkening |
 | Glow | 0.18 | 0.0–1.0 | Phosphor bloom intensity |
@@ -162,7 +206,7 @@ Press **F3** to open the CRT settings panel on the right side of the screen. Fiv
 
 ### CRT Warm-Up & Boot Sequence
 
-On a fresh launch (no saved state), the terminal plays a **5-second boot sequence** simulating a BIOS POST (RAM test, CPU check, ROM detect), then shows the `READY.` prompt.
+On a fresh launch (no saved state), the terminal plays a **5-second boot sequence** simulating a BIOS POST with "Hacker Computer Company" branding, then shows the `READY.` prompt.
 
 The CRT also simulates **warm-up** over ~2 minutes. On cold start:
 - **Curvature** starts at 0.10 and decays to the slider value
@@ -170,14 +214,14 @@ The CRT also simulates **warm-up** over ~2 minutes. On cold start:
 - **Flicker** starts at 0.05 (maximum) and decays down
 - **Scanlines** start at 0.15 and settle to their setting
 - **Glow** starts at 0.6 and settles
+- **Brightness** fades from 0 to 1 over 4 seconds during boot
+- **Static** crackle sound plays during boot, fading out over ~3 seconds
 
-All values ease out with a cubic curve (faster change early, gradual settling). When a saved state is loaded, the warm-up is skipped and values are applied immediately.
-
-Click **Reset to Defaults** to restore all values. Press **F3** again to close the panel.
+All values ease out with a cubic curve. When a saved state is loaded, the warm-up is skipped.
 
 ### Save / Load State
 
-The **Save State** button in the CRT settings panel saves the complete system state to `user://savestate.json`:
+The **Save State** button in the System Settings panel saves the complete system state to `user://savestate.json`:
 
 - All CRT settings (curvature, scanlines, vignette, glow, flicker)
 - Selected font and baud rate
@@ -186,7 +230,7 @@ The **Save State** button in the CRT settings panel saves the complete system st
 - BASIC program, variables, and arrays
 - Command history
 
-The state is **automatically loaded on startup** if a save file exists, so you can quit and resume exactly where you left off. Use **Load State** to manually reload, or **Save State** to update the file.
+The state is **automatically loaded on startup** if a save file exists. Use **Load State** to manually reload, or **Save State** to update the file.
 
 ### Baud Rate
 
@@ -242,7 +286,7 @@ From the command line:
 godot --headless --script res://tests/test_regression.gd
 ```
 
-Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK), and Computer integration.
+Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK, colon separator), and Computer integration.
 
 ## License
 

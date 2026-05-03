@@ -46,11 +46,18 @@ func _on_input(prompt: String) -> Variant:
 	ready_for_input.emit()
 	return null
 
-func run_basic(program: String) -> void:
+func run_basic(program: String, start_line: int = -1) -> void:
 	_output_buffer = ""
 	basic.load_program(program)
 	basic._running = true
-	basic._current_line = 0
+	if start_line >= 0:
+		var idx = basic._find_line(start_line)
+		if idx >= 0:
+			basic._current_line = idx
+		else:
+			basic._current_line = 0
+	else:
+		basic._current_line = 0
 	basic._data_pointer = 0
 	_program_running = true
 	_awaiting_input = false

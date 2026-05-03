@@ -7,8 +7,15 @@ uniform float crt_curvature : hint_range(0.0, 1.0) = 0.01;
 uniform float flicker_intensity : hint_range(0.0, 0.05) = 0.005;
 uniform float glow_intensity : hint_range(0.0, 2.0) = 0.18;
 uniform float time_speed : hint_range(0.5, 5.0) = 1.0;
+uniform float brightness : hint_range(0.0, 1.0) = 1.0;
+uniform float static_intensity : hint_range(0.0, 1.0) = 0.0;
 
 uniform vec4 glow_color : source_color = vec4(0.2, 1.0, 0.2, 1.0);
+
+vec2 hash22(vec2 p) {
+	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+	return fract(sin(p) * 43758.5453);
+}
 
 void fragment() {
 	vec2 uv = SCREEN_UV;
@@ -28,6 +35,15 @@ void fragment() {
 		color = vec4(0.0, 0.0, 0.0, 1.0);
 	}
 	
+	if (static_intensity > 0.0) {
+		vec2 noise_uv = uv * vec2(320.0, 200.0);
+		float line_noise = hash22(vec2(floor(noise_uv.y), floor(TIME * 60.0))).x;
+		float pixel_noise = hash22(floor(noise_uv) + vec2(floor(TIME * 120.0), 0.0)).x;
+		float horiz_bar = step(0.97, hash22(vec2(floor(TIME * 7.0), 0.5)).x);
+		vec3 static_color = vec3(line_noise * pixel_noise * 0.8 + horiz_bar * 0.5);
+		color.rgb = mix(color.rgb, static_color, static_intensity);
+	}
+	
 	float scanline = sin(uv.y * 600.0) * 0.5 + 0.5;
 	scanline = pow(scanline, 1.2);
 	color.rgb = mix(color.rgb, color.rgb * vec3(0.85, 0.93, 0.85), scanline_intensity * scanline);
@@ -42,6 +58,8 @@ void fragment() {
 	float vignette = 1.0 - dot(vec2(cx, cy), vec2(cx, cy)) * vignette_intensity * 3.0;
 	vignette = clamp(vignette, 0.0, 1.0);
 	color.rgb *= vignette;
+	
+	color.rgb *= brightness;
 	
 	COLOR = vec4(color.rgb, 1.0);
 }

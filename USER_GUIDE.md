@@ -2,7 +2,7 @@
 
 ## Overview
 
-BASIC6502 is a retro computing environment that combines a **BASIC programming language interpreter** with a fully simulated **MOS 6502 microprocessor**. It recreates the experience of classic 8-bit computers like the Commodore 64, Apple II, and BBC Micro, all running inside the Godot game engine.
+BASIC6502 is a retro computing environment from **Hacker Computer Company** that combines a **BASIC programming language interpreter** with a fully simulated **MOS 6502 microprocessor**. It recreates the experience of classic 8-bit computers like the Commodore 64, Apple II, and BBC Micro, all running inside the Godot game engine.
 
 ## Architecture
 
@@ -28,6 +28,7 @@ The MOS 6502 is the legendary 8-bit processor that powered the Apple II, Commodo
 | $C010-$C011 | Cursor position |
 | $C020 | Random number seed |
 | $C030 | System call |
+| $F000-$F1FF | ROM routines |
 | $FFFA-$FFFF | CPU vectors (NMI, Reset, IRQ) |
 
 ### Memory Bus I/O Ports
@@ -48,8 +49,8 @@ The simulated system uses memory-mapped I/O:
 | `PRINT` | Output text/values | `PRINT "HELLO"; X` |
 | `INPUT` | Get user input | `INPUT "NAME? "; N$` |
 | `LET` | Assign variable (optional) | `LET A = 10` or `A = 10` |
-| `IF...THEN` | Conditional execution | `IF A > 5 THEN PRINT "BIG"` |
-| `FOR...TO...STEP...NEXT` | Loop | `FOR I = 1 TO 10 STEP 2` |
+| `IF...THEN...ELSE` | Conditional execution | `IF A > 5 THEN PRINT "BIG" ELSE PRINT "SMALL"` |
+| `FOR...TO...STEP...NEXT` | Loop | `FOR I = 1 TO 10 STEP 2` / `NEXT I` |
 | `GOTO` | Jump to line number | `GOTO 100` |
 | `GOSUB` | Call subroutine | `GOSUB 500` |
 | `RETURN` | Return from subroutine | `RETURN` |
@@ -59,25 +60,24 @@ The simulated system uses memory-mapped I/O:
 | `DATA` | Define data values | `DATA 10, 20, 30` |
 | `RESTORE` | Reset DATA pointer | `RESTORE` |
 | `POKE` | Write to memory | `POKE 1000, 42` |
-| `END` / `STOP` | End program | `END` |
+| `END` / `STOP` / `BREAK` | End program | `END` or `STOP` or `BREAK` |
 | `REM` | Comment | `REM THIS IS A COMMENT` |
 | `CLR` | Clear variables | `CLR` |
 | `NEW` | Clear program & variables | `NEW` |
-| `LIST` | List program | `LIST` |
-| `RUN` | Run program | `RUN` |
+| `:` (colon) | Separate statements on one line | `10 A = 1 : PRINT A : GOTO 20` |
 
 ### Functions
 
 | Function | Description | Example |
 |----------|-------------|---------|
-| `INT(x)` | Integer part | `INT(3.7)` → 3 |
+| `INT(x)` | Integer part (truncate toward zero) | `INT(3.7)` → 3 |
 | `RND(x)` | Random number 0-1 | `RND(1)` |
 | `ABS(x)` | Absolute value | `ABS(-5)` → 5 |
 | `SQR(x)` | Square root | `SQR(16)` → 4 |
 | `SIN(x)` | Sine (radians) | `SIN(3.14)` |
 | `COS(x)` | Cosine (radians) | `COS(0)` → 1 |
 | `TAN(x)` | Tangent (radians) | `TAN(0.78)` |
-| `ATN(x)` | Arctangent (radians) | `ATN(1)` |
+| `ATN(x)` | Arctangent (radians) | `ATN(1)` → 0.785 |
 | `LOG(x)` | Natural log | `LOG(2.71)` |
 | `EXP(x)` | e^x | `EXP(1)` |
 | `SGN(x)` | Sign: -1, 0, or 1 | `SGN(-10)` → -1 |
@@ -87,7 +87,7 @@ The simulated system uses memory-mapped I/O:
 | `LEFT$(s$, n)` | Left substring | `LEFT$("HELLO",3)` → "HEL" |
 | `RIGHT$(s$, n)` | Right substring | `RIGHT$("HELLO",3)` → "LLO" |
 | `MID$(s$, start, len)` | Middle substring | `MID$("HELLO",2,3)` → "ELL" |
-| `STR$(n)` | Number to string | `STR$(42)` → "42" |
+| `STR$(n)` | Number to string | `STR$(42)` → " 42" |
 | `VAL(s$)` | String to number | `VAL("42")` → 42 |
 | `PEEK(addr)` | Read memory byte | `PEEK(1000)` |
 | `TAB(n)` | Print tab spacing | `PRINT TAB(10); "X"` |
@@ -116,16 +116,55 @@ A$ = "HELLO" + " " + "WORLD"
 | Command | Description |
 |---------|-------------|
 | `HELP` | Show available commands |
-| `RUN` | Execute the current program |
-| `LIST` | Display the current program |
+| `HELP topic` | Show detailed help for a topic (e.g., `HELP PRINT`) |
+| `RUN` | Execute the current program from the first line |
+| `RUN 100` | Start execution at line 100 |
+| `RUN N=10` | Set variable N=10 then run from start |
+| `RUN 100, N=10, S$="hi"` | Start at line 100, set N and S$ |
+| `LIST` | Display all program lines |
+| `LIST 30` | Display only line 30 |
+| `LIST 10 100` | Display lines 10 through 100 |
 | `NEW` | Clear program and variables |
-| `CLEAR` | Clear the screen |
+| `CLEAR` or `CLS` | Clear the screen |
 | `RESET` | Full system reset (CPU + memory + BASIC) |
 | `CPU` | Display 6502 CPU register state |
+| `STOP` or `BREAK` | Break running program |
+| `HALT` | Halt the CPU |
+| `STEP` | Single-step one CPU instruction |
+| `MONITOR` or `MON` | Enter system monitor (Apple II style) |
+| `POWEROFF` | Shut down |
 | `SAVE name` | Save program to disk |
 | `LOAD name` | Load program from disk |
-| `DIR` | List saved programs |
+| `DIR` or `CATALOG` | List saved programs (with sizes) |
+| `SCRATCH name` or `DELETE name` | Delete a saved program |
+| `RENAME old new` | Rename a saved program |
+| `DEMO` | List built-in demo programs |
+| `DEMO name` | Load a demo program |
+| `DEMO name N` | Load a demo with parameter (e.g., `DEMO PRIMENUMS 100`) |
 | `SYS addr` | Execute 6502 code at address |
+
+### Program Line Entry
+
+- Type a line number followed by a statement to add or replace it: `10 PRINT "HELLO"`
+- Type a line number alone to delete that line: `10`
+- Use colon (`:`) to put multiple statements on one line: `10 A = 1 : PRINT A`
+
+## Demo Programs
+
+| Name | Description | Parameter |
+|------|-------------|-----------|
+| hello | Hello World | — |
+| counter | Count 1-10 | — |
+| fibonacci | Fibonacci Sequence | — |
+| guess | Number Guessing Game | — |
+| times | Multiplication Table | — |
+| mandelbrot | ASCII Mandelbrot Set | — |
+| primenums | Prime Numbers | `DEMO PRIMENUMS 100` finds first 100 primes |
+| pi | Calculate Pi | `DEMO PI 1000` uses 1000 terms of Gregory-Leibniz |
+| sys_counter | 6502 Counter ($F040) | — |
+| sys_fib | 6502 Fibonacci ($F080) | — |
+| sys_add2 | 6502 Add 2 ($F060) | — |
+| sys_6502 | Manual 6502 Code Demo | — |
 
 ## Example Programs
 
@@ -160,6 +199,20 @@ A$ = "HELLO" + " " + "WORLD"
 90 END
 ```
 
+### Prime Numbers (parameterized)
+```
+DEMO PRIMENUMS 50
+RUN
+```
+This finds the first 50 prime numbers using trial division. Change the number to find more or fewer.
+
+### Calculate Pi
+```
+DEMO PI 1000
+RUN
+```
+Uses the Gregory-Leibniz series with 1000 terms. More terms = more accuracy.
+
 ### 6502 Machine Code Demo
 ```
 10 POKE 768, 169
@@ -173,17 +226,16 @@ A$ = "HELLO" + " " + "WORLD"
 90 END
 ```
 
-This stores LDA #$41, STA $0800 at address 768 ($0300), then calls SYS 768 to execute it and reads the result from memory address 2048 ($0800).
-
 ### Multiplication Table
 ```
 10 FOR I = 1 TO 9
 20 FOR J = 1 TO 9
-30 PRINT I * J; " ";
-40 NEXT J
-50 PRINT ""
-60 NEXT I
-70 END
+30 IF I * J < 10 THEN PRINT " ";
+40 PRINT I * J; " ";
+50 NEXT J
+60 PRINT ""
+70 NEXT I
+80 END
 ```
 
 ## Keyboard Shortcuts
@@ -191,7 +243,8 @@ This stores LDA #$41, STA $0800 at address 768 ($0300), then calls SYS 768 to ex
 | Key | Action |
 |-----|--------|
 | F1 | Show help |
-| F3 | Toggle CRT settings panel |
+| F3 | Toggle System Settings panel |
+| F4 | Cycle CPU clock (0.5/1/10 MHz) |
 | F5 | Run program |
 | F6 | Start/stop video recording |
 | F7 | Cycle baud rate (300/1200/2400/9600/14400) |
@@ -199,10 +252,13 @@ This stores LDA #$41, STA $0800 at address 768 ($0300), then calls SYS 768 to ex
 | F9 | Take screenshot |
 | F10 | Full system reset |
 | Up/Down | Command history |
+| Escape | Exit monitor mode |
 
-## CRT Settings Panel
+The mouse cursor is hidden by default and appears when you move the mouse, disappearing after 3 seconds of inactivity.
 
-Press **F3** to open the real-time CRT settings panel on the right side of the screen. Adjust any parameter with the sliders — changes are applied immediately.
+## System Settings Panel
+
+Press **F3** to open the System Settings panel on the right side of the screen. Adjust any parameter with the sliders — changes are applied immediately.
 
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
@@ -214,7 +270,7 @@ Press **F3** to open the real-time CRT settings panel on the right side of the s
 
 ### CRT Warm-Up & Boot
 
-On a fresh launch, the terminal simulates a **5-second boot sequence** (BIOS POST: RAM test, CPU check, ROM detect) before showing the `READY.` prompt.
+On a fresh launch, the terminal simulates a **5-second boot sequence** with "Hacker Computer Company" branding and BIOS POST (RAM test, CPU check, ROM detect). A CRT static crackle sound plays during boot.
 
 The CRT also **warms up** over ~2 minutes — on cold start, values start high and settle down:
 - Curvature: 0.10 → slider value
@@ -222,14 +278,13 @@ The CRT also **warms up** over ~2 minutes — on cold start, values start high a
 - Flicker: 0.05 → slider value
 - Scanlines: 0.15 → slider value
 - Glow: 0.6 → slider value
+- Brightness: 0 → 1 (4-second fade-in during boot)
 
-The warm-up uses a cubic ease-out curve (fast change initially, gradual settling). When a saved state is loaded on startup, the warm-up is skipped entirely.
-
-Click **Reset to Defaults** to restore all values. Press **F3** again to close.
+The warm-up uses a cubic ease-out curve. When a saved state is loaded on startup, the warm-up is skipped entirely.
 
 ### Save / Load State
 
-The CRT settings panel also has **Save State** and **Load State** buttons. Saving writes the full system state to `user://savestate.json`, including:
+The System Settings panel has **Save State** and **Load State** buttons. Saving writes the full system state to `user://savestate.json`, including:
 
 - All CRT slider settings
 - Font and baud rate selection
@@ -238,7 +293,23 @@ The CRT settings panel also has **Save State** and **Load State** buttons. Savin
 - BASIC program lines and variables
 - Command history
 
-On startup, if a save file exists it is **automatically loaded**, letting you resume exactly where you left off. Use **Load State** to manually restore, or **Save State** to update the saved file at any time.
+On startup, if a save file exists it is **automatically loaded**, letting you resume exactly where you left off.
+
+## System Monitor
+
+Type `MONITOR` or `MON` to enter the Apple II-style system monitor. Commands include:
+
+| Command | Description |
+|---------|-------------|
+| `addr` | Examine memory at address |
+| `addr.value` | Write byte to address |
+| `addr1.addr2` | Examine memory range |
+| `R` | Show CPU registers |
+| `D addr` | Disassemble at address |
+| `G addr` | Run 6502 code at address |
+| `S` | Single-step one instruction |
+| `H` | Show monitor help |
+| `ESC` or `Q` | Exit monitor |
 
 ## Troubleshooting
 
@@ -246,16 +317,22 @@ On startup, if a save file exists it is **automatically loaded**, letting you re
 |---------|----------|
 | Program won't run | Check line numbers are in order; type `LIST` to verify |
 | "LINE NOT FOUND" error | Ensure the GOTO/GOSUB target line exists |
-| "NEXT WITHOUT FOR" | Make sure every NEXT has a matching FOR |
+| "NEXT WITHOUT FOR" error | Every NEXT must have a matching FOR |
 | "OUT OF DATA" | Not enough DATA statements for READ |
+| Program seems to skip lines | GOTO/IF-THEN now support colon statement separators |
 | Screen looks wrong | Type `CLEAR` to reset the display |
 | CPU shows wrong values | Type `RESET` for full system reset |
+| Can't see mouse | Move the mouse to show cursor; it hides after 3 seconds |
 
 ## Technical Notes
 
-- The 6502 emulation is cycle-accurate for all official opcodes
-- Decimal mode (BCD) is not implemented in the ALU but the flag is preserved
-- Unofficial opcodes are not supported (will halt the CPU)
+- The 6502 emulation supports all official opcodes and addressing modes
+- GOTO, IF-THEN with line numbers, GOSUB, and NEXT all work correctly with nested/jumped loops
+- Colon (`:`) separates multiple statements on one line
+- `RUN 100` starts at line 100; `RUN N=10` sets variables before running
+- BREAK and STOP are equivalent — both halt program execution
+- LIST supports ranges: `LIST 30` or `LIST 10 100`
+- SCRATCH/DELETE removes saved .bas files; RENAME renames them
 - The BASIC interpreter uses floating-point numbers internally
 - String variables are suffixed with `$`
 - Arrays are dynamically sized via DIM or auto-sized on first use

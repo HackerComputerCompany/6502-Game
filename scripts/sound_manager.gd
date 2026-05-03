@@ -13,11 +13,14 @@ var _line_feed_stream: AudioStreamWAV
 var _carriage_stream: AudioStreamWAV
 var _error_stream: AudioStreamWAV
 
+var _crackle_player: AudioStreamPlayer
+var _crackle_stream: AudioStreamWAV
+
 var sound_enabled: bool = true
 var volume_db: float = -6.0
 
 func _ready() -> void:
-	_key_stream = _generate_click(800, 0.04, 0.1)
+	_key_stream = _generate_click(400, 0.025, 0.03)
 	_bell_stream = _generate_bell()
 	_line_feed_stream = _generate_click(300, 0.06, 0.08)
 	_carriage_stream = _generate_carriage()
@@ -47,6 +50,12 @@ func _ready() -> void:
 	_error_player.stream = _error_stream
 	_error_player.volume_db = volume_db + 3.0
 	add_child(_error_player)
+	
+	_crackle_stream = _generate_crackle()
+	_crackle_player = AudioStreamPlayer.new()
+	_crackle_player.stream = _crackle_stream
+	_crackle_player.volume_db = volume_db
+	add_child(_crackle_player)
 
 func play_key() -> void:
 	if not sound_enabled:
@@ -87,6 +96,12 @@ func play_error() -> void:
 	if not _error_player.playing:
 		_error_player.play()
 
+func play_crackle() -> void:
+	if not sound_enabled:
+		return
+	_crackle_player.stop()
+	_crackle_player.play()
+
 func _generate_click(freq: float, duration: float, decay: float) -> AudioStreamWAV:
 	var sample_rate = 44100
 	var samples = int(sample_rate * duration)
@@ -121,6 +136,31 @@ func _generate_bell() -> AudioStreamWAV:
 		bell += sin(2.0 * PI * 3500.0 * t) * 0.2
 		bell += sin(2.0 * PI * 5500.0 * t) * 0.1
 		var sample = clampf(bell * envelope, -1.0, 1.0)
+		var val = int(sample * 32767.0)
+		data[i * 2] = val & 0xFF
+		data[i * 2 + 1] = (val >> 8) & 0xFF
+	var stream = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = sample_rate
+	stream.stereo = false
+	stream.data = data
+	return stream
+
+func _generate_crackle() -> AudioStreamWAV:
+	var sample_rate = 44100
+	var duration = 1.5
+	var samples = int(sample_rate * duration)
+	var data = PackedByteArray()
+	data.resize(samples * 2)
+	for i in range(samples):
+		var t = float(i) / sample_rate
+		var envelope = exp(-t / 0.3)
+		var crackle = 0.0
+		if randf() < 0.04:
+			crackle = randf_range(-1.0, 1.0) * 0.8
+		var hiss = randf_range(-1.0, 1.0) * 0.15
+		var pop = sin(2.0 * PI * 150.0 * t) * 0.2 * exp(-fmod(t * 20.0, 1.0) / 0.1)
+		var sample = clampf((crackle + hiss + pop) * envelope, -1.0, 1.0)
 		var val = int(sample * 32767.0)
 		data[i * 2] = val & 0xFF
 		data[i * 2 + 1] = (val >> 8) & 0xFF

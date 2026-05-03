@@ -11,14 +11,17 @@ var _data_values: Array = []
 var _data_pointer: int = 0
 var _running: bool = false
 var _current_line: int = 0
+var _jumped: bool = false
 var _awaiting_input: bool = false
 var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
 
+var _demos_with_param: Array = ["primenums", "pi"]
+
 enum TT {
 	NUMBER, STRING, IDENT, OP, LPAREN, RPAREN,
-	COMMA, SEMI, KW, EOL, NEQ, LTE, GTE
+	COMMA, SEMI, KW, EOL, NEQ, LTE, GTE, COLON
 }
 
 var _keywords: Dictionary = {}
@@ -45,7 +48,7 @@ func _setup_keywords() -> void:
 		"PEEK": true, "POKE": true, "SYS": true, "WAIT": true,
 		"CLR": true, "NEW": true, "LIST": true, "RUN": true,
 		"CONT": true, "LOAD": true, "SAVE": true, "MEM": true,
-		"DEF": true, "FN": true, "STOP": true,
+		"DEF": true, "FN": true, "STOP": true, "BREAK": true,
 	}
 
 func load_program(text: String) -> void:
@@ -99,11 +102,46 @@ func continue_run() -> void:
 func _execute_line(line_data: Array) -> void:
 	var _line_num: int = line_data[0]
 	var stmt: String = line_data[1]
+	_jumped = false
 	_execute_statement(stmt)
-	if _running:
+	if _running and not _jumped:
 		_current_line += 1
 
 func _execute_statement(stmt: String) -> void:
+	stmt = stmt.strip_edges()
+	if stmt == "":
+		return
+	var parts = _split_on_colon(stmt)
+	for i in range(parts.size()):
+		_execute_single(parts[i])
+		if not _running or _jumped:
+			break
+
+func _split_on_colon(stmt: String) -> Array:
+	var parts: Array = []
+	var current = ""
+	var in_quote = false
+	var qchar = ""
+	for i in range(stmt.length()):
+		var ch = stmt[i]
+		if in_quote:
+			current += ch
+			if ch == qchar:
+				in_quote = false
+			continue
+		if ch == '"' or ch == "'":
+			in_quote = true
+			qchar = ch
+			current += ch
+		elif ch == ':':
+			parts.append(current)
+			current = ""
+		else:
+			current += ch
+	parts.append(current)
+	return parts
+
+func _execute_single(stmt: String) -> void:
 	stmt = stmt.strip_edges()
 	if stmt == "":
 		return
@@ -123,7 +161,7 @@ func _execute_statement(stmt: String) -> void:
 			"IF": _exec_if(toks)
 			"LET": _exec_let(toks)
 			"REM": return
-			"END", "STOP": _running = false
+			"END", "STOP", "BREAK": _running = false
 			"DIM": _exec_dim(toks)
 			"READ": _exec_read(toks)
 			"DATA": return
@@ -208,6 +246,9 @@ func _tokenize(text: String) -> Array:
 			pos += 1
 		elif ch == ';':
 			tokens.append([TT.SEMI, ";"])
+			pos += 1
+		elif ch == ':':
+			tokens.append([TT.COLON, ":"])
 			pos += 1
 		elif ch.is_valid_identifier() or ch == '$' or ch == '_':
 			var ident = ""
@@ -590,6 +631,7 @@ func _exec_goto(toks: Array) -> void:
 	var idx = _find_line(int(target))
 	if idx >= 0:
 		_current_line = idx
+		_jumped = true
 		_running = true
 	else:
 		_output_callback.call("ERROR: LINE NOT FOUND\n")
@@ -601,13 +643,15 @@ func _exec_gosub(toks: Array) -> void:
 	if idx >= 0:
 		_gosub_stack.append(_current_line + 1)
 		_current_line = idx
+		_jumped = true
 	else:
 		_output_callback.call("ERROR: LINE NOT FOUND\n")
 		_running = false
 
 func _exec_return() -> void:
 	if _gosub_stack.size() > 0:
-		_current_line = _gosub_stack.pop_back() - 1
+		_current_line = _gosub_stack.pop_back()
+		_jumped = true
 	else:
 		_output_callback.call("ERROR: RETURN WITHOUT GOSUB\n")
 		_running = false
@@ -638,11 +682,22 @@ func _exec_next(toks: Array) -> void:
 		_output_callback.call("ERROR: NEXT WITHOUT FOR\n")
 		_running = false
 		return
-	var for_info = _for_stack[-1]
-	if var_name != "" and var_name != for_info["var"]:
-		_output_callback.call("ERROR: NEXT WITHOUT FOR\n")
-		_running = false
-		return
+	var target_idx: int
+	if var_name == "":
+		target_idx = _for_stack.size() - 1
+	else:
+		target_idx = -1
+		for i in range(_for_stack.size() - 1, -1, -1):
+			if _for_stack[i]["var"] == var_name:
+				target_idx = i
+				break
+		if target_idx < 0:
+			_output_callback.call("ERROR: NEXT WITHOUT FOR\n")
+			_running = false
+			return
+		while _for_stack.size() > target_idx + 1:
+			_for_stack.pop_back()
+	var for_info = _for_stack[target_idx]
 	var cur = float(_variables[for_info["var"]])
 	var step = float(for_info["step"])
 	cur += step
@@ -652,6 +707,7 @@ func _exec_next(toks: Array) -> void:
 		_for_stack.pop_back()
 	else:
 		_current_line = for_info["line"]
+		_jumped = true
 
 func _exec_if(toks: Array) -> void:
 	var pos = 1
@@ -666,7 +722,7 @@ func _exec_if(toks: Array) -> void:
 		var idx = _find_line(target)
 		if idx >= 0:
 			_current_line = idx
-			_running = true
+			_jumped = true
 		else:
 			_output_callback.call("ERROR: LINE NOT FOUND\n")
 			_running = false
