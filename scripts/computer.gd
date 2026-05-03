@@ -76,8 +76,6 @@ func step_basic(max_lines: int) -> bool:
 			_awaiting_input = true
 			_flush_output()
 			return true
-		if basic._running:
-			basic._current_line += 1
 		lines_executed += 1
 	if not basic._running or basic._current_line >= basic._program.size():
 		_program_running = false
