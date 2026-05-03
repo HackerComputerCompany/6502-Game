@@ -60,6 +60,7 @@ var _boot_elapsed: float = 0.0
 var _boot_phase: int = 0
 var _boot_done: bool = false
 var _warmup_done: bool = false
+var _input_buffer: String = ""
 
 const COLD_CURVATURE: float = 0.10
 const COLD_SCANLINE: float = 0.15
@@ -98,14 +99,12 @@ func _start_cold_boot() -> void:
 		_on_vignette_changed(vignette_slider.value)
 		_on_glow_changed(glow_slider.value)
 		_on_flicker_changed(flicker_slider.value)
-		input_line.editable = true
 		return
 	crt_overlay.material.set_shader_parameter("crt_curvature", COLD_CURVATURE)
 	crt_overlay.material.set_shader_parameter("scanline_intensity", COLD_SCANLINE)
 	crt_overlay.material.set_shader_parameter("vignette_intensity", COLD_VIGNETTE)
 	crt_overlay.material.set_shader_parameter("glow_intensity", COLD_GLOW)
 	crt_overlay.material.set_shader_parameter("flicker_intensity", COLD_FLICKER)
-	input_line.editable = false
 
 func _apply_font_deferred() -> void:
 	if _fonts_loaded:
@@ -133,6 +132,8 @@ func _process(delta: float) -> void:
 			_is_streaming = false
 	else:
 		_is_streaming = false
+	if not input_line.has_focus() and _boot_done:
+		input_line.grab_focus()
 
 func _process_warmup(delta: float) -> void:
 	_warmup_elapsed += delta
@@ -179,8 +180,24 @@ func _process_boot(delta: float) -> void:
 	if _boot_elapsed >= BOOT_DURATION:
 		_boot_done = true
 		_print_banner()
-		input_line.editable = true
+		_flush_input_buffer()
 		input_line.grab_focus()
+
+func _flush_input_buffer() -> void:
+	if _input_buffer == "":
+		return
+	var lines = _input_buffer.split("\n")
+	_input_buffer = ""
+	for line in lines:
+		line = line.strip_edges()
+		if line == "":
+			continue
+		command_history.append(line)
+		_handle_command(line)
+		_instant_output = true
+		screen.append_text("[color=lime]\nREADY.\n[/color]")
+		_instant_output = false
+	history_pos = command_history.size()
 
 func _stream_char_by_char(text: String) -> void:
 	for ch in text:
@@ -318,19 +335,22 @@ func _apply_font() -> void:
 	sound.play_key()
 
 func _on_input_line_text_submitted(text: String) -> void:
-	if not _boot_done:
-		return
 	if text.strip_edges() == "":
+		input_line.clear()
+		input_line.grab_focus()
 		return
 	sound.play_carriage()
-	command_history.append(text)
-	history_pos = command_history.size()
 	input_line.clear()
+	input_line.grab_focus()
+	if not _boot_done:
+		_input_buffer += text.strip_edges() + "\n"
+		return
+	command_history.append(text.strip_edges())
+	history_pos = command_history.size()
 	_handle_command(text.strip_edges())
 	_instant_output = true
 	screen.append_text("[color=lime]\nREADY.\n[/color]")
 	_instant_output = false
-	input_line.grab_focus()
 
 func _handle_command(text: String) -> void:
 	var upper = text.to_upper()
@@ -667,7 +687,6 @@ func _load_state_silent() -> void:
 	_instant_output = true
 	screen.append_text("[color=cyan]Previous state restored. Press F3 to adjust CRT settings.[/color]\n\n")
 	_instant_output = false
-	input_line.editable = true
 	input_line.grab_focus()
 
 func _apply_saved_state(data: Dictionary) -> void:
