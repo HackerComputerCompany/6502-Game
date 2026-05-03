@@ -168,9 +168,17 @@ scripts/
 
 ---
 
-## Phase 3: Small-C Compiler
+## Phase 3: Small-C Compiler (Based on Ron Cain's Small-C)
 
-**Goal:** A simplified C compiler targeting the 6502, inspired by Ron Cain's original Small-C and Fabrice Bellard's OTCC. Not standard C — a pragmatic subset.
+**Goal:** A C compiler targeting the 6502, directly adapted from Ron Cain's original Small-C (1980). Small-C was a seminal subset of C that ran on 8080/CPM and was later ported to the 6502 by James Hendrix. We use the same language subset but implement our own lexer, parser, and 6502 code generator in GDScript.
+
+**Key references from Cain's original work:**
+
+- Single-pass compilation (no separate preprocessing stage beyond `#define` and `#include`)
+- All arithmetic is 16-bit (int) or 8-bit (char); no floating point
+- Functions must be defined before use (or forward-declared)
+- Expression evaluation is stack-based, matching the 6502's limited register set
+- The compiler itself is small enough to understand in a weekend — that's the point
 
 ### The "C" cart
 
@@ -190,72 +198,42 @@ C> RUN
 C>
 ```
 
-### C language subset
+### C language subset (Small-C)
 
-Keeping it as small as possible while being useful:
+Following Cain's Small-C closely — a usable C subset that a beginner can learn completely in a few sessions:
 
 **Supported:**
 
-- `int` and `char` types (1-byte char, 2-byte int)
-- Global and local variables
-- Functions with parameters (up to 4, passed in A/X or on stack)
-- `if/else`, `while`, `for`, `return`
+- `int` (16-bit) and `char` (8-bit) — all arithmetic is integer
+- Global and local variables (locals on a stack frame)
+- Functions with parameters, returned via A/X registers
+- `if/else`, `while`, `for`, `return`, `break`
 - `+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `~`, `<<`, `>>`
-- `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`
-- Arrays (1D), pointers (basic dereference)
-- `putc(c)` — output character to `$C002`
-- `getc()` — read character from `$C000`
-- String literals in double quotes
-- `#define` for simple text replacement constants
-- Comments `//` and `/* */`
+- `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`
+- One-dimensional arrays and basic pointer dereferencing (`*p`, `p[n]`)
+- String literals (stored as null-terminated in ROM)
+- `#define` for simple constants
+- `//` and `/* */` comments
+- Built-in functions: `putc(c)`, `getc()`, `peek(addr)`, `poke(addr, val)`
 
-**Not supported** (to keep it small):
+**Not supported** (excluded deliberately, as in Cain's original):
 
 - Structs, unions, enums
 - Float/double
-- Preprocessor beyond `#define`
+- Multi-file compilation or `#include` (for now)
 - `switch/case`
 - `goto`
-- Multi-file compilation
-- `sizeof`, typedef, casting
-- Struct pointers, function pointers
+- `sizeof`, typedef, explicit casting
+- Function pointers, struct pointers
+- Preprocessor beyond `#define`
 
-### Compiler architecture
+**Calling convention** (Cain's model, adapted for 6502):
 
-A classic three-stage compiler:
-
-```
-Source → [Lexer] → Tokens → [Parser] → AST → [Codegen] → 6502 assembly → [Assembler] → machine code
-```
-
-**Stage 1: Lexer** (`c_lexer.gd`)
-
-- Tokenize into: NUMBER, STRING, IDENT, KEYWORD, OP, PUNCT
-- Simple character-by-character scanner
-
-**Stage 2: Parser** (`c_parser.gd`)
-
-- Recursive descent parser producing an AST
-- Nodes: `Program`, `Function`, `VarDecl`, `If`, `While`, `For`, `Return`, `BinOp`, `Call`, `Assign`, `Deref`, `Index`, etc.
-
-**Stage 3: Code Generator** (`c_codegen.gd`)
-
-- Walks the AST and emits 6502 assembly mnemonics
-- Uses a simple stack-based calling convention:
-  - Params passed in A (low byte) / X (high byte) or pushed to stack
-  - Return value in A (low byte) / X (high byte for int)
-  - Local variables on a frame pointer stack at `$0100+`
-- Emits assembly text that feeds into the Phase 2 assembler
-
-**Runtime library** (included in the cart ROM at `$F000+`):
-
-```
-putc    — write A to $C002 (1 byte to screen)
-getc    — read from $C000 (1 byte from keyboard)
-mul16   — 16-bit multiply
-div16   — 16-bit divide
-mod16   — 16-bit modulo
-```
+- First two params in A (low) and X (high)
+- Additional params pushed right-to-left on stack
+- Return value in A (low byte) / X (high byte)
+- Callee saves/restores registers it modifies
+- Stack frame pointer in `$F0-$F1` (zero page)
 
 ### File structure
 
@@ -317,6 +295,119 @@ Save file gains a `"cart"` field:
 
 ---
 
+## Phase 5: Documentation — Small-C Manual & Getting Started Guide
+
+### Two deliverables:
+
+1. **SMALL_C_MANUAL.md** — Complete language reference, compiler internals, calling convention, runtime library API, memory map, and appendix of error messages
+2. **GETTING_STARTED_C.md** — "Getting Started with C in 10 Lessons", a progressive tutorial guide
+
+### SMALL_C_MANUAL.md outline
+
+```
+1. Introduction
+   - What Small-C is (and isn't)
+   - Ron Cain's original design philosophy
+   - How it fits on a 6502
+
+2. Language Reference
+   - Types (int, char)
+   - Variables (global, local, scope rules)
+   - Operators (arithmetic, bitwise, comparison, logical)
+   - Control flow (if/else, while, for, return, break)
+   - Functions (declaration, parameters, return values)
+   - Arrays and pointers
+   - String literals
+   - #define
+   - Comments
+
+3. Built-in Functions
+   - putc(c)        — output character
+   - getc()          — read character
+   - peek(addr)      — read memory byte
+   - poke(addr, val) — write memory byte
+
+4. Memory Map & Calling Convention
+   - Zero page usage ($F0-$FF)
+   - Stack frame layout
+   - Parameter passing (A/X + stack)
+   - Return values (A/X)
+   - Register preservation contract
+
+5. Compiler Errors
+   - Each error message, cause, and fix
+
+6. Compatibility Notes
+   - What differs from K&R C, ANSI C
+   - Known limitations
+   - Debugging tips (using STEP, MONITOR)
+```
+
+### GETTING_STARTED_C.md — "Getting Started with C in 10 Lessons"
+
+#### Lesson 1: Hello, World!
+- Loading the C cart (`CART C`)
+- The `main()` function
+- `putc()` and character output
+- Compile and RUN
+- Exercise: Print your initials
+
+#### Lesson 2: Variables and Arithmetic
+- `int` and `char` types
+- Declaration, assignment, operators
+- `+`, `-`, `*`, `/`, `%`
+- Exercise: Fahrenheit to Celsius converter
+
+#### Lesson 3: Loops — for and while
+- `for` loop syntax and patterns
+- `while` loop
+- Building a counting program
+- Exercise: Print a multiplication table
+
+#### Lesson 4: Conditionals — if/else
+- Comparison operators
+- Logical operators
+- Nested conditions
+- Exercise: Number guessing game
+
+#### Lesson 5: Functions
+- Defining your own functions
+- Parameters and return values
+- Calling convention on the 6502
+- Exercise: Write `max(a, b)` and `abs(x)` functions
+
+#### Lesson 6: Arrays and Strings
+- One-dimensional arrays
+- String literals as char arrays
+- Null-terminated strings
+- Exercise: Reverse a string
+
+#### Lesson 7: Pointers and Memory
+- Pointer basics (`*p`, `&x`)
+- `peek()` and `poke()` for hardware access
+- Walking through memory with the monitor
+- Exercise: Read and display memory at $C000
+
+#### Lesson 8: Bitwise Operations
+- `&`, `|`, `^`, `~`, `<<`, `>>`
+- Masks and flags
+- Real 6502 I/O: reading keyboard status at $C001
+- Exercise: Binary display of a number
+
+#### Lesson 9: Interfacing with BASIC and Assembly
+- C functions callable from BASIC via SYS
+- Sharing memory between C and BASIC programs
+- Inline assembly with the assembler cart
+- Exercise: Write a C function, call it from BASIC
+
+#### Lesson 10: Full Project — A Simple Game
+- Putting it all together
+- Keyboard input with `getc()`
+- Game loop: input → update → display
+- Exercise: Number guessing game with persistent high score in memory
+
+---
+
 ## Implementation Order
 
 | Phase | Description | Sessions |
@@ -325,7 +416,8 @@ Save file gains a `"cart"` field:
 | 2 | ASM editor + two-pass assembler | 3-4 |
 | 3 | Small-C compiler (lexer → parser → codegen) | 6-8 |
 | 4 | Cart integration, switching, persistence | 2 |
-| **Total** | | **13-16 sessions** |
+| 5 | Small-C manual + 10-lesson getting started guide | 3-4 |
+| **Total** | | **16-20 sessions** |
 
 ### Dependencies
 
@@ -335,8 +427,9 @@ Save file gains a `"cart"` field:
 
 ### Prior art / references
 
-- **Ron Cain's Small-C** (1980) — the original C subset compiler targeting 8080, later ported to 6502
-- **cc65** — modern 6502 C compiler (too complex, but good ABI reference)
-- **Merlin Assembler** — Apple II macro assembler (editor UX reference)
+- **Ron Cain's Small-C** (1980) — the original C subset compiler targeting 8080/CPM, published in Dr. Dobb's Journal #45 (May 1980). Our implementation follows Cain's language subset and single-pass compilation model, targeting 6502 instead of 8080. The defining characteristic: all arithmetic is 16-bit integer, functions defined before use, stack-based expression evaluation.
+- **James Hendrix's Small-C port to 6502** (1982) — proved Cain's compiler could target the 6502 with a different code generator. Our calling convention is simplified from Hendrix's.
+- **cc65** — modern 6502 C compiler (too complex for our scope, but good ABI reference for advanced features we may add later)
+- **Merlin Assembler** — Apple II macro assembler (editor UX reference for Phase 2)
 - **Apple II Monitor** — already implemented, UX model for our monitor mode
-- **Fabrice Bellard's OTCC** — tiny C compiler in ~1500 lines (minimal parser/codegen reference)
+- **Fabrice Bellard's OTCC** — tiny C compiler in ~1500 lines (good minimal reference for parser/codegen techniques)
