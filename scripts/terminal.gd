@@ -52,6 +52,21 @@ var _fonts_loaded: bool = false
 
 const SAVE_PATH = "user://savestate.json"
 
+const WARMUP_DURATION: float = 120.0
+const BOOT_DURATION: float = 5.0
+
+var _warmup_elapsed: float = 0.0
+var _boot_elapsed: float = 0.0
+var _boot_phase: int = 0
+var _boot_done: bool = false
+var _warmup_done: bool = false
+
+const COLD_CURVATURE: float = 0.10
+const COLD_SCANLINE: float = 0.15
+const COLD_VIGNETTE: float = 1.0
+const COLD_GLOW: float = 0.6
+const COLD_FLICKER: float = 0.05
+
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
@@ -69,12 +84,28 @@ func _ready() -> void:
 	save_btn.pressed.connect(_on_save_state)
 	load_btn.pressed.connect(_on_load_state)
 	input_line.grab_focus()
-	_print_banner()
 	_update_status()
 	_update_baud_label()
 	_update_font_label()
 	call_deferred("_apply_font_deferred")
 	call_deferred("_load_state_silent")
+	call_deferred("_start_cold_boot")
+
+func _start_cold_boot() -> void:
+	if _warmup_done:
+		_on_curvature_changed(curvature_slider.value)
+		_on_scanline_changed(scanline_slider.value)
+		_on_vignette_changed(vignette_slider.value)
+		_on_glow_changed(glow_slider.value)
+		_on_flicker_changed(flicker_slider.value)
+		input_line.editable = true
+		return
+	crt_overlay.material.set_shader_parameter("crt_curvature", COLD_CURVATURE)
+	crt_overlay.material.set_shader_parameter("scanline_intensity", COLD_SCANLINE)
+	crt_overlay.material.set_shader_parameter("vignette_intensity", COLD_VIGNETTE)
+	crt_overlay.material.set_shader_parameter("glow_intensity", COLD_GLOW)
+	crt_overlay.material.set_shader_parameter("flicker_intensity", COLD_FLICKER)
+	input_line.editable = false
 
 func _apply_font_deferred() -> void:
 	if _fonts_loaded:
@@ -83,6 +114,10 @@ func _apply_font_deferred() -> void:
 	_fonts_loaded = true
 
 func _process(delta: float) -> void:
+	if not _warmup_done:
+		_process_warmup(delta)
+	if not _boot_done:
+		_process_boot(delta)
 	if debug.is_recording():
 		var fc = debug.get_frame_count()
 		if fc % 30 == 0:
@@ -98,6 +133,54 @@ func _process(delta: float) -> void:
 			_is_streaming = false
 	else:
 		_is_streaming = false
+
+func _process_warmup(delta: float) -> void:
+	_warmup_elapsed += delta
+	var t = clampf(_warmup_elapsed / WARMUP_DURATION, 0.0, 1.0)
+	var ease_t = 1.0 - pow(1.0 - t, 3.0)
+	var curv = lerpf(COLD_CURVATURE, curvature_slider.value, ease_t)
+	var scan = lerpf(COLD_SCANLINE, scanline_slider.value, ease_t)
+	var vig = lerpf(COLD_VIGNETTE, vignette_slider.value, ease_t)
+	var glow = lerpf(COLD_GLOW, glow_slider.value, ease_t)
+	var flick = lerpf(COLD_FLICKER, flicker_slider.value, ease_t)
+	crt_overlay.material.set_shader_parameter("crt_curvature", curv)
+	crt_overlay.material.set_shader_parameter("scanline_intensity", scan)
+	crt_overlay.material.set_shader_parameter("vignette_intensity", vig)
+	crt_overlay.material.set_shader_parameter("glow_intensity", glow)
+	crt_overlay.material.set_shader_parameter("flicker_intensity", flick)
+	if _warmup_elapsed >= WARMUP_DURATION:
+		_warmup_done = true
+		_on_curvature_changed(curvature_slider.value)
+		_on_scanline_changed(scanline_slider.value)
+		_on_vignette_changed(vignette_slider.value)
+		_on_glow_changed(glow_slider.value)
+		_on_flicker_changed(flicker_slider.value)
+
+func _process_boot(delta: float) -> void:
+	_boot_elapsed += delta
+	var phases = [
+		{"time": 0.0, "msg": null},
+		{"time": 0.5, "msg": "[color=green][b]BASIC6502 BIOS v1.4[/b][/color]\n"},
+		{"time": 1.2, "msg": "[color=green]Testing RAM... 65536 bytes OK[/color]\n"},
+		{"time": 2.0, "msg": "[color=green]6502 CPU @ 1MHz... OK[/color]\n"},
+		{"time": 2.6, "msg": "[color=green]ROM at $F000... OK[/color]\n"},
+		{"time": 3.2, "msg": "[color=green]I/O ports $C000-$C030... OK[/color]\n"},
+		{"time": 4.0, "msg": null},
+		{"time": 5.0, "msg": null},
+	]
+	if _boot_phase < phases.size() and _boot_elapsed >= phases[_boot_phase].time:
+		var msg = phases[_boot_phase].msg
+		_boot_phase += 1
+		if msg != null:
+			_instant_output = true
+			screen.append_text(msg)
+			_instant_output = false
+			sound.play_key()
+	if _boot_elapsed >= BOOT_DURATION:
+		_boot_done = true
+		_print_banner()
+		input_line.editable = true
+		input_line.grab_focus()
 
 func _stream_char_by_char(text: String) -> void:
 	for ch in text:
@@ -235,6 +318,8 @@ func _apply_font() -> void:
 	sound.play_key()
 
 func _on_input_line_text_submitted(text: String) -> void:
+	if not _boot_done:
+		return
 	if text.strip_edges() == "":
 		return
 	sound.play_carriage()
@@ -477,24 +562,29 @@ func _sys_command(text: String) -> void:
 	computer.execute_basic_line(text)
 
 func _on_curvature_changed(value: float) -> void:
-	crt_overlay.material.set_shader_parameter("crt_curvature", value)
 	curvature_label.text = "Curvature: %.4f" % value
+	if _warmup_done:
+		crt_overlay.material.set_shader_parameter("crt_curvature", value)
 
 func _on_scanline_changed(value: float) -> void:
-	crt_overlay.material.set_shader_parameter("scanline_intensity", value)
 	scanline_label.text = "Scanlines: %.3f" % value
+	if _warmup_done:
+		crt_overlay.material.set_shader_parameter("scanline_intensity", value)
 
 func _on_vignette_changed(value: float) -> void:
-	crt_overlay.material.set_shader_parameter("vignette_intensity", value)
 	vignette_label.text = "Vignette: %.2f" % value
+	if _warmup_done:
+		crt_overlay.material.set_shader_parameter("vignette_intensity", value)
 
 func _on_glow_changed(value: float) -> void:
-	crt_overlay.material.set_shader_parameter("glow_intensity", value)
 	glow_label.text = "Glow: %.2f" % value
+	if _warmup_done:
+		crt_overlay.material.set_shader_parameter("glow_intensity", value)
 
 func _on_flicker_changed(value: float) -> void:
-	crt_overlay.material.set_shader_parameter("flicker_intensity", value)
 	flicker_label.text = "Flicker: %.3f" % value
+	if _warmup_done:
+		crt_overlay.material.set_shader_parameter("flicker_intensity", value)
 
 func _on_reset_settings() -> void:
 	curvature_slider.value = 0.01
@@ -570,9 +660,15 @@ func _load_state_silent() -> void:
 	if json.parse(json_text) != OK:
 		return
 	_apply_saved_state(json.data)
+	_boot_done = true
+	_warmup_done = true
+	screen.clear()
+	_print_banner()
 	_instant_output = true
 	screen.append_text("[color=cyan]Previous state restored. Press F3 to adjust CRT settings.[/color]\n\n")
 	_instant_output = false
+	input_line.editable = true
+	input_line.grab_focus()
 
 func _apply_saved_state(data: Dictionary) -> void:
 	if data.has("crt"):

@@ -212,6 +212,19 @@ Press **F3** to open the real-time CRT settings panel on the right side of the s
 | Glow | 0.18 | 0.0–1.0 | Phosphor bloom brightness |
 | Flicker | 0.005 | 0.0–0.05 | Random brightness flicker |
 
+### CRT Warm-Up & Boot
+
+On a fresh launch, the terminal simulates a **5-second boot sequence** (BIOS POST: RAM test, CPU check, ROM detect) before showing the `READY.` prompt.
+
+The CRT also **warms up** over ~2 minutes — on cold start, values start high and settle down:
+- Curvature: 0.10 → slider value
+- Vignette: 1.0 → slider value
+- Flicker: 0.05 → slider value
+- Scanlines: 0.15 → slider value
+- Glow: 0.6 → slider value
+
+The warm-up uses a cubic ease-out curve (fast change initially, gradual settling). When a saved state is loaded on startup, the warm-up is skipped entirely.
+
 Click **Reset to Defaults** to restore all values. Press **F3** again to close.
 
 ### Save / Load State

@@ -9,6 +9,8 @@ A retro computing environment combining a **BASIC programming language interpret
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
+- **CRT warm-up simulation** — screen starts distorted and flickery, gradually settling over ~2 minutes
+- **Boot sequence** — 5-second BIOS POST animation on startup
 - **Real-time CRT settings panel** — press F3 to adjust curvature, scanlines, vignette, glow, and flicker with sliders
 - **Baud rate simulation** — characters stream in at 300/1200/2400/9600/14400 baud (F7 to cycle)
 - **4 switchable retro fonts** — VT323, Press Start 2P, Share Tech Mono, IBM Plex Mono (F8 to cycle)
@@ -157,6 +159,19 @@ Press **F3** to open the CRT settings panel on the right side of the screen. Fiv
 | Vignette | 0.18 | 0.0–1.0 | Edge darkening |
 | Glow | 0.18 | 0.0–1.0 | Phosphor bloom intensity |
 | Flicker | 0.005 | 0.0–0.05 | Random brightness variation |
+
+### CRT Warm-Up & Boot Sequence
+
+On a fresh launch (no saved state), the terminal plays a **5-second boot sequence** simulating a BIOS POST (RAM test, CPU check, ROM detect), then shows the `READY.` prompt.
+
+The CRT also simulates **warm-up** over ~2 minutes. On cold start:
+- **Curvature** starts at 0.10 and decays to the slider value
+- **Vignette** starts at 1.0 (full) and decays to its setting
+- **Flicker** starts at 0.05 (maximum) and decays down
+- **Scanlines** start at 0.15 and settle to their setting
+- **Glow** starts at 0.6 and settles
+
+All values ease out with a cubic curve (faster change early, gradual settling). When a saved state is loaded, the warm-up is skipped and values are applied immediately.
 
 Click **Reset to Defaults** to restore all values. Press **F3** again to close the panel.
 
