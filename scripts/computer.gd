@@ -75,5 +75,21 @@ func reset() -> void:
 	_output_buffer = ""
 	_ready = true
 
+func serialize() -> Dictionary:
+	return {
+		"memory": memory.serialize(),
+		"cpu": cpu.serialize(),
+		"basic": basic.serialize(),
+	}
+
+func deserialize(data: Dictionary) -> void:
+	if data.has("memory"):
+		memory.deserialize(data["memory"])
+		rom = ROM.new(memory)
+	if data.has("cpu"):
+		cpu.deserialize(data["cpu"])
+	if data.has("basic"):
+		basic.deserialize(data["basic"])
+
 func load_demo(name: String) -> String:
 	return rom.load_demo_program(name)

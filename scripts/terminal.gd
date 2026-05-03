@@ -18,6 +18,8 @@ extends Control
 @onready var flicker_slider: HSlider = $SettingsPanel/VBoxContainer/FlickerSlider
 @onready var flicker_label: Label = $SettingsPanel/VBoxContainer/FlickerLabel
 @onready var reset_btn: Button = $SettingsPanel/VBoxContainer/ResetBtn
+@onready var save_btn: Button = $SettingsPanel/VBoxContainer/SaveBtn
+@onready var load_btn: Button = $SettingsPanel/VBoxContainer/LoadBtn
 @onready var crt_overlay: ColorRect = $CRTOverlay
 
 var computer: Computer
@@ -48,6 +50,8 @@ var _debug_visible: bool = false
 
 var _fonts_loaded: bool = false
 
+const SAVE_PATH = "user://savestate.json"
+
 func _ready() -> void:
 	computer = Computer.new()
 	computer.output.connect(_on_output)
@@ -62,12 +66,15 @@ func _ready() -> void:
 	glow_slider.value_changed.connect(_on_glow_changed)
 	flicker_slider.value_changed.connect(_on_flicker_changed)
 	reset_btn.pressed.connect(_on_reset_settings)
+	save_btn.pressed.connect(_on_save_state)
+	load_btn.pressed.connect(_on_load_state)
 	input_line.grab_focus()
 	_print_banner()
 	_update_status()
 	_update_baud_label()
 	_update_font_label()
 	call_deferred("_apply_font_deferred")
+	call_deferred("_load_state_silent")
 
 func _apply_font_deferred() -> void:
 	if _fonts_loaded:
@@ -168,7 +175,7 @@ func _print_banner() -> void:
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
 	screen.append_text("[color=green]F1=Help F3=CRT F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
-	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n\n[/color]")
+	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
 	screen.append_text("[color=lime]READY.\n[/color]")
 	_instant_output = false
 
@@ -307,6 +314,10 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  F1  [/color]- Show this help\n"
 	help_text += "[color=yellow]  F5  [/color]- Run program\n"
 	help_text += "[color=yellow]  F10 [/color]- Reset system\n"
+	help_text += "\n[color=cyan][b]Save/Load (in CRT Settings panel - F3):[/b][/color]\n"
+	help_text += "[color=yellow]  Save State[/color] - Save CRT settings, program, variables & memory\n"
+	help_text += "[color=yellow]  Load State[/color] - Restore a previously saved state\n"
+	help_text += "[color=yellow]  Reset to Defaults[/color] - Reset CRT sliders to defaults\n"
 	help_text += "\n[color=cyan][b]BASIC Statements:[/b][/color]\n"
 	help_text += "[color=yellow]  PRINT, INPUT, GOTO, GOSUB, RETURN[/color]\n"
 	help_text += "[color=yellow]  FOR..TO..STEP..NEXT, IF..THEN[/color]\n"
@@ -486,8 +497,110 @@ func _on_flicker_changed(value: float) -> void:
 	flicker_label.text = "Flicker: %.3f" % value
 
 func _on_reset_settings() -> void:
-	curvature_slider.value = 0.15
+	curvature_slider.value = 0.01
 	scanline_slider.value = 0.04
 	vignette_slider.value = 0.18
 	glow_slider.value = 0.18
 	flicker_slider.value = 0.005
+
+func _on_save_state() -> void:
+	var data = {
+		"version": 1,
+		"crt": {
+			"curvature": curvature_slider.value,
+			"scanline_intensity": scanline_slider.value,
+			"vignette_intensity": vignette_slider.value,
+			"glow_intensity": glow_slider.value,
+			"flicker_intensity": flicker_slider.value,
+		},
+		"font_idx": _current_font_idx,
+		"baud_idx": _current_baud_idx,
+		"command_history": command_history,
+		"computer": computer.serialize(),
+	}
+	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data, "\t"))
+		file.close()
+		_instant_output = true
+		screen.append_text("\n[color=cyan]State saved.[/color]\n")
+		_instant_output = false
+		sound.play_bell()
+	else:
+		_instant_output = true
+		screen.append_text("\n[color=red]ERROR: Could not save state.[/color]\n")
+		_instant_output = false
+
+func _on_load_state() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		_instant_output = true
+		screen.append_text("\n[color=yellow]No saved state found.[/color]\n")
+		_instant_output = false
+		return
+	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if not file:
+		_instant_output = true
+		screen.append_text("\n[color=red]ERROR: Could not read save file.[/color]\n")
+		_instant_output = false
+		return
+	var json_text = file.get_as_text()
+	file.close()
+	var json = JSON.new()
+	if json.parse(json_text) != OK:
+		_instant_output = true
+		screen.append_text("\n[color=red]ERROR: Corrupt save file.[/color]\n")
+		_instant_output = false
+		return
+	var data = json.data
+	_apply_saved_state(data)
+	_instant_output = true
+	screen.append_text("\n[color=cyan]State loaded.[/color]\n")
+	_instant_output = false
+	sound.play_bell()
+
+func _load_state_silent() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if not file:
+		return
+	var json_text = file.get_as_text()
+	file.close()
+	var json = JSON.new()
+	if json.parse(json_text) != OK:
+		return
+	_apply_saved_state(json.data)
+	_instant_output = true
+	screen.append_text("[color=cyan]Previous state restored. Press F3 to adjust CRT settings.[/color]\n\n")
+	_instant_output = false
+
+func _apply_saved_state(data: Dictionary) -> void:
+	if data.has("crt"):
+		var crt = data["crt"]
+		if crt.has("curvature"):
+			curvature_slider.value = float(crt["curvature"])
+			_on_curvature_changed(curvature_slider.value)
+		if crt.has("scanline_intensity"):
+			scanline_slider.value = float(crt["scanline_intensity"])
+			_on_scanline_changed(scanline_slider.value)
+		if crt.has("vignette_intensity"):
+			vignette_slider.value = float(crt["vignette_intensity"])
+			_on_vignette_changed(vignette_slider.value)
+		if crt.has("glow_intensity"):
+			glow_slider.value = float(crt["glow_intensity"])
+			_on_glow_changed(glow_slider.value)
+		if crt.has("flicker_intensity"):
+			flicker_slider.value = float(crt["flicker_intensity"])
+			_on_flicker_changed(flicker_slider.value)
+	if data.has("font_idx"):
+		_current_font_idx = int(data["font_idx"])
+		_apply_font()
+		_update_font_label()
+	if data.has("baud_idx"):
+		_current_baud_idx = int(data["baud_idx"])
+		_update_baud_label()
+	if data.has("command_history"):
+		command_history = data["command_history"]
+		history_pos = command_history.size()
+	if data.has("computer"):
+		computer.deserialize(data["computer"])

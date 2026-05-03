@@ -152,13 +152,26 @@ Press **F3** to open the CRT settings panel on the right side of the screen. Fiv
 
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
-| Curvature | 0.15 | 0.0–1.0 | Barrel distortion (0=flat, 0.15=subtle, 0.5=strong, 1.0=extreme) |
+| Curvature | 0.01 | 0.0–1.0 | Barrel distortion (0=flat, 0.01=subtle, 0.5=strong, 1.0=extreme) |
 | Scanlines | 0.04 | 0.0–0.3 | Horizontal scanline darkness |
 | Vignette | 0.18 | 0.0–1.0 | Edge darkening |
 | Glow | 0.18 | 0.0–1.0 | Phosphor bloom intensity |
 | Flicker | 0.005 | 0.0–0.05 | Random brightness variation |
 
 Click **Reset to Defaults** to restore all values. Press **F3** again to close the panel.
+
+### Save / Load State
+
+The **Save State** button in the CRT settings panel saves the complete system state to `user://savestate.json`:
+
+- All CRT settings (curvature, scanlines, vignette, glow, flicker)
+- Selected font and baud rate
+- 64KB memory contents (RAM, ROM, I/O state)
+- CPU registers (A, X, Y, SP, PC, flags)
+- BASIC program, variables, and arrays
+- Command history
+
+The state is **automatically loaded on startup** if a save file exists, so you can quit and resume exactly where you left off. Use **Load State** to manually reload, or **Save State** to update the file.
 
 ### Baud Rate
 

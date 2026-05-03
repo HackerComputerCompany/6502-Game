@@ -206,13 +206,26 @@ Press **F3** to open the real-time CRT settings panel on the right side of the s
 
 | Parameter | Default | Range | Effect |
 |-----------|---------|-------|--------|
-| Curvature | 0.15 | 0.0–1.0 | Barrel distortion (0=flat screen, 1=extreme curve) |
+| Curvature | 0.01 | 0.0–1.0 | Barrel distortion (0=flat screen, 1=extreme curve) |
 | Scanlines | 0.04 | 0.0–0.3 | Horizontal scanline darkness |
 | Vignette | 0.18 | 0.0–1.0 | Edge darkening intensity |
 | Glow | 0.18 | 0.0–1.0 | Phosphor bloom brightness |
 | Flicker | 0.005 | 0.0–0.05 | Random brightness flicker |
 
 Click **Reset to Defaults** to restore all values. Press **F3** again to close.
+
+### Save / Load State
+
+The CRT settings panel also has **Save State** and **Load State** buttons. Saving writes the full system state to `user://savestate.json`, including:
+
+- All CRT slider settings
+- Font and baud rate selection
+- 64KB memory (programs, variables, ROM, I/O)
+- CPU registers
+- BASIC program lines and variables
+- Command history
+
+On startup, if a save file exists it is **automatically loaded**, letting you resume exactly where you left off. Use **Load State** to manually restore, or **Save State** to update the saved file at any time.
 
 ## Troubleshooting
 

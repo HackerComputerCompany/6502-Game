@@ -809,3 +809,27 @@ func get_variable(name: String) -> Variant:
 
 func execute_line(stmt: String) -> void:
 	_execute_statement(stmt)
+
+func serialize() -> Dictionary:
+	var prog_lines = []
+	for entry in _program:
+		prog_lines.append([entry[0], entry[1]])
+	return {
+		"program": prog_lines,
+		"variables": _variables,
+		"arrays": _arrays,
+		"data_values": _data_values,
+		"data_pointer": _data_pointer,
+	}
+
+func deserialize(data: Dictionary) -> void:
+	_program.clear()
+	for entry in data.get("program", []):
+		_program.append([int(entry[0]), str(entry[1])])
+	_variables = data.get("variables", {})
+	_arrays = data.get("arrays", {})
+	_data_values = data.get("data_values", [])
+	_data_pointer = int(data.get("data_pointer", 0))
+	_for_stack.clear()
+	_gosub_stack.clear()
+	_running = false

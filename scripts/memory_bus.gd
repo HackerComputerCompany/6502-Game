@@ -92,3 +92,13 @@ func load_bytes(data: PackedByteArray, start_addr: int) -> void:
 	for i in range(data.size()):
 		if start_addr + i < 65536:
 			ram[start_addr + i] = data[i]
+
+func serialize() -> Dictionary:
+	return {"ram": ram.hex_encode()}
+
+func deserialize(data: Dictionary) -> void:
+	if data.has("ram"):
+		var decoded: PackedByteArray = (data["ram"] as String).hex_decode()
+		for i in range(decoded.size()):
+			ram[i] = decoded[i]
+		ram.resize(65536)

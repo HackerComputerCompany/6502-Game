@@ -9,7 +9,7 @@
 shader = ExtResource("2")
 shader_parameter/scanline_intensity = 0.04
 shader_parameter/vignette_intensity = 0.18
-shader_parameter/crt_curvature = 0.15
+shader_parameter/crt_curvature = 0.01
 shader_parameter/flicker_intensity = 0.005
 shader_parameter/glow_intensity = 0.18
 shader_parameter/time_speed = 1.0
@@ -180,13 +180,13 @@ layout_mode = 2
 min_value = 0.0
 max_value = 1.0
 step = 0.01
-value = 0.15
+value = 0.01
 
 [node name="CurvatureLabel" type="Label" parent="SettingsPanel/VBoxContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 theme_override_font_sizes/font_size = 12
-text = "Curvature: 0.15"
+text = "Curvature: 0.01"
 
 [node name="ScanlineSlider" type="HSlider" parent="SettingsPanel/VBoxContainer"]
 layout_mode = 2
@@ -248,3 +248,15 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
 theme_override_font_sizes/font_size = 14
 text = "Reset to Defaults"
+
+[node name="SaveBtn" type="Button" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 1, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "Save State"
+
+[node name="LoadBtn" type="Button" parent="SettingsPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Load State"

@@ -380,6 +380,22 @@ func get_state() -> Dictionary:
 		"V": get_flag(Flag.V), "N": get_flag(Flag.N),
 	}
 
+func serialize() -> Dictionary:
+	return {
+		"A": A, "X": X, "Y": Y, "SP": SP, "PC": PC,
+		"P": P, "halted": halted, "cycles": cycles,
+	}
+
+func deserialize(data: Dictionary) -> void:
+	A = int(data.get("A", 0))
+	X = int(data.get("X", 0))
+	Y = int(data.get("Y", 0))
+	SP = int(data.get("SP", 0xFD))
+	PC = int(data.get("PC", 0x0800))
+	P = int(data.get("P", 0x24))
+	halted = data.get("halted", false)
+	cycles = int(data.get("cycles", 0))
+
 func _build_opcode_table() -> void:
 	var opcodes = {
 		0x69: ["ADC", "IMM"], 0x65: ["ADC", "ZPG"], 0x75: ["ADC", "ZPX"],
