@@ -1032,16 +1032,19 @@ func _show_demos() -> void:
 func _load_demo(name: String) -> void:
 	var program = computer.load_demo(name)
 	if program != "":
-		_instant_output = true
-		screen.append_text("[color=lime]Loading demo: " + name + "\n[/color]")
-		_instant_output = false
-		computer.run_basic("")
 		computer.basic.load_program(program)
+		computer.basic._running = false
+		computer._program_running = false
+		_instant_output = true
+		screen.append_text("[color=lime]Loaded demo: " + name + "\n[/color]")
 		_list_program()
 		screen.append_text("[color=lime]Type RUN to execute.\n[/color]")
+		_instant_output = false
 		sound.play_bell()
 	else:
+		_instant_output = true
 		screen.append_text("[color=red]ERROR: DEMO NOT FOUND. Type DEMO to list available demos.\n[/color]")
+		_instant_output = false
 
 func _peek_command(text: String) -> void:
 	computer.execute_basic_line(text)
