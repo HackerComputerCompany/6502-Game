@@ -57,7 +57,12 @@ func _on_input(prompt: String) -> Variant:
 
 func run_basic(program: String, start_line: int = -1) -> void:
 	_output_buffer = ""
+	## Preserve existing variables and arrays across RUN.
+	var saved_vars = basic._variables.duplicate(true)
+	var saved_arrays = basic._arrays.duplicate(true)
 	basic.load_program(program)
+	basic._variables = saved_vars
+	basic._arrays = saved_arrays
 	basic._running = true
 	if start_line >= 0:
 		var idx = basic._find_line(start_line)

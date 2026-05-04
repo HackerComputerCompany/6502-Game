@@ -33,6 +33,7 @@ func _init() -> void:
 	test_basic_poke_peek()
 	test_basic_computed_gosub()
 	test_computer_integration()
+	test_computer_var_persistence()
 	test_memory_cart_select_register()
 	test_memory_main_ram_high_water()
 	test_cart_loader_switch_clears_workspace()
@@ -546,6 +547,24 @@ func test_computer_integration() -> void:
 	comp.run_basic_sync("10 PRINT \"HELLO\"\n20 FOR I = 1 TO 3\n30 PRINT I * I\n40 NEXT I\n50 END")
 	_assert("HELLO" in _output, "Computer prints greeting")
 	_assert("9" in _output, "Computer prints 3*3=9")
+
+func test_computer_var_persistence() -> void:
+	_begin_test("Computer Variable Persistence Across RUN")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	comp.basic.execute_line("LET X = 100")
+	_output = ""
+	comp.run_basic_sync("10 PRINT X\n20 X = X + 1\n30 END")
+	_assert("100" in _output, "First RUN sees pre-set variable X=100")
+	_assert(comp.basic.get_variable("X") == 101, "X updated to 101 after first RUN")
+	_output = ""
+	comp.run_basic_sync("10 PRINT X\n20 X = X * 2\n30 END")
+	_assert("101" in _output, "Second RUN sees persisted X=101")
+	_assert(comp.basic.get_variable("X") == 202, "X doubled to 202 after second RUN")
+	_output = ""
+	comp.basic.execute_line("NEW")
+	comp.run_basic_sync("10 PRINT X\n20 END")
+	_assert(" 0 " in _output, "X reset to 0 after NEW")
 
 func test_bsave_bload() -> void:
 	_begin_test("BSAVE/BLOAD Binary")
