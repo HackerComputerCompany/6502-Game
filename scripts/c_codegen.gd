@@ -13,6 +13,7 @@ var _str_label_counter: int = 0
 var _var_map: Dictionary = {}
 var _local_offsets: Dictionary = {}
 var _string_labels: Dictionary = {}
+var _labels: Dictionary = {}
 var _global_offset: int = 0
 var _local_sp: int = 0
 var _func_name: String = ""
@@ -35,6 +36,7 @@ func generate(ast: Dictionary, memory) -> bool:
 	_var_map.clear()
 	_local_offsets.clear()
 	_string_labels.clear()
+	_labels.clear()
 	_global_offset = 0
 	_local_sp = 0
 	_func_name = ""
@@ -44,6 +46,7 @@ func generate(ast: Dictionary, memory) -> bool:
 	last_end = -1
 	_scan_globals(ast)
 	_scan_strings(ast)
+	_scan_labels(ast)
 	_emit(".ORG $%04X" % CODE_ORG)
 	_emit("LDA #0")
 	_emit("STA %d" % ZP_FP)
@@ -93,6 +96,18 @@ func _scan_strings(node) -> void:
 	elif node is Array:
 		for item in node:
 			_scan_strings(item)
+
+func _scan_labels(node) -> void:
+	if node is Dictionary:
+		if node["type"] == "LabelStmt" and not _labels.has(node["label"]):
+			_labels[node["label"]] = "LB%d" % _label_counter
+			_label_counter += 1
+		for key in node:
+			if key != "type":
+				_scan_labels(node[key])
+	elif node is Array:
+		for item in node:
+			_scan_labels(item)
 
 func _gen_func(decl: Dictionary) -> void:
 	_func_name = decl["name"]
@@ -163,6 +178,11 @@ func _gen_stmt(stmt: Dictionary) -> void:
 		"BreakStmt":
 			if _break_target != "":
 				_emit("JMP %s" % _break_target)
+		"GotoStmt":
+			if _labels.has(stmt["target"]):
+				_emit("JMP %s" % _labels[stmt["target"]])
+		"LabelStmt":
+			_emit("%s:" % _labels[stmt["label"]])
 		"ExprStmt":
 			_gen_expr(stmt["expr"])
 			_emit("LDA #0")

@@ -5,6 +5,7 @@ extends RefCounted
 
 enum TokenType {
 	INT_KW, CHAR_KW, IF_KW, ELSE_KW, WHILE_KW, FOR_KW, RETURN_KW, BREAK_KW,
+	GOTO_KW,
 	DEFINE_KW,
 	IDENT, NUMBER, STRING,
 	LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
@@ -43,6 +44,7 @@ func _init() -> void:
 		_keywords["for"] = TokenType.FOR_KW
 		_keywords["return"] = TokenType.RETURN_KW
 		_keywords["break"] = TokenType.BREAK_KW
+		_keywords["goto"] = TokenType.GOTO_KW
 		_keywords["define"] = TokenType.DEFINE_KW
 		_kw_init = true
 

@@ -196,11 +196,22 @@ func _parse_statement() -> Dictionary:
 		_advance()
 		_expect(CLexer.TokenType.SEMICOLON)
 		return {"type": "BreakStmt"}
+	elif cur["type"] == CLexer.TokenType.GOTO_KW:
+		_advance()
+		var target := _cur()["value"]
+		_advance()
+		_expect(CLexer.TokenType.SEMICOLON)
+		return {"type": "GotoStmt", "target": target}
 	elif cur["value"] == ";":
 		_advance()
 		return {"type": "EmptyStmt"}
 	elif cur["type"] == CLexer.TokenType.INT_KW or cur["type"] == CLexer.TokenType.CHAR_KW:
 		return _parse_local_decl()
+	elif _peek_ahead()["value"] == ":":
+		var label := cur["value"]
+		_advance()
+		_advance()
+		return {"type": "LabelStmt", "label": label}
 	else:
 		return _parse_expr_stmt()
 
