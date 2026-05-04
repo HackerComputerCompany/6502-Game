@@ -26,6 +26,14 @@ func install() -> void:
 func uninstall() -> void:
 	pass
 
+func reboot_clear_state() -> void:
+	_lines.clear()
+	_last_ok = false
+	_last_start = -1
+	_last_end = -1
+	if memory != null:
+		_sync_workspace()
+
 func _write_banner_rom() -> void:
 	var code: Array = [
 		0xA0, 0x00,
@@ -111,6 +119,7 @@ func help_text() -> String:
 	h += "  [color=yellow]DEMO[/color] / [color=yellow]DEMOS[/color]     List built-in C demos\n"
 	h += "  [color=yellow]DEMO name[/color]      Load demo source (then COMPILE and RUN)\n"
 	h += "  [color=yellow]HELP[/color]           This screen\n"
+	h += "  [color=yellow]REBOOT[/color]         Cold restart; clears all cart buffers + BIOS POST\n"
 	h += "\n[color=white]C language subset (Small-C)[/color]\n"
 	h += "  Types: [color=white]int[/color] (16-bit), [color=white]char[/color] (8-bit)\n"
 	h += "  Control: [color=white]if/else[/color], [color=white]while[/color], [color=white]for[/color], [color=white]return[/color], [color=white]break[/color]\n"

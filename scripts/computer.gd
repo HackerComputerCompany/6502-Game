@@ -18,6 +18,8 @@ signal output(text: String)
 signal output_richtext(text: String)
 signal ready_for_input()
 signal program_finished()
+## Terminal replays BIOS POST and CRT boot; clears all cart editor buffers first.
+signal full_reboot_requested()
 
 func emit_richtext(text: String) -> void:
 	output_richtext.emit(text)
@@ -133,6 +135,14 @@ func _flush_output() -> void:
 	if _output_buffer.length() > 0:
 		output.emit(_output_buffer)
 		_output_buffer = ""
+
+func request_full_reboot() -> void:
+	reboot_deep_clear_carts()
+	full_reboot_requested.emit()
+
+func reboot_deep_clear_carts() -> void:
+	cart_manager.reboot_clear_all_carts()
+	reset()
 
 func reset() -> void:
 	_program_running = false

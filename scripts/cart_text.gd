@@ -24,6 +24,11 @@ func install() -> void:
 func uninstall() -> void:
 	pass
 
+func reboot_clear_state() -> void:
+	_lines.clear()
+	if memory != null:
+		_sync_workspace()
+
 func _write_banner_rom() -> void:
 	## SYS $F000 prints banner via screen port (6502 routine).
 	var code: Array = [
@@ -87,6 +92,7 @@ func handle_command(text: String) -> bool:
 
 func help_text() -> String:
 	var h := "\n[color=cyan]TEXT cart - line editor[/color]\n"
+	h += "[color=yellow]REBOOT[/color]          Cold restart; clears all cart buffers + BIOS POST\n"
 	h += "[color=yellow]  n text[/color]      Add/replace line n\n"
 	h += "[color=yellow]  n[/color]           Delete line n\n"
 	h += "[color=yellow]  LIST [n [m]] [/color] List lines (optional range)\n"

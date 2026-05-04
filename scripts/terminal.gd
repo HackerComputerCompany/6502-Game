@@ -91,6 +91,7 @@ func _ready() -> void:
 	computer.output_richtext.connect(_on_output_richtext)
 	computer.program_finished.connect(_on_program_finished)
 	computer.cart_manager.cart_changed.connect(_on_cart_changed)
+	computer.full_reboot_requested.connect(_on_full_reboot_requested)
 	sound = SoundManager.new()
 	add_child(sound)
 	debug = DebugManager.new()
@@ -517,6 +518,27 @@ func _emit_prompt() -> void:
 	var p: String = computer.cart_manager.get_prompt()
 	computer.output.emit("\n" + p + "\n")
 
+func _on_full_reboot_requested() -> void:
+	computer.memory.clear_input()
+	_monitor_mode = false
+	_monitor_addr = computer.cpu.PC & 0xFFFF
+	screen.clear()
+	command_history.clear()
+	history_pos = -1
+	_cmd_line = ""
+	_cmd_cursor = 0
+	_input_buffer = ""
+	_output_queue = ""
+	_is_streaming = false
+	_boot_done = false
+	_boot_phase = 0
+	_boot_elapsed = 0.0
+	crt_overlay.material.set_shader_parameter("brightness", 0.0)
+	crt_overlay.material.set_shader_parameter("static_intensity", 1.0)
+	sound.play_crackle()
+	_update_cmd_display()
+	_update_status()
+
 func _on_cart_changed(_cart_name: String) -> void:
 	var b := computer.cart_manager.get_banner_text()
 	if b != "":
@@ -700,7 +722,8 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  LIST [n]  [/color]- List program (or line range)\n"
 	help_text += "[color=yellow]  NEW       [/color]- Clear the program and variables\n"
 	help_text += "[color=yellow]  CLEAR     [/color]- Clear the screen\n"
-	help_text += "[color=yellow]  RESET     [/color]- Full system reset\n"
+	help_text += "[color=yellow]  RESET     [/color]- Reset CPU/RAM/BASIC; BASIC cart; clears screen + banner (no BIOS POST)\n"
+	help_text += "[color=yellow]  REBOOT    [/color]- Deep reset: clear **all** cart editors, replay **BIOS POST** + CRT boot (any cart)\n"
 	help_text += "[color=yellow]  CPU       [/color]- Show CPU registers\n"
 	help_text += "[color=yellow]  STOP/BREAK[/color]- Break running program\n"
 	help_text += "[color=yellow]  HALT      [/color]- Halt the CPU\n"
@@ -993,11 +1016,18 @@ func _init_help_topics() -> void:
 		},
 		"RESET": {
 			"syntax": "RESET",
-			"desc": "Full system reset — clears all memory, reloads ROM, resets CPU registers, and reinitializes the BASIC interpreter. The screen is cleared and the boot banner is shown.",
+			"desc": "Reset CPU, 64KB RAM, and BASIC interpreter; switch to BASIC cart; clear screen and print the READY banner. Does **not** replay the power-on BIOS POST and does **not** clear ASM/TEXT/C cart editor buffers (those stay until you switch carts).",
 			"examples": [
-				'RESET                             -> full system restart',
-				'-> Use when the system is in a bad state',
-				'-> All program and variable data is lost',
+				'RESET                             -> fast restart; keeps cart source buffers',
+				'-> All RAM program/data is lost',
+			]
+		},
+		"REBOOT": {
+			"syntax": "REBOOT",
+			"desc": "Cold-style restart from any cart: clears **all** cartridge editor buffers (ASM, TEXT, C), resets memory and BASIC, returns to BASIC cart, clears the screen, and runs the **BIOS POST** sequence (CRT fade + self-test lines) like power-on. Use **RESET** for a quicker wipe without replaying POST.",
+			"examples": [
+				'REBOOT                            -> full terminal boot sequence',
+				'ASM> REBOOT                       -> works from ASM cart (and TEXT, C, BASIC)',
 			]
 		},
 		"CPU": {
@@ -1761,6 +1791,8 @@ func _handle_monitor_command(text: String) -> void:
 		_monitor_addr = addr + count
 	elif upper.begins_with(":") or upper.begins_with("W "):
 		_monitor_write(upper)
+	elif upper == "REBOOT":
+		computer.request_full_reboot()
 	elif upper == "RESET":
 		computer.reset()
 		_monitor_addr = computer.cpu.PC
@@ -1802,7 +1834,8 @@ func _show_monitor_help() -> void:
 	h += "[color=yellow]  R[/color]           - Show CPU registers\n"
 	h += "[color=yellow]  S[/color]           - Single-step one CPU instruction\n"
 	h += "[color=yellow]  G [addr][/color]    - Go (run from addr or current PC)\n"
-	h += "[color=yellow]  RESET[/color]      - Reset CPU and memory\n"
+	h += "[color=yellow]  RESET[/color]      - Reset CPU and memory (stay in monitor-style session)\n"
+	h += "[color=yellow]  REBOOT[/color]     - Full machine reboot (exit monitor; BIOS POST on terminal)\n"
 	h += "[color=yellow]  Q / ESC[/color]    - Exit monitor\n"
 	screen.append_text(h)
 	_instant_output = false

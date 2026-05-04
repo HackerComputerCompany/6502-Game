@@ -39,6 +39,7 @@ func _init() -> void:
 	test_cart_loader_switch_clears_workspace()
 	test_cart_loader_poke_c030()
 	test_cart_text_editor_commands()
+	test_reboot_deep_clears_cart_buffers()
 	test_assembler6502_hello_snippet()
 	test_assembler_hello_demo_run_single_A()
 	test_assembler_stars_demo_run_ten_asterisks()
@@ -451,6 +452,20 @@ func test_cart_text_editor_commands() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("LIST")
 	_assert("HELLO" not in _output, "delete line 10")
+
+
+func test_reboot_deep_clears_cart_buffers() -> void:
+	_begin_test("REBOOT deep clears ASM buffer")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(2, false)
+	comp.cart_manager.handle_command("10 LDA #$00")
+	comp.cart_manager.handle_command("REBOOT")
+	_assert(comp.cart_manager.current.id == 0, "REBOOT returns to BASIC cart")
+	comp.cart_manager.switch_to(2, false)
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("empty source" in _output.to_lower(), "ASM listing empty after REBOOT")
 
 func test_assembler6502_hello_snippet() -> void:
 	_begin_test("Assembler6502 hello snippet")

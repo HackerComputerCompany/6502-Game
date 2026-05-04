@@ -32,3 +32,7 @@ func serialize() -> Dictionary:
 
 func deserialize(_data: Dictionary) -> void:
 	pass
+
+## Clear editor/session state when user runs REBOOT (deep reset); default no-op.
+func reboot_clear_state() -> void:
+	pass

@@ -25,6 +25,13 @@ func install() -> void:
 func uninstall() -> void:
 	pass
 
+func reboot_clear_state() -> void:
+	_lines.clear()
+	_asm = null
+	_last_ok = false
+	if memory != null:
+		_sync_workspace()
+
 func _write_banner_rom() -> void:
 	var code: Array = [
 		0xA0, 0x00,
@@ -108,6 +115,7 @@ func handle_command(text: String) -> bool:
 
 func help_text() -> String:
 	var h := "\n[color=cyan]ASM cart — 6502 source + two-pass assembler[/color]\n"
+	h += "[color=yellow]REBOOT[/color]          Cold restart from any cart: clears ASM/TEXT/C buffers, BIOS POST (see HELP REBOOT)\n"
 	h += "[color=white]Quick reference[/color]\n"
 	h += "  [color=yellow]n text[/color]       Store/replace line [color=white]n[/color] with assembly source\n"
 	h += "  [color=yellow]n[/color]             Delete line [color=white]n[/color] (same as [color=yellow]DEL n[/color])\n"

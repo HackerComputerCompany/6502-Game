@@ -70,9 +70,18 @@ func _on_cart_switch_requested(cart_id: int) -> void:
 		return
 	switch_to(cart_id & 0xFF, false)
 
+func reboot_clear_all_carts() -> void:
+	for k in _carts_by_id.keys():
+		var c: ROMCart = _carts_by_id[k] as ROMCart
+		if c != null:
+			c.reboot_clear_state()
+
 func handle_command(text: String) -> bool:
 	var stripped = text.strip_edges()
 	var upper = stripped.to_upper()
+	if upper == "REBOOT":
+		computer.request_full_reboot()
+		return true
 	if upper == "CART" or upper == "CARTS":
 		_list_carts()
 		return true
