@@ -10,6 +10,7 @@ where versioning applies.
 
 ### Added
 
+- **`trainer.md`**: design plan for a future **Trainer** ROM cart — in-game BASIC + ASM curriculum (keywords, operators, mnemonics, interactive quizzes), pedagogy, and engineering requirements.
 - **HC65 object module** (`scripts/hc65_object.gd`): encode/decode for `.obj` blobs used by `SAVEOBJ` / `LOADOBJ`.
 - **BASIC `LOADOBJ`**: load a HC65 object from `user://`, optional `, NAME` to register a **native-style statement** (callable like a BASIC keyword after load).
 - **Assembler directives** for HC65 metadata: `.EXPORT`, `.ENTRY`, `.HELP_SYNTAX`, `.HELP_DESC`, `.HELP_EXAMPLE` (see assembler source and user guide).

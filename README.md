@@ -148,6 +148,7 @@ mygodot/
   PLAN.md                  # Architecture and development plan
   TODO.md                  # Boot loader & ROM banking plans
   next_steps.md            # Roadmap: carts, ASM, Small-C, HC65 objects / LOADOBJ
+  trainer.md               # Plan: Trainer cart — teach BASIC + ASM in-game
   CPU_Emulator_Bugs.md     # Known CPU emulator bugs and fix suggestions
 ```
 
