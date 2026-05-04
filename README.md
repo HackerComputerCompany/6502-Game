@@ -30,7 +30,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings, and active cart
 - **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
 - **Changelog** — see [CHANGELOG.md](CHANGELOG.md) for notable fixes and features by release
-- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`
+- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`; fuzz/strategy design in **`fuzz_testing_design.md`**
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
 ## Quick Start
@@ -151,6 +151,7 @@ mygodot/
   TODO.md                  # Boot loader & ROM banking plans
   next_steps.md            # Roadmap: carts, ASM, Small-C, HC65 objects / LOADOBJ
   trainer.md               # Plan: Trainer cart — teach BASIC + ASM in-game
+  fuzz_testing_design.md   # Plan: fuzz testing + fixture-based BASIC/ASM CLI tests
   CPU_Emulator_Bugs.md     # Known CPU emulator bugs and fix suggestions
 ```
 
@@ -302,10 +303,13 @@ debug.execute_command("status")     # Get current state
 From the command line:
 
 ```bash
-godot --headless --script res://tests/test_regression.gd
+godot --path . --headless -s tests/test_regression.gd
+godot --path . --headless -s tests/test_cli.gd
 ```
 
-Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK, colon separator), and Computer integration.
+Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK, colon separator), carts, assembler/HC65, and Computer integration.
+
+Planned fuzz / expanded CLI suites are described in **`fuzz_testing_design.md`** (random BASIC & ASM generation, timeouts, fixture `.bas` files, CI hooks).
 
 ## License
 

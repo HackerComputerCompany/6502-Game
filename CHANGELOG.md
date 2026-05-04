@@ -10,6 +10,7 @@ where versioning applies.
 
 ### Added
 
+- **`fuzz_testing_design.md`**: design for **fuzz testing** (BASIC, assembler, CPU, memory, carts), **hang detection**, CLI **`--fuzz-seed`** / iteration hooks, **`tests/fixtures/`** BASIC/ASM expansion, and CI staging—complements **`test_regression.gd`** / **`test_cli.gd`**.
 - **`archives/basic_games_disk_catalog.md`**: curated **text-only** classic BASIC games (Ahl anthology + magazine lineage), selection criteria, **Side A / B** placement notes, and **`§ Virtual floppy`** (**140 KiB** per side, **280 KiB** double-sided disk).
 - **`trainer.md`**: design plan for a future **Trainer** ROM cart — in-game BASIC + ASM curriculum (keywords, operators, mnemonics, interactive quizzes), pedagogy, and engineering requirements.
 - **HC65 object module** (`scripts/hc65_object.gd`): encode/decode for `.obj` blobs used by `SAVEOBJ` / `LOADOBJ`.
