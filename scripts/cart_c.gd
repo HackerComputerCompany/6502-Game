@@ -242,8 +242,6 @@ func _demo_definitions() -> Dictionary:
 				[150, "}"],
 			],
 		},
-			],
-		},
 	}
 
 func _cmd_demo_list() -> void:

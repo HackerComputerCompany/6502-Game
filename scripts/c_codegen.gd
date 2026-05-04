@@ -87,7 +87,7 @@ func _scan_globals(ast: Dictionary) -> void:
 
 func _scan_strings(node) -> void:
 	if node is Dictionary:
-		if node["type"] == "StringLit" and not _string_labels.has(node["value"]):
+		if node.has("type") and node["type"] == "StringLit" and node.has("value") and not _string_labels.has(node["value"]):
 			_string_labels[node["value"]] = "CS%d" % _str_label_counter
 			_str_label_counter += 1
 		for key in node:
@@ -99,7 +99,7 @@ func _scan_strings(node) -> void:
 
 func _scan_labels(node) -> void:
 	if node is Dictionary:
-		if node["type"] == "LabelStmt" and not _labels.has(node["label"]):
+		if node.has("type") and node["type"] == "LabelStmt" and node.has("label") and not _labels.has(node["label"]):
 			_labels[node["label"]] = "LB%d" % _label_counter
 			_label_counter += 1
 		for key in node:
@@ -193,17 +193,17 @@ func _gen_stmt(stmt: Dictionary) -> void:
 				_store_local(stmt["name"])
 
 func _gen_if(stmt: Dictionary) -> void:
-	var el := _lbl()
-	var end := _lbl()
+	var else_lbl := _lbl()
+	var end_lbl := _lbl()
 	_gen_expr(stmt["cond"])
 	_emit("ORA %d" % ZP_TMP_HI)
-	_emit("BNE %s" % el)
+	_emit("BEQ %s" % else_lbl)
 	_gen_stmt(stmt["then_body"])
-	_emit("JMP %s" % end)
-	_emit("%s:" % el)
+	_emit("JMP %s" % end_lbl)
+	_emit("%s:" % else_lbl)
 	if stmt["else_body"] != null:
 		_gen_stmt(stmt["else_body"])
-	_emit("%s:" % end)
+	_emit("%s:" % end_lbl)
 
 func _gen_while(stmt: Dictionary) -> void:
 	var loop := _lbl()
@@ -613,6 +613,7 @@ func _gen_neq() -> void:
 
 func _gen_lt() -> void:
 	var l1 := _lbl()
+	var l2 := _lbl()
 	_emit("SEC")
 	_emit("LDA %d" % ZP_TMP)
 	_emit("SBC %d" % ZP_TMP2)
@@ -620,15 +621,17 @@ func _gen_lt() -> void:
 	_emit("LDA %d" % ZP_TMP_HI)
 	_emit("SBC %d" % ZP_TMP2_HI)
 	_emit("BMI %s" % l1)
-	_emit("BPL %s" % _lbl())
+	_emit("LDA #0")
+	_emit("LDX #0")
+	_emit("JMP %s" % l2)
 	_emit("%s:" % l1)
 	_emit("LDA #1")
 	_emit("LDX #0")
-	_emit("LDA #0")
-	_emit("LDX #0")
+	_emit("%s:" % l2)
 
 func _gen_lte() -> void:
 	var l1 := _lbl()
+	var l2 := _lbl()
 	_emit("SEC")
 	_emit("LDA %d" % ZP_TMP)
 	_emit("SBC %d" % ZP_TMP2)
@@ -636,15 +639,17 @@ func _gen_lte() -> void:
 	_emit("LDA %d" % ZP_TMP_HI)
 	_emit("SBC %d" % ZP_TMP2_HI)
 	_emit("BPL %s" % l1)
-	_emit("BMI %s" % _lbl())
+	_emit("LDA #1")
+	_emit("LDX #0")
+	_emit("JMP %s" % l2)
 	_emit("%s:" % l1)
 	_emit("LDA #0")
 	_emit("LDX #0")
-	_emit("LDA #1")
-	_emit("LDX #0")
+	_emit("%s:" % l2)
 
 func _gen_gt() -> void:
 	var l1 := _lbl()
+	var l2 := _lbl()
 	_emit("SEC")
 	_emit("LDA %d" % ZP_TMP2)
 	_emit("SBC %d" % ZP_TMP)
@@ -652,15 +657,17 @@ func _gen_gt() -> void:
 	_emit("LDA %d" % ZP_TMP2_HI)
 	_emit("SBC %d" % ZP_TMP_HI)
 	_emit("BMI %s" % l1)
-	_emit("BPL %s" % _lbl())
+	_emit("LDA #0")
+	_emit("LDX #0")
+	_emit("JMP %s" % l2)
 	_emit("%s:" % l1)
 	_emit("LDA #1")
 	_emit("LDX #0")
-	_emit("LDA #0")
-	_emit("LDX #0")
+	_emit("%s:" % l2)
 
 func _gen_gte() -> void:
 	var l1 := _lbl()
+	var l2 := _lbl()
 	_emit("SEC")
 	_emit("LDA %d" % ZP_TMP2)
 	_emit("SBC %d" % ZP_TMP)
@@ -668,20 +675,18 @@ func _gen_gte() -> void:
 	_emit("LDA %d" % ZP_TMP2_HI)
 	_emit("SBC %d" % ZP_TMP_HI)
 	_emit("BPL %s" % l1)
-	_emit("BMI %s" % _lbl())
+	_emit("LDA #1")
+	_emit("LDX #0")
+	_emit("JMP %s" % l2)
 	_emit("%s:" % l1)
 	_emit("LDA #0")
 	_emit("LDX #0")
-	_emit("LDA #1")
-	_emit("LDX #0")
-	_emit("JMP %s" % _lbl())
-	_emit("%s:" % l1)
-	_emit("LDA #1")
-	_emit("LDX #0")
+	_emit("%s:" % l2)
 
 func _gen_and() -> void:
 	var l1 := _lbl()
 	var l2 := _lbl()
+	var l3 := _lbl()
 	_emit("CMP #0")
 	_emit("BNE %s" % l1)
 	_emit("CPX #0")
@@ -692,13 +697,13 @@ func _gen_and() -> void:
 	_emit("%s:" % l1)
 	_emit("LDA %d" % ZP_TMP2)
 	_emit("CMP #0")
-	_emit("BNE %s" % l1)
+	_emit("BNE %s" % l3)
 	_emit("CPX %d" % ZP_TMP2_HI)
-	_emit("BNE %s" % l1)
+	_emit("BNE %s" % l3)
 	_emit("LDA #0")
 	_emit("LDX #0")
 	_emit("JMP %s" % l2)
-	_emit("%s:" % l1)
+	_emit("%s:" % l3)
 	_emit("LDA #1")
 	_emit("LDX #0")
 	_emit("%s:" % l2)
@@ -727,16 +732,20 @@ func _gen_or() -> void:
 func _gen_unary(expr: Dictionary) -> void:
 	match expr["op"]:
 		"!":
+			var l1 := _lbl()
+			var l2 := _lbl()
 			_gen_expr(expr["operand"])
 			_emit("CMP #0")
-			_emit("BNE %s" % _lbl())
+			_emit("BNE %s" % l1)
 			_emit("CPX #0")
-			_emit("BNE %s" % _lbl())
+			_emit("BNE %s" % l1)
 			_emit("LDA #1")
 			_emit("LDX #0")
-			_emit("JMP %s" % _lbl())
+			_emit("JMP %s" % l2)
+			_emit("%s:" % l1)
 			_emit("LDA #0")
 			_emit("LDX #0")
+			_emit("%s:" % l2)
 		"~":
 			_gen_expr(expr["operand"])
 			_emit("EOR #$FF")

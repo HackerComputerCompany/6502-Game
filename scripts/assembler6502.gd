@@ -433,12 +433,14 @@ func _emit_branch(mnem: String, oper: String, at_pc: int, ln_str: String, pass1:
 			return PackedByteArray([opc, 0])
 		_err("Line %s: unknown branch target" % ln_str)
 		return null
-	var rel_i := target - (at_pc + 2)
-	if rel_i < -128 or rel_i > 127:
-		_err("Line %s: branch out of range (%d)" % [ln_str, rel_i])
-		return null
-	var rel_b := rel_i & 0xFF
-	return PackedByteArray([opc, rel_b])
+	if not pass1:
+		var rel_i := target - (at_pc + 2)
+		if rel_i < -128 or rel_i > 127:
+			_err("Line %s: branch out of range (%d)" % [ln_str, rel_i])
+			return null
+		var rel_b := rel_i & 0xFF
+		return PackedByteArray([opc, rel_b])
+	return PackedByteArray([opc, 0])
 
 func _bytes_opc(mnem: String, mode: String, oper_or_val, at_pc: int, ln_str: String, pass1: bool) -> Variant:
 	var opc_b := int(_enc.get("%s|%s" % [mnem, mode], -1))

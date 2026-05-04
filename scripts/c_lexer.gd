@@ -9,7 +9,7 @@ enum TokenType {
 	DEFINE_KW,
 	IDENT, NUMBER, STRING,
 	LPAREN, RPAREN, LBRACE, RBRACE, LBRACKET, RBRACKET,
-	SEMICOLON, COMMA,
+	SEMICOLON, COMMA, COLON,
 	ASSIGN, PLUS_ASSIGN, MINUS_ASSIGN,
 	PLUS, MINUS, STAR, SLASH, PERCENT,
 	EQ, NEQ, LT, GT, LTE, GTE,
@@ -221,6 +221,7 @@ func _read_operator(line: String, pos: int, line_num: int) -> int:
 		"[": tokens.append(Token.new(TokenType.LBRACKET, "[", line_num))
 		"]": tokens.append(Token.new(TokenType.RBRACKET, "]", line_num))
 		";": tokens.append(Token.new(TokenType.SEMICOLON, ";", line_num))
+		":": tokens.append(Token.new(TokenType.COLON, ":", line_num))
 		",": tokens.append(Token.new(TokenType.COMMA, ",", line_num))
 		"=": tokens.append(Token.new(TokenType.ASSIGN, "=", line_num))
 		"+": tokens.append(Token.new(TokenType.PLUS, "+", line_num))
