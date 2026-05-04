@@ -128,7 +128,7 @@ func _read_string(line: String, pos: int, line_num: int) -> int:
 				"t": val += "\t"
 				"\\": val += "\\"
 				'"': val += '"'
-				"0": val += char(0)
+				"0": val = val + PackedByteArray([0]).get_string_from_utf8()
 				_: val += line[pos]
 		else:
 			val += line[pos]
