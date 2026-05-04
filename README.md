@@ -139,6 +139,8 @@ mygodot/
     pressstart2p.ttf       # 8-bit pixel font
     sharetechmono.ttf      # Retro sci-fi mono
     ibmplexmono.ttf        # Clean corporate mono
+  archives/
+    basic_games_disk_catalog.md  # Text-only vintage BASIC games; future ~420K “disk” library
   tests/
     test_regression.gd     # Full regression test suite (BASIC + CPU)
     test_cli.gd            # Headless CLI test runner

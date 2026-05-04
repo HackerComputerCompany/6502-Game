@@ -10,6 +10,7 @@ where versioning applies.
 
 ### Added
 
+- **`archives/basic_games_disk_catalog.md`**: curated catalog of **text-only** classic BASIC games (Ahl anthology + magazine lineage), selection criteria, suggested **Disk 1** starter pack, and **HCC 420K** virtual-floppy concept for a future in-game disk library.
 - **`trainer.md`**: design plan for a future **Trainer** ROM cart — in-game BASIC + ASM curriculum (keywords, operators, mnemonics, interactive quizzes), pedagogy, and engineering requirements.
 - **HC65 object module** (`scripts/hc65_object.gd`): encode/decode for `.obj` blobs used by `SAVEOBJ` / `LOADOBJ`.
 - **BASIC `LOADOBJ`**: load a HC65 object from `user://`, optional `, NAME` to register a **native-style statement** (callable like a BASIC keyword after load).
