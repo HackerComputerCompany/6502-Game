@@ -30,6 +30,7 @@ func _init() -> void:
 	cart_manager.register(CartBasic.new())
 	cart_manager.register(CartText.new())
 	cart_manager.register(CartAsm.new())
+	cart_manager.register(CartC.new())
 	memory.cart_switch_requested.connect(cart_manager._on_cart_switch_requested)
 	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)

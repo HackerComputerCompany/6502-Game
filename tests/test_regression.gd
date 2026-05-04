@@ -44,6 +44,9 @@ func _init() -> void:
 	test_assembler_stars_demo_run_ten_asterisks()
 	test_cart_asm_commands()
 	test_cart_asm_demos_assemble()
+	test_c_cart_compile_hello()
+	test_c_cart_compile_and_run()
+	test_c_cart_demo_compiles()
 	test_hc65_round_trip()
 	test_assembler_meta_directives()
 	test_cart_asm_saveobj_all_demos()
@@ -532,6 +535,50 @@ func test_cart_asm_commands() -> void:
 	comp.cart_manager.handle_command("ASM")
 	_assert(comp.memory.peek(0x0800) == 0xA9, "cart ASM pokes code")
 	_assert(comp.memory.peek(0x0805) == 0x60, "RTS in RAM")
+
+func test_c_cart_compile_hello() -> void:
+	_begin_test("C cart compile hello")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	_output = ""
+	comp.cart_manager.switch_to(3, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 main() {")
+	comp.cart_manager.handle_command("20 putc(65); putc(13);")
+	comp.cart_manager.handle_command("30 }")
+	_output = ""
+	comp.cart_manager.handle_command("COMPILE")
+	_assert("Compiled" in _output, "compile success: %s" % _output)
+
+func test_c_cart_compile_and_run() -> void:
+	_begin_test("C cart compile and run")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	comp.output_richtext.connect(_on_output)
+	_output = ""
+	comp.cart_manager.switch_to(3, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 main() {")
+	comp.cart_manager.handle_command("20 putc(65); putc(66); putc(67); putc(13);")
+	comp.cart_manager.handle_command("30 }")
+	_output = ""
+	comp.cart_manager.handle_command("COMPILE")
+	_assert("Compiled" in _output, "compiled: %s" % _output)
+	_output = ""
+	comp.cart_manager.handle_command("RUN")
+	_assert("ABC" in _output, "output contains ABC: %s" % _output)
+
+func test_c_cart_demo_compiles() -> void:
+	_begin_test("C cart DEMO sources compile")
+	var demo_names: Array = ["hello", "count", "fib", "sum", "max", "stars"]
+	for demo_name in demo_names:
+		var comp = Computer.new()
+		comp.output_richtext.connect(_on_output)
+		_output = ""
+		comp.cart_manager.switch_to(3, false)
+		comp.cart_manager.handle_command("DEMO " + str(demo_name))
+		comp.cart_manager.handle_command("COMPILE")
+		_assert("failed" not in _output.to_lower(), "demo %s compiles (%s)" % [demo_name, _output])
 
 func test_cart_asm_demos_assemble() -> void:
 	_begin_test("ASM cart DEMO sources assemble")
