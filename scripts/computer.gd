@@ -29,6 +29,7 @@ func _init() -> void:
 	cart_manager = CartManager.new(self)
 	cart_manager.register(CartBasic.new())
 	cart_manager.register(CartText.new())
+	cart_manager.register(CartAsm.new())
 	memory.cart_switch_requested.connect(cart_manager._on_cart_switch_requested)
 	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)
@@ -133,11 +134,18 @@ func _flush_output() -> void:
 		_output_buffer = ""
 
 func reset() -> void:
+	_program_running = false
+	_awaiting_input = false
 	memory.reset()
 	basic = BasicInterpreter.new(memory, _on_output, _on_input)
 	cart_manager.switch_to(0, true)
 	_output_buffer = ""
 	_ready = true
+
+func break_program() -> void:
+	_program_running = false
+	_awaiting_input = false
+	basic._running = false
 
 func serialize() -> Dictionary:
 	return {

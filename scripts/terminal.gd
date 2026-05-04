@@ -343,9 +343,17 @@ func _input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ESCAPE and _monitor_mode:
-			_exit_monitor()
-			return
+		if event.keycode == KEY_ESCAPE:
+			if _monitor_mode:
+				_exit_monitor()
+				return
+			if computer._program_running:
+				_break_running_program()
+				return
+		if event.keycode == KEY_C and event.ctrl_pressed:
+			if computer._program_running:
+				_break_running_program()
+				return
 		var handled = false
 		match event.keycode:
 			KEY_F1:
@@ -1596,19 +1604,15 @@ func _peek_command(text: String) -> void:
 func _sys_command(text: String) -> void:
 	computer.execute_basic_line(text)
 
+func _break_running_program() -> void:
+	computer.break_program()
+	_instant_output = true
+	screen.append_text("\n[color=yellow]BREAK at line " + str(computer.basic._current_line) + "[/color]\n")
+	_instant_output = false
+	sound.play_bell()
+
 func _cmd_stop() -> void:
-	if computer._program_running:
-		computer._program_running = false
-		computer.basic._running = false
-		computer._awaiting_input = false
-		_instant_output = true
-		screen.append_text("\n[color=yellow]BREAK at line " + str(computer.basic._current_line) + "[/color]\n")
-		_instant_output = false
-		sound.play_bell()
-	else:
-		_instant_output = true
-		screen.append_text("[color=yellow]No program running.[/color]\n")
-		_instant_output = false
+	_break_running_program()
 
 func _cmd_halt() -> void:
 	computer.cpu.halted = true
