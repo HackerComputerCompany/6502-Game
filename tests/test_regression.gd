@@ -40,8 +40,14 @@ func _init() -> void:
 	test_cart_loader_poke_c030()
 	test_cart_text_editor_commands()
 	test_assembler6502_hello_snippet()
+	test_assembler_hello_demo_run_single_A()
+	test_assembler_stars_demo_run_ten_asterisks()
 	test_cart_asm_commands()
 	test_cart_asm_demos_assemble()
+	test_hc65_round_trip()
+	test_assembler_meta_directives()
+	test_cart_asm_saveobj_all_demos()
+	test_basic_loadobj_native_call()
 	test_computer_cart_serialize_roundtrip()
 	test_basic_nested_loops()
 	test_basic_for_step()
@@ -457,6 +463,64 @@ func test_assembler6502_hello_snippet() -> void:
 	_assert(mem.peek(0x0805) == 0x60, "RTS")
 	_assert(asm.last_start == 0x0800 and asm.last_end == 0x0805, "object range")
 
+
+func test_assembler_hello_demo_run_single_A() -> void:
+	_begin_test("hello-style object run prints one A then halts")
+	var mem = _fresh_mem()
+	var asm = Assembler6502.new()
+	var src: Array = [
+		[10, "LDA #$41"],
+		[20, "STA $C002"],
+		[30, "LDA #$0D"],
+		[40, "STA $C003"],
+		[50, "RTS"],
+	]
+	_assert(asm.assemble(mem, src), str(asm.errors))
+	var cpu = CPU6502.new(mem)
+	mem.prepare_cpu_stack_for_user_rts(cpu)
+	cpu.PC = asm.last_start & 0xFFFF
+	var captured: Array = [""]
+	mem.output_ready.connect(func(t: String): if t != "[CLR]": captured[0] = t)
+	cpu.run(10000)
+	var s: String = str(captured[0])
+	var ac := 0
+	for i in range(s.length()):
+		if s.unicode_at(i) == 0x41:
+			ac += 1
+	_assert(ac == 1, "expected one 'A', got %d in %s" % [ac, s])
+	_assert(cpu.halted, "CPU should halt on $FF after RTS")
+
+
+func test_assembler_stars_demo_run_ten_asterisks() -> void:
+	_begin_test("stars demo RUN prints exactly ten asterisks")
+	var mem = _fresh_mem()
+	var asm = Assembler6502.new()
+	var lines: Array = [
+		[10, "LDX #$0A"],
+		[20, "LOOP: LDA #$2A"],
+		[30, "STA $C002"],
+		[40, "DEX"],
+		[50, "BNE LOOP"],
+		[60, "LDA #$0D"],
+		[70, "STA $C003"],
+		[80, "RTS"],
+	]
+	_assert(asm.assemble(mem, lines), str(asm.errors))
+	var cpu = CPU6502.new(mem)
+	mem.prepare_cpu_stack_for_user_rts(cpu)
+	cpu.PC = asm.last_start & 0xFFFF
+	var captured: Array = [""]
+	mem.output_ready.connect(func(t: String): if t != "[CLR]": captured[0] = t)
+	cpu.run(10000)
+	var s: String = str(captured[0])
+	var star_count := 0
+	for i in range(s.length()):
+		if s.unicode_at(i) == 0x2A:
+			star_count += 1
+	_assert(star_count == 10, "expected 10 '*', got %d in %s" % [star_count, s])
+	_assert(cpu.halted, "CPU should halt on $FF after RTS (PC was $%04X)" % cpu.PC)
+
+
 func test_cart_asm_commands() -> void:
 	_begin_test("ASM cart assemble")
 	var comp = Computer.new()
@@ -484,6 +548,91 @@ func test_cart_asm_demos_assemble() -> void:
 			_assert(comp.memory.peek(0x0800) == 0xA9, "hello at $0800")
 		if demo_name == "org_hi":
 			_assert(comp.memory.peek(0x0900) == 0xA9, "org_hi code at $0900")
+
+
+func test_hc65_round_trip() -> void:
+	_begin_test("HC65 encode/decode")
+	var code := PackedByteArray([0xA9, 0x01, 0x60])
+	var ex: Array = ["10 TST"]
+	var blob := HC65Object.encode(0x700, 0x700, code, "TST", "TST", "test obj", ex)
+	var dec: Dictionary = HC65Object.decode(blob)
+	_assert(bool(dec.get("ok", false)), str(dec.get("errors", [])))
+	_assert(int(dec["load_addr"]) == 0x700, "load")
+	_assert(int(dec["entry_addr"]) == 0x700, "entry")
+	_assert((dec["code"] as PackedByteArray).size() == 3, "code len")
+	_assert(str(dec["export_name"]) == "TST", "export")
+	_assert(str(dec["help_syntax"]) == "TST", "syntax")
+	_assert(str(dec["help_desc"]) == "test obj", "desc")
+	var hx: Array = dec["help_examples"]
+	_assert(hx.size() == 1 and str(hx[0]) == "10 TST", "example")
+
+
+func test_assembler_meta_directives() -> void:
+	_begin_test("Assembler .EXPORT .ENTRY .HELP")
+	var mem = _fresh_mem()
+	var asm = Assembler6502.new()
+	var src: Array = [
+		[5, ".EXPORT TST"],
+		[6, ".HELP_SYNTAX \"TST\""],
+		[7, ".HELP_DESC \"demo\""],
+		[8, ".HELP_EXAMPLE \"10 TST\""],
+		[10, "START: LDA #$77"],
+		[20, "STA $C002"],
+		[30, "RTS"],
+		[40, ".ENTRY START"],
+	]
+	var ok = asm.assemble(mem, src)
+	_assert(ok, str(asm.errors))
+	_assert(asm.meta_export == "TST", "export")
+	_assert(asm.object_entry == 0x0800, "entry at START")
+	_assert(asm.meta_help_syntax == "TST", "help syn")
+	_assert(asm.meta_help_examples.size() == 1, "one example")
+
+
+func test_cart_asm_saveobj_all_demos() -> void:
+	_begin_test("ASM SAVEOBJ HC65 for all demos")
+	var demo_names: Array = ["hello", "stars", "digits", "branch", "equ_star", "org_hi", "data_end"]
+	for demo_name in demo_names:
+		var comp = Computer.new()
+		comp.output_richtext.connect(_on_output)
+		_output = ""
+		comp.cart_manager.switch_to(2, false)
+		comp.cart_manager.handle_command("DEMO " + str(demo_name))
+		comp.cart_manager.handle_command("ASM")
+		_assert("Assembly failed" not in _output, "assemble demo %s" % demo_name)
+		var base := "regtest_hc65_%s" % demo_name
+		comp.cart_manager.handle_command("SAVEOBJ " + base)
+		_assert("Write failed" not in _output, "SAVEOBJ wrote %s" % base)
+		var path := "user://%s.obj" % base
+		var f := FileAccess.open(path, FileAccess.READ)
+		_assert(f != null, "open %s" % path)
+		var raw := f.get_buffer(f.get_length())
+		f.close()
+		var dec: Dictionary = HC65Object.decode(raw)
+		_assert(bool(dec.get("ok", false)), "decode %s: %s" % [demo_name, str(dec.get("errors", []))])
+		var code: PackedByteArray = dec["code"]
+		_assert(code.size() > 0, "nonempty code %s" % demo_name)
+		if demo_name == "org_hi":
+			_assert(int(dec["load_addr"]) == 0x0900, "org_hi load addr")
+
+
+func test_basic_loadobj_native_call() -> void:
+	_begin_test("BASIC LOADOBJ + native call")
+	var code := PackedByteArray([0xA9, 0x5A, 0x8D, 0x02, 0xC0, 0xA9, 0x0D, 0x8D, 0x03, 0xC0, 0x60])
+	var blob := HC65Object.encode(0x600, 0x600, code, "ZZZ", "ZZZ", "writes Z", [])
+	var path := "user://regtest_loadobj_zzz.obj"
+	var wf := FileAccess.open(path, FileAccess.WRITE)
+	_assert(wf != null, "write test obj")
+	wf.store_buffer(blob)
+	wf.close()
+	var mem = _fresh_mem()
+	var basic = BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.execute_line('LOADOBJ "regtest_loadobj_zzz.obj", ZZZ')
+	basic.execute_line("ZZZ")
+	_assert("Z" in _output or _output.contains("Z"), "native ran: %s" % _output)
+	var h := basic.format_native_help("ZZZ")
+	_assert("ZZZ" in h and "LOADOBJ" in h, "native help")
+
 
 func test_computer_cart_serialize_roundtrip() -> void:
 	_begin_test("Computer Cart Serialize")

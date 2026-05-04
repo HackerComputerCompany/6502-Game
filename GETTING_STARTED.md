@@ -71,13 +71,24 @@ RUN N=10         → set N=10, then run
 RUN 20, N=10     → start at line 20, set N=10
 ```
 
+### Assembler cart (6502) and saving machine code
+
+The **ASM** cart is a line editor + two-pass assembler. From `READY.` type **`CART ASM`**, then **`HELP`** or **`DEMO hello`** to see sample source.
+
+**Full walkthrough** (assemble a routine, **`BSAVE`** it to disk, **`BLOAD`** + **`SYS`** from BASIC): see **`USER_GUIDE.md`** → section **“Hands-on tutorial: assemble 6502 code, save it to disk, call it from BASIC”**.
+
+**HC65 objects:** ASM cart **`SAVEOBJ name`** writes **`user://name.obj`**; in BASIC **`LOADOBJ "name.obj", FOO`** then **`FOO`** runs the routine (see **`USER_GUIDE.md`**). Spec extras: **`next_steps.md`**.
+
 ### Loading a Demo
 
+On the **BASIC** cart, **`DEMO`** loads BASIC programs. On the **ASM** cart (`CART ASM`), **`DEMO`** lists **6502** sample sources (`DEMO hello`, etc.).
+
 ```
-DEMO                     → lists all demos
-DEMO mandelbrot          → loads the Mandelbrot set demo
-DEMO PRIMENUMS 100       → finds first 100 primes
-DEMO PI 1000             → calculates pi with 1000 terms
+DEMO                     → list demos for the active cart
+DEMO mandelbrot          → (BASIC) loads the Mandelbrot set demo
+DEMO PRIMENUMS 100       → (BASIC) finds first 100 primes
+DEMO PI 1000             → (BASIC) calculates pi with 1000 terms
+DEMO hello               → (ASM) load a tiny 6502 sample; then ASM and RUN
 RUN                      → runs the loaded demo
 ```
 

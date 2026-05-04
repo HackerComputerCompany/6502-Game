@@ -18,6 +18,8 @@ var _output_callback: Callable
 var _input_callback: Callable
 var _skip_next: bool = false
 var _returned: bool = false
+## Uppercase name -> { "entry_addr": int, "syntax": String, "desc": String, "examples": Array }
+var _native_extensions: Dictionary = {}
 
 enum TT {
 	NUMBER, STRING, IDENT, OP, LPAREN, RPAREN,
@@ -48,7 +50,7 @@ func _setup_keywords() -> void:
 		"PEEK": true, "POKE": true, "SYS": true, "WAIT": true,
 		"CLR": true, "NEW": true, "LIST": true, "RUN": true,
 		"CONT": true, "LOAD": true, "SAVE": true, "MEM": true,
-		"BSAVE": true, "BLOAD": true, "DEF": true, "FN": true,
+		"BSAVE": true, "BLOAD": true, "LOADOBJ": true, "DEF": true, "FN": true,
 		"STOP": true, "BREAK": true, "WRITE": true, "READFILE": true,
 	}
 
@@ -184,10 +186,11 @@ func _execute_single(stmt: String) -> void:
 			"SYS": _exec_sys(toks)
 			"BSAVE": _exec_bsave(toks)
 			"BLOAD": _exec_bload(toks)
+			"LOADOBJ": _exec_loadobj(toks)
 			"WRITE": _exec_write(toks)
 			"READFILE": _exec_readfile(toks)
 			"CLR": _variables.clear(); _arrays.clear()
-			"NEW": _program.clear(); _variables.clear(); _arrays.clear(); _running = false
+			"NEW": _program.clear(); _variables.clear(); _arrays.clear(); _native_extensions.clear(); _running = false
 			"LIST": _exec_list()
 			"RUN": _current_line = 0; _data_pointer = 0
 			_:
@@ -196,6 +199,9 @@ func _execute_single(stmt: String) -> void:
 	elif t[0] == TT.IDENT:
 		var pos = 0
 		var name = t[1].to_upper()
+		if _native_extensions.has(name):
+			_exec_native_statement(name, toks)
+			return
 		pos += 1
 		if pos < toks.size() and toks[pos][0] == TT.LPAREN:
 			_exec_let_array(toks, name, pos)
@@ -896,6 +902,12 @@ func _exec_poke(toks: Array) -> void:
 func _exec_sys(toks: Array) -> void:
 	var addr = int(_eval(toks, 1))
 	var cpu = CPU6502.new(_memory)
+	cpu.halted = false
+	cpu.A = 0
+	cpu.X = 0
+	cpu.Y = 0
+	cpu.P = 0x24
+	_memory.prepare_cpu_stack_for_user_rts(cpu)
 	cpu.PC = addr
 	cpu.run(10000)
 
@@ -947,6 +959,103 @@ func _exec_bload(toks: Array) -> void:
 		_output_callback.call("LOADED %d BYTES FROM %s TO $%04X\n" % [length, fpath, addr])
 	else:
 		_output_callback.call("ERROR: CANNOT READ %s\n" % fpath)
+
+
+func _exec_loadobj(toks: Array) -> void:
+	var pos := 1
+	if pos >= toks.size():
+		_output_callback.call("ERROR: LOADOBJ NEEDS FILENAME\n")
+		return
+	var fn: Variant = _eval(toks, pos)
+	pos = _ep
+	var reg_name := ""
+	if pos < toks.size() and toks[pos][0] == TT.COMMA:
+		pos += 1
+		if pos >= toks.size() or toks[pos][0] != TT.IDENT:
+			_output_callback.call("ERROR: LOADOBJ NEEDS IDENT AFTER COMMA\n")
+			return
+		reg_name = str(toks[pos][1]).to_upper()
+		pos += 1
+	if pos != toks.size() - 1:
+		_output_callback.call("ERROR: LOADOBJ SYNTAX\n")
+		return
+	var fpath := "user://" + str(fn)
+	var file := FileAccess.open(fpath, FileAccess.READ)
+	if file == null:
+		_output_callback.call("ERROR: CANNOT READ %s\n" % fpath)
+		return
+	var raw := file.get_buffer(file.get_length())
+	file.close()
+	var dec: Dictionary = HC65Object.decode(raw)
+	if not bool(dec.get("ok", false)):
+		for er in dec.get("errors", []):
+			_output_callback.call(str(er) + "\n")
+		return
+	if reg_name == "":
+		reg_name = str(dec.get("export_name", "")).strip_edges().to_upper()
+	if reg_name == "":
+		_output_callback.call("ERROR: LOADOBJ NEEDS , NAME OR .EXPORT IN FILE\n")
+		return
+	var load_a := int(dec["load_addr"]) & 0xFFFF
+	var entry_a := int(dec["entry_addr"]) & 0xFFFF
+	var code: PackedByteArray = dec["code"]
+	for i in range(code.size()):
+		_memory.poke((load_a + i) & 0xFFFF, int(code[i]) & 0xFF)
+	var exarr: Array = []
+	for e in dec.get("help_examples", []):
+		exarr.append(str(e))
+	_native_extensions[reg_name] = {
+		"entry_addr": entry_a,
+		"syntax": str(dec.get("help_syntax", "")),
+		"desc": str(dec.get("help_desc", "")),
+		"examples": exarr,
+	}
+	_output_callback.call(
+		"LOADOBJ %s AS %s -> $%04X bytes @ $%04X ENTRY $%04X\n" % [str(fn), reg_name, code.size(), load_a, entry_a]
+	)
+
+
+func _exec_native_statement(name: String, toks: Array) -> void:
+	for i in range(2, toks.size() - 1):
+		if toks[i][0] != TT.EOL:
+			_output_callback.call("ERROR: NATIVE %s TAKES NO ARGS (v1)\n" % name)
+			_running = false
+			return
+	var d: Dictionary = _native_extensions[name]
+	var addr := int(d["entry_addr"]) & 0xFFFF
+	var cpu := CPU6502.new(_memory)
+	cpu.halted = false
+	cpu.A = 0
+	cpu.X = 0
+	cpu.Y = 0
+	cpu.P = 0x24
+	_memory.prepare_cpu_stack_for_user_rts(cpu)
+	cpu.PC = addr
+	cpu.run(10000)
+
+
+func format_native_help(topic: String) -> String:
+	var u := topic.to_upper()
+	if not _native_extensions.has(u):
+		return ""
+	var d: Dictionary = _native_extensions[u]
+	var syn := str(d.get("syntax", ""))
+	var de := str(d.get("desc", ""))
+	var ex: Array = d.get("examples", [])
+	var t := "\n[color=cyan]" + u + "[/color] [color=gray](LOADOBJ)[/color]\n\n"
+	if syn != "":
+		t += "[color=white]Syntax:  [/color][color=lime]" + syn + "[/color]\n\n"
+	if de != "":
+		t += "[color=white]" + de + "[/color]\n\n"
+	if ex.size() > 0:
+		t += "[color=cyan]Examples:[/color]\n"
+		for line in ex:
+			t += "[color=lime]  " + str(line) + "[/color]\n"
+		t += "\n"
+	if syn == "" and de == "" and ex.is_empty():
+		t += "[color=white]Loaded native routine at entry given by LOADOBJ. v1: no arguments.[/color]\n\n"
+	return t
+
 
 func _exec_write(toks: Array) -> void:
 	var pos = 1
@@ -1068,4 +1177,5 @@ func deserialize(data: Dictionary) -> void:
 	_data_pointer = int(data.get("data_pointer", 0))
 	_for_stack.clear()
 	_gosub_stack.clear()
+	_native_extensions.clear()
 	_running = false

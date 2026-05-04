@@ -47,7 +47,7 @@ The system currently boots directly into BASIC6502 ROM at `$F000-$FFFF`. A boot 
   3. Jumps to `$F000` (cart entry point)
 
 ### Cartridge Switching While Running (Hot Swap)
-- `CART` command (already planned in ASM_AND_C.md) lists available carts
+- `CART` command (already planned in next_steps.md) lists available carts
 - `CART BASIC` / `CART ASM` / `CART C` swaps the active cart
 - Hot swap procedure:
   1. Saves current cart workspace to GDScript-side dict (not limited by 420KB disk)

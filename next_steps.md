@@ -1,4 +1,8 @@
-# ROM Cartridge Expansion Plan: 6502 Assembler & Small-C Compiler
+# `next_steps.md` — Roadmap: ROM carts, ASM, Small-C, and **object ↔ BASIC** linkage
+
+This file is the **single living roadmap** for cartridge expansion, the assembler/C compiler vision, and **next work** (binary object files, `LOADOBJ`, embedded help, and BASIC “native” commands). Earlier drafts lived in `ASM_AND_C.md` and `ASM_SAVE_BASIC_PLAN.md` (merged here).
+
+---
 
 ## Architecture Overview
 
@@ -104,6 +108,8 @@ ASM>
 | `LOAD name` | Load source from disk |
 | `SYM` | Show symbol table |
 | `HEX` | Show hex dump of assembled output |
+
+*Current tree also has HELP, DEMO, DIR, etc. **Phase 2.x** (below) adds **`SAVEOBJ`** / **HC65 `.obj`** and BASIC **`LOADOBJ`**.*
 
 ### Assembler design
 
@@ -408,22 +414,171 @@ Save file gains a `"cart"` field:
 
 ---
 
+## Phase 2.x (planned): Object files, `LOADOBJ`, and BASIC command extensions
+
+This phase answers: **save compiled ASM**, **load it from BASIC**, and optionally **call it like a new statement** (e.g. `PRIMEGEN`) with **machine-readable help** for `HELP PRIMEGEN`.
+
+### Design principle: *no dynamic lexer keywords*
+
+We are **not** proposing to mutate the tokenizer’s static keyword table at runtime in a fragile way. Instead:
+
+1. **`PRIMEGEN` stays a normal identifier** in the lexer (`TT.IDENT`).
+2. The interpreter gains a **`_native_extensions` (name → descriptor)** table, populated only by **`LOADOBJ`** (or equivalent).
+3. In `_execute_single`, **before** the existing `IDENT` assignment / “bare expression” paths, check: if `toks[0]` is `IDENT` and the name exists in `_native_extensions`, dispatch **`_exec_native_call(name, toks)`** (statement form: optional args later).
+
+That gives the *user experience* of “a new BASIC keyword” without recompiling the keyword trie or risking clashes with variables (see **Name resolution** below).
+
+### User-facing options (both in spec)
+
+| Mode | User action | Result |
+|------|-------------|--------|
+| **Explicit registration** | `LOADOBJ "primegen.obj", PRIMEGEN` | Loads bytes into RAM per file header; registers **`PRIMEGEN`** as a callable native statement. |
+| **Embedded default name** | Optional object metadata includes `export_name`. Then `LOADOBJ "primegen.obj"` alone can register that default (if unique). Still recommend explicit name in docs for clarity. |
+| **Source-time export** (assembler) | Directives at top of `.asm`, e.g. `.EXPORT PRIMEGEN`, feed the **metadata** section when emitting `.obj` so the binary carries the preferred name without a second file. |
+
+### `LOADOBJ` — BASIC statement (normative sketch)
+
+```
+LOADOBJ "filename" [, symbolic_name]
+```
+
+- **`filename`**: string, under `user://` (same rules as `BLOAD` / `READFILE` style paths; exact sanitization TBD).
+- **`symbolic_name`**: optional identifier. If omitted: use **`export_name`** from object metadata; if missing → **error** (no silent guess).
+- **Actions** (in order):
+  1. Read and validate container (see **`.obj` / HC65 container** below); reject unknown versions.
+  2. **Load** code bytes into **`load_addr`** from header (poking `MemoryBus`).
+  3. **Register** `symbolic_name` → `{ entry_addr, flags, help_refs, max_cycles_policy }`.
+  4. If the name was already registered: **replace** or **error** — pick one in implementation (spec recommendation: **`ERROR: DUPLICATE NATIVE`** unless a future `LOADOBJ ... REPLACE` flag exists).
+
+**Invocation**
+
+```
+PRIMEGEN           : REM v1: no args; runs 6502 at entry_addr (same cycle budget policy as SYS)
+PRIMEGEN 10, 20    : REM reserved for v2 calling convention (see below)
+```
+
+### Calling convention (versioned)
+
+| Version | Semantics |
+|---------|-----------|
+| **v1** | Statement with **no arguments**: run from **`entry_addr`**, same practical limits as **`SYS`** today (e.g. 10 000 cycles), **no return value** to BASIC. |
+| **v2 (future)** | Optional typed args / return via agreed **zero page** or **pseudo-registers** in BASIC; must be opt-in via object **flags** so old objects keep v1 behavior. |
+
+Routines must preserve or document clobbering of **A/X/Y/flags** if they coexist with BASIC expectations.
+
+### Assembler directives (source → metadata, planned)
+
+These are **not** 6502 opcodes; the assembler records them and emits into the **metadata / help** sections of `.obj` (never into 6502 code unless a future `.EMIT` says so).
+
+| Directive | Purpose |
+|-----------|---------|
+| **`.EXPORT NAME`** | Default export symbol for `LOADOBJ` (must be valid BASIC identifier rules). |
+| **`.ENTRY LABEL`** | If code entry ≠ load start, specify label for **`entry_addr`** (defaults to load start). |
+| **`.HELP_SYNTAX "text"`** | Short syntax line for `HELP` topic. |
+| **`.HELP_DESC "text"`** | One paragraph description (escaping / multiline rules TBD). |
+| **`.HELP_EXAMPLE "line"`** | Repeatable; each becomes one example line in HELP output. |
+
+**ASM cart** would gain **`SAVEOBJ name`** (or rename from earlier **`SAVEBIN`** idea) that writes **HC65 container** after successful **`ASM`**, merging in directive metadata.
+
+### `.obj` file format — **HC65 container v1** (normative sketch)
+
+Goals: **one file**, **self-describing**, **optional help**, **backward-friendly** to raw `BSAVE` payloads for simple tooling.
+
+#### Overall layout (little-endian unless noted)
+
+| Offset | Size | Field |
+|--------|------|--------|
+| `0` | `4` | **Magic** ASCII `HC65` (`0x48 0x43 0x36 0x35`) |
+| `4` | `2` | **Format version** `u16`, value `1` |
+| `6` | `2` | **Flags** `u16`: bit0 = metadata present, bit1 = help bundle present, bit2 = entry ≠ load (redundant if entry stored anyway) |
+| `8` | `2` | **`load_addr`** — first byte of **code** is poked here |
+| `10` | `2` | **`entry_addr`** — `SYS` / native call PC |
+| `12` | `4` | **`code_len`** `u32` (v1 practical max e.g. 64K−16) |
+| `16` | `code_len` | **Raw object code** |
+| *var* | *var* | **Metadata block** (if flag bit0): length-prefixed UTF-8 fields (`export_name`, optional `build_id`, optional `source_hash` TBD) |
+| *var* | *var* | **Help bundle** (if flag bit1): see below |
+
+**Legacy note:** A bare **`BSAVE`** file (2-byte load + bytes) remains valid for **`BLOAD` + `SYS`** workflows; the HC65 wrapper is the **rich** path for **`LOADOBJ`** and HELP integration.
+
+#### Help bundle (when flag bit1 set)
+
+Structured as a **tiny TLV** stream for easy parsing without JSON in BASIC:
+
+```
+TAG u8 (1=syntax, 2=description, 3=example_line)
+LEN u16  (byte length of payload)
+PAYLOAD len bytes UTF-8
+... repeat ...
+TAG 0 = end of help bundle
+```
+
+- **TAG 1** — single payload: syntax string (e.g. `PRIMEGEN [n]`).
+- **TAG 2** — single payload: description paragraph.
+- **TAG 3** — **repeatable**; each payload is one **example line** (plain text, not a full BASIC program unless you embed newlines escaped — TBD).
+
+`HELP PRIMEGEN` in BASIC would print these sections if the name was registered via **`LOADOBJ`** (interpreter looks up descriptor help; if empty, fall back to static HELP topics only).
+
+### ASM cart commands (planned; complements existing)
+
+| Command | Role |
+|---------|------|
+| **`SAVEOBJ name`** | After successful **`ASM`**, write `user://name.obj` as **HC65** including directive-sourced metadata/help. |
+| **`SAVEBIN name`** (optional compat) | Write **raw `BSAVE`-compatible** file only (2-byte load + bytes) — no HELP. |
+| **`DIR`** extension | Also list **`*.obj`** alongside **`*.asm`**. |
+
+### Relationship to existing **`BSAVE` / `BLOAD` / `SYS`**
+
+- **`BSAVE addr,len`** and **`BLOAD`** remain the **low-level** byte tools.
+- **`SAVEOBJ` / `LOADOBJ`** are the **high-level** “shippable routine + name + docs” path.
+- **`SYS addr`** remains valid forever; **`LOADOBJ`** is sugar that also **registers** a callable name.
+
+### Merged notes from the earlier binary-save plan
+
+- After **`ASM`**, `Assembler6502` already tracks **`last_start`** / **`last_end`** — the object payload is contiguous in RAM for the HC65 **`code_len`** slice.
+- **`BLOAD "f"`** without address uses the file’s first two bytes as the poke base — same idea as HC65’s explicit **`load_addr`**, but HC65 adds magic + entry + optional metadata.
+- Edge cases: RAM overlap with BASIC program space, **`SYS`** using a disposable CPU instance (current code) — still OK if memory is shared.
+
+### Implementation sub-phases (suggested)
+
+| Sub | Work |
+|-----|------|
+| **2.x-a** | HC65 write/read in GDScript; **`SAVEOBJ`** in ASM cart; tests round-trip bytes + header. |
+| **2.x-b** | Assembler directives **`.EXPORT`**, **`.ENTRY`**, help tags → metadata writer. |
+| **2.x-c** | BASIC **`LOADOBJ`**, `_native_extensions`, **`_exec_native_call`**, `HELP` merge for registered names. |
+| **2.x-d** | Optional **`SAVEBIN`**, **`DIR`** polish, USER_GUIDE examples. |
+
+### Open decisions (capture in issues when coding)
+
+1. **Identifier vs variable clash**: if user `LOADOBJ ..., FOO` then `LET FOO = 1` — spec recommendation: **native names are reserved in the statement position only**; **`LET FOO`** still creates a variable (separate namespace) *or* error on conflict — pick one and document.
+2. **Case rules**: export names **UPPERCASE** normalized to match BASIC style.
+3. **Magic / version bump** when adding **v2 args** to the container or call ABI.
+
+### Documentation (shipped with repo)
+
+**Implemented:** **`scripts/hc65_object.gd`**, ASM **`SAVEOBJ` / `SAVEBIN`**, BASIC **`LOADOBJ`**, assembler **`.EXPORT` / `.ENTRY` / `.HELP_*`**, **`HELP <native>`** via `BasicInterpreter.format_native_help`. Regression coverage: **`test_hc65_round_trip`**, **`test_assembler_meta_directives`**, **`test_cart_asm_saveobj_all_demos`**, **`test_basic_loadobj_native_call`**, plus existing demo assemble tests.
+
+The **BSAVE + SYS** walkthrough remains in **`USER_GUIDE.md`** (*Hands-on tutorial…*). **`GETTING_STARTED.md`** summarizes both paths.
+
+---
+
 ## Implementation Order
 
 | Phase | Description | Sessions |
 |-------|-------------|----------|
 | 1 | Cart loader system + CART command | 2 |
 | 2 | ASM editor + two-pass assembler | 3-4 |
+| **2.x** | **HC65 `.obj`, `SAVEOBJ`, directives, `LOADOBJ`, native HELP** | **4-6** |
 | 3 | Small-C compiler (lexer → parser → codegen) | 6-8 |
 | 4 | Cart integration, switching, persistence | 2 |
 | 5 | Small-C manual + 10-lesson getting started guide | 3-4 |
-| **Total** | | **16-20 sessions** |
+| **Total** | | **~20-26 sessions** |
 
 ### Dependencies
 
 - Phase 2 depends on Phase 1 (cart loader)
-- Phase 3 depends on Phase 2 (C compiler emits assembly that the assembler assembles)
-- Phase 4 depends on 1-3 all being done
+- Phase **2.x** depends on Phase 2 assembler + ASM cart (emit + load + BASIC hooks)
+- Phase 3 depends on Phase 2 (C compiler emits assembly that the assembler assembles); may optionally depend on **2.x** if the C cart emits **HC65 objects** instead of only in-memory assemble
+- Phase 4 depends on 1–3 (and **2.x** if shipped) being done
 
 ### Prior art / references
 

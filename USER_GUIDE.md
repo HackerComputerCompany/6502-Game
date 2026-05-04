@@ -63,6 +63,8 @@ The simulated system uses memory-mapped I/O:
 | `POKE` | Write to memory | `POKE 1000, 42` |
 | `BSAVE` | Save memory to binary file | `BSAVE "screen.bin", $2000, 2048` |
 | `BLOAD` | Load binary file to memory | `BLOAD "screen.bin", $4000` |
+| `LOADOBJ` | Load **HC65** `.obj` from disk; register a callable name | `LOADOBJ "mylib.obj", PRIMEGEN` then `PRIMEGEN` |
+| `SYS` | Run 6502 at address (see ROM table) | `SYS $F040` |
 | `WRITE` | Write text to file | `WRITE "log.txt", "hello"` |
 | `READFILE` | Read file into string | `READFILE "log.txt", MSG$` |
 | `END` / `STOP` / `BREAK` | End program | `END` or `STOP` or `BREAK` |
@@ -170,8 +172,126 @@ The system supports switchable ROM cartridges. Each cart provides its own comman
 |------|--------|-------------|
 | BASIC | `READY.` | Default BASIC interpreter with demos and 6502 ROM routines |
 | TEXT | `EDIT>` | Line-numbered text buffer editor with SAVE/LOAD as `.txt` |
+| ASM | `ASM>` | **6502 assembler** editor: `ASM` / `RUN`, `DEMO`, `SAVE`/`LOAD` **`.asm`**, **`SAVEOBJ`**/**`SAVEBIN`** (HC65 `.obj` or raw binary) |
 
-Switch carts with `CART name` (e.g., `CART TEXT`). Cart switching preserves main RAM (`$0000-$DFFF`) but clears cart workspace (`$E000-$EFFF`). The active cart is saved and restored with system state.
+Switch carts with `CART name` (e.g., `CART TEXT`, `CART ASM`). Cart switching preserves main RAM (`$0000-$DFFF`) but clears cart workspace (`$E000-$EFFF`). The active cart is saved and restored with system state.
+
+### Hands-on tutorial: assemble 6502 code, save it to disk, call it from BASIC
+
+This walkthrough uses the **ASM** cart with **`BSAVE` / `BLOAD`** and **`SYS`**. See **§8b** for the **HC65** path (**`SAVEOBJ`** on the ASM cart, **`LOADOBJ`** in BASIC) — same idea, richer metadata.
+
+**What you will do:** write a tiny routine that prints **`A`** and a newline, assemble it at **`$0800`**, save the machine code with **`BSAVE`**, then from BASIC **`BLOAD`** it back and **`SYS`** to it.
+
+#### 1. Open the assembler cart
+
+At the `READY.` prompt:
+
+```
+CART ASM
+```
+
+You should see the **`ASM>`** prompt (and a short banner). If unsure, type **`HELP`** for editor commands.
+
+#### 2. Enter source lines
+
+Clear any old source, then type these lines **exactly** (press Enter after each). Line numbers are the editor’s line IDs, not BASIC.
+
+```
+NEW
+10 LDA #$41
+20 STA $C002
+30 LDA #$0D
+40 STA $C003
+50 RTS
+```
+
+- **`$C002`** is the screen character port; **`$C003`** with **`$0D`** sends a newline so the terminal flushes output reliably.
+
+#### 3. Assemble
+
+```
+ASM
+```
+
+You should see a success message and a line like **`Object $0800-$080A`**. That means code occupies **`$0800`** through **`$080A`** inclusive.
+
+**Byte count for `BSAVE`:**  
+`length = (last address − $0800) + 1` → here **`$080A − $0800 + 1 = 11`** (decimal **11**).
+
+If you use a different program, use **`HEX`** on the ASM cart to confirm bytes, or read the **`Object $xxxx-$yyyy`** line and compute **`yyyy - xxxx + 1`** in decimal for the length.
+
+#### 4. Switch back to BASIC
+
+```
+CART BASIC
+```
+
+#### 5. Save the machine code from RAM
+
+Still at `READY.`, type (one line):
+
+```
+BSAVE "mychr", $0800, 11
+```
+
+- **`BSAVE`** writes `user://mychr` with a **2-byte header** (load address, LSB first) followed by **`11`** bytes copied from RAM starting at **`$0800`**.
+
+You should see a confirmation like **`SAVED …`**.
+
+#### 6. (Optional) Prove reload works
+
+You can clear that RAM region with **`POKE`** if you like, then:
+
+```
+BLOAD "mychr"
+```
+
+With **no second argument**, **`BLOAD`** reads the **first two bytes** as the load address and puts the rest of the file there (here, back to **`$0800`**). The interpreter prints the address it used—confirm **`$0800`**.
+
+#### 7. Run the routine from BASIC
+
+```
+SYS $0800
+```
+
+You should see **`A`** on its own line (your code prints **`A`**, then newline).
+
+#### 8b. Optional: HC65 `.obj` from the ASM cart (`SAVEOBJ` + `LOADOBJ`)
+
+If you use the **ASM** cart, you can emit a structured **HC65** object (magic `HC65`, load address, entry, optional **`.EXPORT`** / **`.HELP_*`** metadata) instead of hand-counting bytes:
+
+1. After **`ASM`**, type **`SAVEOBJ mylib`** → creates **`user://mylib.obj`**.
+2. In BASIC: **`LOADOBJ "mylib.obj", PRIMEGEN`** (or omit **`, NAME`** if the object includes **`.EXPORT`** in its source).
+3. Run **`PRIMEGEN`** as its **own statement** (v1: **no arguments** — same cycle budget idea as **`SYS`**).
+4. **`HELP PRIMEGEN`** shows embedded help if the assembler source used **`.HELP_SYNTAX`**, **`.HELP_DESC`**, **`.HELP_EXAMPLE`**.
+
+Assembler directives (non-emitting, for metadata only): **`.EXPORT NAME`**, **`.ENTRY LABEL`**, **`.HELP_SYNTAX "..."`**, **`.HELP_DESC "..."`**, **`.HELP_EXAMPLE "..."`** (repeatable).
+
+#### 9. Typical “ship it” BASIC program pattern
+
+You can keep a tiny BASIC loader next to your binary:
+
+```
+10 REM LOAD NATIVE ROUTINE THEN CALL IT
+20 BLOAD "mychr"
+30 SYS $0800
+40 END
+```
+
+Use the **same** **`SYS`** address as your assembly **origin** (here **`$0800`**). If you use **`.ORG $0900`** in ASM, assemble, then **`BSAVE`** with **`$0900`** and the new length, and **`SYS $0900`** accordingly.
+
+With **HC65**, the equivalent pattern is **`LOADOBJ "mychr.obj", TST`** then **`TST`** instead of **`BLOAD` + `SYS`**, as long as the object was built with **`SAVEOBJ`** from the same origin.
+
+#### Troubleshooting
+
+| Problem | Things to check |
+|---------|------------------|
+| `ASM` fails | **`HELP`** on ASM cart; every label needs a **`:`** (e.g. **`LOOP:`**); use **`DEMO hello`** to compare with a known-good source. |
+| Wrong or garbage after **`SYS`** | **`BSAVE`** length too short/long; **`BLOAD`** address mismatch; routine clobbered RAM your BASIC program needs. |
+| Nothing prints | Include **`STA $C003`** with **`$0D`** after character output so the terminal finishes the line. |
+| **`BLOAD` / `BSAVE` errors** | Filename is under **`user://`**; path is the **name** you passed (no `.bas` suffix for these commands—same pattern as existing **`BSAVE`** docs above). |
+
+---
 
 ### Program Line Entry
 

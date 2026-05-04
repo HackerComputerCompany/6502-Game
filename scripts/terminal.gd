@@ -719,6 +719,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  CART name [/color]- Hot-swap cartridge (clears $E000-$EFFF)\n"
 	help_text += "[color=yellow]  BSAVE     [/color]- Save memory range as binary (addr, len)\n"
 	help_text += "[color=yellow]  BLOAD     [/color]- Load binary file into memory (addr)\n"
+	help_text += "[color=yellow]  LOADOBJ   [/color]- Load HC65 .obj from user://; optional , NAME registers native call\n"
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
 	help_text += _help_keyboard_shortcuts_block()
@@ -736,7 +737,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  TAN(), ATN(), LOG(), EXP(), SGN()[/color]\n"
 	help_text += "[color=yellow]  LEN(), CHR$(), ASC(), LEFT$(), RIGHT$()[/color]\n"
 	help_text += "[color=yellow]  MID$(), STR$(), VAL(), PEEK(), TAB()[/color]\n"
-	help_text += "\n[color=lime]Type HELP <topic> for BASIC details. Examples: HELP PRINT, HELP FOR, HELP POKE[/color]\n"
+	help_text += "\n[color=lime]Type HELP <topic> for BASIC details (HELP LOADOBJ). After LOADOBJ, HELP <name> shows embedded help.[/color]\n"
 	screen.append_text(help_text)
 	_instant_output = false
 
@@ -1298,6 +1299,15 @@ func _init_help_topics() -> void:
 				'10 FOR I = 1 TO N: PRINT TAB(I); "*": NEXT I -> diagonal',
 			]
 		},
+		"LOADOBJ": {
+			"syntax": "LOADOBJ \"filename\" [, NAME]",
+			"desc": "Loads an HC65 object file from user://filename (see ASM cart SAVEOBJ). Writes bytes to the file's load address, then registers NAME as a native statement (v1: no arguments). If you omit , NAME, the file must include a .EXPORT name from the assembler.",
+			"examples": [
+				'LOADOBJ "mylib.obj", PRIMEGEN   -> register PRIMEGEN then type PRIMEGEN to run',
+				'LOADOBJ "mylib.obj"            -> uses .EXPORT inside the .obj file',
+				'HELP PRIMEGEN                  -> shows .HELP_SYNTAX / .HELP_DESC / examples if present',
+			]
+		},
 		"COLON": {
 			"syntax": "statement : statement",
 			"desc": "Colon separates multiple statements on one program line. Each statement is executed in order. If a GOTO or STOP is encountered, remaining statements are skipped.",
@@ -1312,6 +1322,11 @@ func _init_help_topics() -> void:
 func _show_help_topic(topic: String) -> void:
 	_init_help_topics()
 	_instant_output = true
+	var nh := computer.basic.format_native_help(topic)
+	if nh != "":
+		screen.append_text(nh)
+		_instant_output = false
+		return
 	if _help_topics.has(topic):
 		var info = _help_topics[topic]
 		var t = "\n[color=cyan]" + topic + "[/color]\n\n"

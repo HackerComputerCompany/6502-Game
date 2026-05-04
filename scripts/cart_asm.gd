@@ -13,7 +13,7 @@ const BANK_END = 0xFC00
 func _init() -> void:
 	id = 2
 	name = "ASM"
-	description = "6502 line editor, assembler, HELP/DEMO (SAVE/LOAD .asm)"
+	description = "6502 assembler cart; SAVEOBJ/HC65, .asm source, DEMO"
 	prompt = "ASM>"
 
 func install() -> void:
@@ -79,6 +79,12 @@ func handle_command(text: String) -> bool:
 	if upper.begins_with("DEL "):
 		_cmd_del(t.substr(4).strip_edges())
 		return true
+	if upper.begins_with("SAVEOBJ "):
+		_cmd_save_binary(t.substr(8).strip_edges(), true)
+		return true
+	if upper.begins_with("SAVEBIN "):
+		_cmd_save_binary(t.substr(8).strip_edges(), false)
+		return true
 	if upper.begins_with("SAVE "):
 		_cmd_save(t.substr(5).strip_edges())
 		return true
@@ -114,10 +120,13 @@ func help_text() -> String:
 	h += "  [color=yellow]HEX[/color]            Hex dump of the last assembled byte range\n"
 	h += "  [color=yellow]SAVE name[/color]      Write source to [color=white]user://name.asm[/color]\n"
 	h += "  [color=yellow]LOAD name[/color]      Read source from [color=white]user://name.asm[/color]\n"
-	h += "  [color=yellow]DIR[/color] / [color=yellow]CATALOG[/color]    List [color=white].asm[/color] files on disk\n"
+	h += "  [color=yellow]SAVEOBJ name[/color]    HC65 object [color=white]user://name.obj[/color] (after [color=yellow]ASM[/color]; see [color=white].EXPORT[/color] / [color=white].HELP_*[/color])\n"
+	h += "  [color=yellow]SAVEBIN name[/color]    Raw [color=white]BSAVE[/color]-style [color=white]user://name.bin[/color] (2-byte addr + bytes)\n"
+	h += "  [color=yellow]DIR[/color] / [color=yellow]CATALOG[/color]    List [color=white].asm[/color], [color=white].obj[/color], [color=white].bin[/color] on disk\n"
 	h += "  [color=yellow]DEMO[/color] / [color=yellow]DEMOS[/color]     List built-in ASM demos\n"
 	h += "  [color=yellow]DEMO name[/color]      Load demo source (then [color=yellow]ASM[/color] and [color=yellow]RUN[/color])\n"
 	h += "  [color=yellow]HELP[/color]           This screen\n"
+	h += "\n[color=white]BASIC:[/color] [color=gray]LOADOBJ \"f.obj\", MYNAME[/color] then call [color=gray]MYNAME[/color] as a statement; [color=gray]HELP MYNAME[/color] if [color=white].HELP_*[/color] set.\n"
 	h += "  [color=yellow]CART BASIC[/color]     Return to BASIC cart\n"
 	h += "\n[color=white]Examples — edit / assemble / run[/color]\n"
 	h += "  [color=gray]ASM> NEW[/color]\n"
@@ -147,8 +156,10 @@ func help_text() -> String:
 	h += "  [color=yellow]SYM[/color] — Labels + [color=white].EQU[/color] constants after a good [color=gray]ASM[/color].\n"
 	h += "  [color=yellow]HEX[/color] — Hex dump of last object (first 32 rows max).\n"
 	h += "  [color=yellow]SAVE name[/color] — [color=gray]SAVE myprog[/color] → [color=white]user://myprog.asm[/color]\n"
+	h += "  [color=yellow]SAVEOBJ name[/color] — [color=gray]SAVEOBJ mylib[/color] → HC65 [color=white]user://mylib.obj[/color] (after [color=gray]ASM[/color])\n"
+	h += "  [color=yellow]SAVEBIN name[/color] — Raw 2-byte addr + bytes [color=white]user://mylib.bin[/color] ([color=gray]BSAVE[/color]-compatible)\n"
 	h += "  [color=yellow]LOAD name[/color] — [color=gray]LOAD myprog[/color] from [color=white]user://myprog.asm[/color]\n"
-	h += "  [color=yellow]DIR[/color] — Lists [color=white]*.asm[/color] in [color=white]user://[/color].\n"
+	h += "  [color=yellow]DIR[/color] — Lists [color=white].asm[/color] / [color=white].obj[/color] / [color=white].bin[/color] in [color=white]user://[/color].\n"
 	h += "  [color=yellow]DEMO[/color] / [color=yellow]DEMO name[/color] — Built-in source; then [color=gray]ASM[/color] + [color=gray]RUN[/color].\n"
 	h += "\n[color=white]Directives (mix with instructions by line number)[/color]\n"
 	h += "  [color=yellow].EQU NAME expr[/color]   Constant (e.g. [color=gray].EQU PORT $C002[/color] then [color=gray]STA PORT[/color])\n"
@@ -156,6 +167,19 @@ func help_text() -> String:
 	h += "  [color=yellow].BYTE b,b,...[/color]    Raw bytes ([color=gray].BYTE $48,$69[/color]) — often after [color=gray]RTS[/color]\n"
 	h += "  [color=yellow].WORD w,w,...[/color]    16-bit words, low byte first\n"
 	h += "  [color=yellow].DB \"text\"[/color]       String bytes ([color=gray].DB \"OK\"[/color])\n"
+	h += "\n[color=white]6502 instructions (what the assembler accepts)[/color]\n"
+	h += "  Mnemonics are case-insensitive. Typical operands: [color=yellow]#[/color][color=white]$hh[/color] or [color=white]#n[/color] immediate; [color=white]$addr[/color] zero page if [color=white]$00..$FF[/color] else absolute; [color=white]$addr,X[/color] / [color=white]$addr,Y[/color]; [color=white](zp,X)[/color] / [color=white](zp),Y[/color].\n"
+	h += "  [color=yellow]JMP[/color] [color=white]($addr)[/color] indirect; [color=yellow]ASL A[/color] … [color=yellow]ROR A[/color] for accumulator shifts.\n"
+	h += "  [color=yellow]Load / store / transfer:[/color] LDA LDX LDY  STA STX STY  TAX TXA TAY TYA  TXS TSX\n"
+	h += "  [color=yellow]Arithmetic / logic:[/color] ADC SBC  AND ORA EOR  ASL LSR ROL ROR  (memory or [color=white]A[/color])\n"
+	h += "  [color=yellow]Inc / dec:[/color] INC DEC memory  ·  INX DEX INY DEY registers\n"
+	h += "  [color=yellow]Compare:[/color] CMP CPX CPY\n"
+	h += "  [color=yellow]Branches (relative, use labels or $expr):[/color] BCC BCS BEQ BNE BMI BPL BVC BVS\n"
+	h += "  [color=yellow]Jump / return / interrupt:[/color] JMP JSR RTS RTI BRK\n"
+	h += "  [color=yellow]Stack:[/color] PHA PHP PLA PLP\n"
+	h += "  [color=yellow]Flags:[/color] CLC SEC CLD SED CLI SEI CLV\n"
+	h += "  [color=yellow]Other:[/color] NOP BIT\n"
+	h += "  [color=gray]Machine I/O in this sim: STA $C002 writes a character; STA $C003 with $0D flushes a line; $C030 cart select.[/color]\n"
 	h += "\n[color=white]Comments[/color]\n"
 	h += "  Anything after [color=yellow];[/color] on a line is ignored (e.g. [color=gray]LDA #$01 ; load one[/color]).\n"
 	h += "\n[color=white]Demos[/color]\n"
@@ -318,6 +342,11 @@ func _cmd_run() -> void:
 		return
 	var cpu = computer.cpu
 	cpu.halted = false
+	cpu.A = 0
+	cpu.X = 0
+	cpu.Y = 0
+	cpu.P = 0x24
+	memory.prepare_cpu_stack_for_user_rts(cpu)
 	cpu.PC = _asm.last_start & 0xFFFF
 	cpu.run(10000)
 
@@ -444,6 +473,45 @@ func _sanitize_name(raw: String) -> String:
 		out = "source"
 	return out
 
+func _cmd_save_binary(raw_name: String, hc65: bool) -> void:
+	if not _last_ok or _asm == null or _asm.last_start < 0 or _asm.last_end < _asm.last_start:
+		_emit("[color=red]ASM successfully first (no object range).[/color]\n")
+		return
+	var base := _sanitize_name(raw_name)
+	var ext := "obj" if hc65 else "bin"
+	var path := "user://%s.%s" % [base, ext]
+	var code := PackedByteArray()
+	for a in range(_asm.last_start, _asm.last_end + 1):
+		code.append(memory.peek(a) & 0xFF)
+	var blob: PackedByteArray
+	if hc65:
+		var entry := _asm.object_entry if _asm.object_entry >= 0 else _asm.last_start
+		var exarr: Array = []
+		for s in _asm.meta_help_examples:
+			exarr.append(str(s))
+		blob = HC65Object.encode(
+			_asm.last_start & 0xFFFF,
+			entry & 0xFFFF,
+			code,
+			_asm.meta_export,
+			_asm.meta_help_syntax,
+			_asm.meta_help_desc,
+			exarr
+		)
+	else:
+		blob = PackedByteArray()
+		blob.append(_asm.last_start & 0xFF)
+		blob.append((_asm.last_start >> 8) & 0xFF)
+		blob.append_array(code)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file:
+		file.store_buffer(blob)
+		file.close()
+		_emit("[color=lime]Wrote %d bytes to %s.%s[/color]\n" % [blob.size(), base, ext])
+	else:
+		_emit("[color=red]Write failed.[/color]\n")
+
+
 func _cmd_save(raw_name: String) -> void:
 	var base := _sanitize_name(raw_name)
 	var path := "user://%s.asm" % base
@@ -499,19 +567,22 @@ func _cmd_dir() -> void:
 	if dir == null:
 		_emit("[color=red]Cannot open disk.[/color]\n")
 		return
-	var buf := "\n[color=cyan].ASM FILES:[/color]\n"
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	var count := 0
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".asm"):
-			buf += "[color=yellow]  %s[/color]\n" % file_name.trim_suffix(".asm")
-			count += 1
-		file_name = dir.get_next()
-	dir.list_dir_end()
-	if count == 0:
-		buf += "[color=yellow]  (none)[/color]\n"
-	buf += "\n"
+	var buf := "\n[color=cyan]user://[/color]\n"
+	var exts := [".asm", ".obj", ".bin"]
+	for ext in exts:
+		buf += "[color=white]%s[/color]\n" % ext
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		var count := 0
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(ext):
+				buf += "[color=yellow]  %s[/color]\n" % file_name.trim_suffix(ext)
+				count += 1
+			file_name = dir.get_next()
+		dir.list_dir_end()
+		if count == 0:
+			buf += "[color=yellow]  (none)[/color]\n"
+		buf += "\n"
 	_emit(buf)
 
 func _sync_workspace() -> void:

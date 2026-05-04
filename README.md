@@ -9,7 +9,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Hex number notation** — prefix with `$` (e.g., `$FF`, `$C000`, `$DEAD`)
 - **Binary file I/O** — `BSAVE` saves memory ranges, `BLOAD` loads binary files with optional destination address
 - **Text file I/O** — `WRITE` creates text files, `READFILE` loads text into string variables
-- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor)
+- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor), ASM (6502 assembler + HC65 `SAVEOBJ` / `LOADOBJ`)
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030` and cart banking at `$E000-$EFFF`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
@@ -29,6 +29,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **CPU clock simulation** — 0.5/1/10 MHz (F4 to cycle)
 - **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings, and active cart
 - **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
+- **Changelog** — see [CHANGELOG.md](CHANGELOG.md) for notable fixes and features by release
 - **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
@@ -128,6 +129,9 @@ mygodot/
     rom_cart.gd           # Base class for banked ROM cartridges
     cart_basic.gd         # BASIC6502 cartridge (default)
     cart_text.gd          # Line editor cartridge
+    cart_asm.gd           # 6502 assembler cart (ASM, RUN, DEMO, SAVE/LOAD .asm)
+    assembler6502.gd      # Two-pass assembler used by cart_asm
+    hc65_object.gd        # HC65 .obj encode/decode (SAVEOBJ / LOADOBJ)
   shaders/
     crt_overlay.gdshader   # Scanline, vignette, curvature, glow, flicker, brightness, static
   fonts/
@@ -138,11 +142,12 @@ mygodot/
   tests/
     test_regression.gd     # Full regression test suite (BASIC + CPU)
     test_cli.gd            # Headless CLI test runner
+  CHANGELOG.md             # Notable changes (Keep a Changelog style)
   GETTING_STARTED.md      # Installation and first steps
-  USER_GUIDE.md            # Complete language and command reference
+  USER_GUIDE.md            # Language + commands + **hands-on ASM→BSAVE→SYS tutorial**
   PLAN.md                  # Architecture and development plan
   TODO.md                  # Boot loader & ROM banking plans
-  ASM_AND_C.md             # 6502 assembler & Small-C compiler plan
+  next_steps.md            # Roadmap: carts, ASM, Small-C, HC65 objects / LOADOBJ
   CPU_Emulator_Bugs.md     # Known CPU emulator bugs and fix suggestions
 ```
 

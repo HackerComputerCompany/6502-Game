@@ -190,8 +190,8 @@ Four fonts are bundled and switchable with F8:
 - [ ] Boot loader menu (see TODO.md)
 - [ ] Disk storage with 420KB limit (see TODO.md)
 - [ ] Cartridge hot-swap from within running programs
-- [ ] 6502 assembler editor + two-pass assembler (see ASM_AND_C.md)
-- [ ] Small-C compiler (see ASM_AND_C.md)
+- [ ] 6502 assembler editor + two-pass assembler (see next_steps.md)
+- [ ] Small-C compiler (see next_steps.md)
 - [ ] Fix pre-existing CPU emulator bugs (see CPU_Emulator_Bugs.md)
 - [ ] Screen editor mode (edit previously typed lines)
 - [ ] Color support (PETSCII-style color codes)

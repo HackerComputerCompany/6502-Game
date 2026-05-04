@@ -6,8 +6,16 @@ var symbols: Dictionary = {} ## label -> int address
 var equs: Dictionary = {} ## name -> int constant
 var last_start: int = -1
 var last_end: int = -1
+## First byte to SYS after assemble (`.ENTRY` or same as last_start).
+var object_entry: int = -1
+## Metadata for HC65 / SAVEOBJ (set during assemble).
+var meta_export: String = ""
+var meta_help_syntax: String = ""
+var meta_help_desc: String = ""
+var meta_help_examples: Array = []
 
 var _enc: Dictionary = {}
+var _meta_entry_label: String = ""
 
 func _init() -> void:
 	_build_enc()
@@ -94,6 +102,12 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 	equs.clear()
 	last_start = -1
 	last_end = -1
+	object_entry = -1
+	meta_export = ""
+	meta_help_syntax = ""
+	meta_help_desc = ""
+	meta_help_examples.clear()
+	_meta_entry_label = ""
 	var sorted: Array = editor_lines.duplicate()
 	sorted.sort_custom(func(a, b): return int(a[0]) < int(b[0]))
 	var work: Array = []
@@ -133,6 +147,38 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 				return false
 			lc = v
 			continue
+		if up.begins_with(".EXPORT "):
+			var ex := body.substr(8).strip_edges().to_upper()
+			if not _is_label_token(ex):
+				_err("Line %s: bad .EXPORT name" % item["ln"])
+				return false
+			meta_export = ex
+			continue
+		if up.begins_with(".ENTRY "):
+			var el := body.substr(6).strip_edges().to_upper()
+			if not _is_label_token(el):
+				_err("Line %s: bad .ENTRY label" % item["ln"])
+				return false
+			_meta_entry_label = el
+			continue
+		if up.begins_with(".HELP_SYNTAX "):
+			var qs: Variant = _parse_asm_quoted_string(body.substr(12), int(item["ln"]))
+			if qs == null:
+				return false
+			meta_help_syntax = str(qs)
+			continue
+		if up.begins_with(".HELP_DESC "):
+			var qd: Variant = _parse_asm_quoted_string(body.substr(11), int(item["ln"]))
+			if qd == null:
+				return false
+			meta_help_desc = str(qd)
+			continue
+		if up.begins_with(".HELP_EXAMPLE "):
+			var qe: Variant = _parse_asm_quoted_string(body.substr(14), int(item["ln"]))
+			if qe == null:
+				return false
+			meta_help_examples.append(str(qe))
+			continue
 		var sz := _line_byte_size(body, lc, true)
 		if sz < 0:
 			return false
@@ -156,6 +202,9 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 				return false
 			lc = v2
 			continue
+		if up2.begins_with(".EXPORT ") or up2.begins_with(".ENTRY ") or up2.begins_with(".HELP_SYNTAX ") \
+				or up2.begins_with(".HELP_DESC ") or up2.begins_with(".HELP_EXAMPLE "):
+			continue
 		var bytes: Variant = _emit_line(memory, body2, lc, int(item["ln"]), false)
 		if bytes == null:
 			return false
@@ -168,7 +217,32 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 		emit_end = lc - 1
 	last_start = emit_start
 	last_end = emit_end
+	if emit_start >= 0 and emit_end >= emit_start:
+		object_entry = emit_start
+		if _meta_entry_label != "":
+			if not symbols.has(_meta_entry_label):
+				_err("Unknown .ENTRY label %s" % _meta_entry_label)
+				return false
+			var ep := int(symbols[_meta_entry_label]) & 0xFFFF
+			if ep < (emit_start & 0xFFFF) or ep > (emit_end & 0xFFFF):
+				_err(".ENTRY address $%04X outside object $%04X-$%04X" % [ep, emit_start, emit_end])
+				return false
+			object_entry = ep
+	else:
+		object_entry = -1
 	return errors.is_empty()
+
+func _parse_asm_quoted_string(rest: String, src_ln: int) -> Variant:
+	rest = rest.strip_edges()
+	if rest.length() < 2 or rest[0] != "\"":
+		_err("Line %s: expected \"...\"" % src_ln)
+		return null
+	var endq := rest.find("\"", 1)
+	if endq < 1:
+		_err("Line %s: missing closing quote" % src_ln)
+		return null
+	return rest.substr(1, endq - 1)
+
 
 func _strip_comment(s: String) -> String:
 	var p := s.find(";")
