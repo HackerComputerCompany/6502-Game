@@ -537,7 +537,7 @@ func _format_title_ram_usage(used: int) -> String:
 	const TOTAL_K := 64
 	if used < 1024:
 		return "%d bytes / %dK RAM" % [used, TOTAL_K]
-	return "%dK / %dK RAM" % [used / 1024, TOTAL_K]
+	return "%dK / %dK RAM" % [int(float(used) / 1024.0), TOTAL_K]
 
 func _update_status() -> void:
 	_update_title_bar()

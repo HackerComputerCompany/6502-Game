@@ -16,7 +16,6 @@ var _awaiting_input: bool = false
 var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
-var _skip_next: bool = false
 var _returned: bool = false
 ## Uppercase name -> { "entry_addr": int, "syntax": String, "desc": String, "examples": Array }
 var _native_extensions: Dictionary = {}
@@ -806,10 +805,10 @@ func _exec_let(toks: Array) -> void:
 		if pos < toks.size() and toks[pos][0] == TT.RPAREN:
 			pos += 1
 		pos += 1  # skip =
-		var val = _eval(toks, pos)
+		var elem_val = _eval(toks, pos)
 		if not _arrays.has(name):
 			_arrays[name] = {}
-		_arrays[name][idx] = val
+		_arrays[name][idx] = elem_val
 		return
 	pos += 1  # skip =
 	var val = _eval(toks, pos)
