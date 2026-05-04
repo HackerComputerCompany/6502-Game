@@ -26,19 +26,31 @@ The application starts in **fullscreen** with a retro CRT terminal. The mouse cu
 godot /path/to/mygodot/project.godot
 ```
 
-## Running the Regression Tests
+## Automated tests
 
-The project includes a comprehensive test suite. To run it:
+From the **repository root** (where `project.godot` lives), run everything in one go:
 
 ```bash
-godot --headless --script res://tests/test_regression.gd /path/to/mygodot/project.godot
+./scripts/run_all_tests.sh
 ```
 
-The test suite validates:
-- **Memory Bus**: Read/write, word operations, I/O ports, reset
-- **6502 CPU**: All addressing modes, load/store, arithmetic (ADC/SBC), logical (AND/OR/EOR), shifts (ASL/LSR/ROL/ROR), comparisons (CMP/CPX/CPY), branches, stack operations, jumps/subroutines, transfers, flag instructions, overflow detection, page boundary bugs
-- **BASIC Interpreter**: PRINT, variables, arithmetic, IF/THEN/ELSE, FOR/NEXT (including nested loops with GOTO), GOSUB/RETURN, built-in functions (INT, ABS, SQR, SGN, SIN, COS), string functions (LEFT$, RIGHT$, MID$, LEN), arrays, READ/DATA, POKE/PEEK, boolean logic, comparison operators, ON GOTO, colon statement separator
-- **Computer Integration**: End-to-end BASIC program execution with 6502 CPU
+That runs, in order: **regression** (`tests/test_regression.gd`), **65x02 JSON step tests** (`tests/test_processor_step_tests.gd`), **CLI** (`tests/test_cli.gd`), and **fuzz smoke** (`tests/test_fuzz_smoke.gd`). Optional environment variables: `GODOT`, `FUZZ_ITERS`, `FUZZ_SEED`.
+
+Run a single suite (examples):
+
+```bash
+godot --path . --headless -s tests/test_regression.gd
+godot --path . --headless -s tests/test_processor_step_tests.gd
+godot --path . --headless -s tests/test_cli.gd
+godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-iters=400 --fuzz-seed=42
+```
+
+**Authoritative inventory** (every regression block, CLI case, fuzz round, external corpus attribution): **[TESTING.md](TESTING.md)**. Fuzz roadmap and future corpus ideas: **[fuzz_testing_design.md](fuzz_testing_design.md)**.
+
+Coverage highlights:
+
+- **Memory bus**, **6502 CPU** (official opcodes; binary ADC/SBC — decimal mode not modeled), **BASIC**, **`Computer`** + ROM **carts** (BASIC, TEXT, ASM, C), **assembler / HC65**, **headless teardown** (no refcount leaks when carts disconnect cleanly)
+- **External step corpus**: trimmed **[SingleStepTests / 65x02](https://github.com/SingleStepTests/65x02)** JSON (MIT; **Thomas Harte et al.** — see `tests/fixtures/processor_tests/README.md`)
 
 ## Your First BASIC Program
 

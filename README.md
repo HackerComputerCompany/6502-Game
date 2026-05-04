@@ -9,7 +9,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Hex number notation** — prefix with `$` (e.g., `$FF`, `$C000`, `$DEAD`)
 - **Binary file I/O** — `BSAVE` saves memory ranges, `BLOAD` loads binary files with optional destination address
 - **Text file I/O** — `WRITE` creates text files, `READFILE` loads text into string variables
-- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor), ASM (6502 assembler + HC65 `SAVEOBJ` / `LOADOBJ`)
+- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor), ASM (6502 assembler + HC65 `SAVEOBJ` / `LOADOBJ`), C (Small-C compiler cart)
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030` and cart banking at `$E000-$EFFF`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
@@ -30,7 +30,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings, and active cart
 - **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
 - **Changelog** — see [CHANGELOG.md](CHANGELOG.md) for notable fixes and features by release
-- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`; **`test_fuzz_smoke.gd`** for quick randomized BASIC/asm/CPU stress; strategy in **`fuzz_testing_design.md`**
+- **Automated tests** — regression (`tests/test_regression.gd`), external **[65x02](https://github.com/SingleStepTests/65x02)** JSON step suite (`tests/test_processor_step_tests.gd`; credit in **tests/fixtures/processor_tests/README.md**), CLI harness (`tests/test_cli.gd`), fuzz smoke (`tests/test_fuzz_smoke.gd`); details in **[TESTING.md](TESTING.md)**; fuzz roadmap in **[fuzz_testing_design.md](fuzz_testing_design.md)**
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
 ## Quick Start
@@ -117,6 +117,7 @@ mygodot/
   project.godot          # Godot project configuration (4:3, fullscreen, GL compat)
   main.tscn              # Main scene with CRT bezel frame
   scripts/
+    run_all_tests.sh      # Headless: regression → 65x02 → CLI → fuzz (GODOT / FUZZ_* env)
     basic_interpreter.gd  # BASIC language interpreter (tokenizer, parser, evaluator)
     computer.gd           # Ties CPU + memory + BASIC + carts together
     cpu_6502.gd           # Full MOS 6502 CPU emulator with disassembler
@@ -130,6 +131,7 @@ mygodot/
     cart_basic.gd         # BASIC6502 cartridge (default)
     cart_text.gd          # Line editor cartridge
     cart_asm.gd           # 6502 assembler cart (ASM, RUN, DEMO, SAVE/LOAD .asm)
+    cart_c.gd             # Small-C compiler cart (COMPILE, BUILD, SAVE/LOAD .c)
     assembler6502.gd      # Two-pass assembler used by cart_asm
     hc65_object.gd        # HC65 .obj encode/decode (SAVEOBJ / LOADOBJ)
   shaders/
@@ -142,9 +144,13 @@ mygodot/
   archives/
     basic_games_disk_catalog.md  # Text-only vintage BASIC games; 140 KiB/side (A/B) floppy concept
   tests/
-    test_regression.gd     # Full regression test suite (BASIC + CPU)
-    test_cli.gd            # Headless CLI test runner
-    test_fuzz_smoke.gd     # Short fuzz smoke (BASIC / assembler / CPU); see fuzz_testing_design.md
+    test_regression.gd          # Full regression test suite (BASIC + CPU)
+    test_processor_step_tests.gd # Single-step 65x02 JSON tests (see fixtures/processor_tests/README.md)
+    test_cli.gd                 # Headless CLI test runner
+    test_fuzz_smoke.gd          # Fuzz smoke: BASIC / assembler / CPU / TEXT / C carts; see TESTING.md
+  tests/fixtures/processor_tests/
+    README.md              # Attribution: Thomas Harte et al. / SingleStepTests 65x02 (MIT)
+    v1/*.json              # Trimmed opcode-step corpus (rebuild: build_subset.py)
   CHANGELOG.md             # Notable changes (Keep a Changelog style)
   GETTING_STARTED.md      # Installation and first steps
   USER_GUIDE.md            # Language + commands + **hands-on ASM→BSAVE→SYS tutorial**
@@ -152,7 +158,8 @@ mygodot/
   TODO.md                  # Boot loader & ROM banking plans
   next_steps.md            # Roadmap: carts, ASM, Small-C, HC65 objects / LOADOBJ
   trainer.md               # Plan: Trainer cart — teach BASIC + ASM in-game
-  fuzz_testing_design.md   # Plan: fuzz testing + fixture-based BASIC/ASM CLI tests
+  fuzz_testing_design.md   # Fuzz goals, strategies, roadmap (see TESTING.md for current suites)
+  TESTING.md               # Regression / CLI / fuzz: what each suite covers + how to run
   CPU_Emulator_Bugs.md     # Known CPU emulator bugs and fix suggestions
 ```
 
@@ -301,17 +308,26 @@ debug.execute_command("status")     # Get current state
 
 ## Running Tests
 
-From the command line:
+**Full inventory** (every regression block, CLI case, and fuzz round): **[TESTING.md](TESTING.md)**.
+
+Run all suites in one go:
+
+```bash
+./scripts/run_all_tests.sh
+```
+
+Or individually:
 
 ```bash
 godot --path . --headless -s tests/test_regression.gd
+godot --path . --headless -s tests/test_processor_step_tests.gd
 godot --path . --headless -s tests/test_cli.gd
 godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-iters=400 --fuzz-seed=42
 ```
 
-Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK, colon separator), carts, assembler/HC65, and Computer integration.
+**Regression** — deterministic CPU/BASIC/memory/assembler/cart/file checks (many small assertions per “Running:” block). **65x02 steps** — vendored subset of the community JSON single-instruction suite ([SingleStepTests/65x02](https://github.com/SingleStepTests/65x02), MIT; **Thomas Harte et al.** — see **tests/fixtures/processor_tests/README.md**). **CLI** — second harness over full `Computer.run_basic` paths (loops, files, arithmetic). **Fuzz smoke** — seeded random BASIC one-liners (whitelist), assembler line bundles, `CPU6502.run` on random RAM at `$0800`, plus **TEXT** and **C** cart command batches (whitelist; no random Small-C compile), with wall-clock and per-iteration stall limits; exits nonzero on failure.
 
-Planned fuzz / expanded CLI suites are described in **`fuzz_testing_design.md`** (random BASIC & ASM generation, timeouts, fixture `.bas` files, CI hooks).
+Future fixtures, corpus layout, and CI matrix ideas: **`fuzz_testing_design.md`**.
 
 ## License
 

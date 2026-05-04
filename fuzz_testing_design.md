@@ -1,8 +1,8 @@
 # Fuzz testing design — BASIC6502
 
-This document specifies **how to add fuzzing and expanded automated testing** so we find **crashes**, **infinite loops**, **panics**, and **silent invariant violations** in the interpreter, assembler, CPU, memory layer, and carts—using the existing **Godot headless** workflow (`godot --headless -s …`).
+This document specifies **how to add fuzzing and expanded automated testing** so we find **crashes**, **infinite loops**, **panics**, and **silent invariant violations** in the interpreter, assembler, CPU, memory layer, and carts—using the existing **Godot headless** workflow (`godot --path . --headless -s …` from the repo root).
 
-**Scope today:** design and integration points. Implementation can land incrementally (see **§ Roadmap**).
+**What runs today:** **[TESTING.md](TESTING.md)** lists every regression block, CLI case, and the implemented fuzz smoke rounds (`tests/test_fuzz_smoke.gd`), plus `./scripts/run_all_tests.sh`. Below sections remain the **design / roadmap** for corpus, fixtures, heavier fuzz workers, and CI.
 
 ---
 
@@ -42,8 +42,10 @@ This document specifies **how to add fuzzing and expanded automated testing** so
 
 | Asset | Role |
 |-------|------|
-| **`tests/test_regression.gd`** | Main suite: `extends SceneTree`, `_init()` runs tests then quits. Memory, CPU, BASIC, carts, assembler. |
-| **`tests/test_cli.gd`** | Alternate entry: `Computer.new()`, `run_basic`, optional **`godot --headless -s test_cli.gd res://path/to/file.bas`**. |
+| **`tests/test_regression.gd`** | Main suite: `extends SceneTree`, `_init()` runs tests then quits. Memory, CPU, BASIC, carts, assembler, HC65, files. See **[TESTING.md](TESTING.md) §1**. |
+| **`tests/test_processor_step_tests.gd`** | Vendored **[SingleStepTests/65x02](https://github.com/SingleStepTests/65x02)** JSON subset — single **`CPU6502.step()`** oracle vs **`final`** state (**Thomas Harte et al.**, MIT). Attribution under **`tests/fixtures/processor_tests/`**. See **[TESTING.md](TESTING.md) §2**. |
+| **`tests/test_cli.gd`** | `Computer.new()` battery: loops, **BSAVE/BLOAD**, **WRITE/READFILE**, arithmetic/IF/GOSUB/arrays; optional **`godot --path . --headless -s tests/test_cli.gd res://path/to/file.bas`**. See **[TESTING.md](TESTING.md) §3**. |
+| **`tests/test_fuzz_smoke.gd`** | **Shipped** P0 fuzz smoke: **five rounds** × **`--fuzz-iters`** — BASIC **`execute_line`**, **`assemble`** line bundles, **`CPU6502.run`** at **`$0800`** with **`prepare_cpu_stack_for_user_rts`**, **TEXT** cart commands, **C** cart commands (no random **`COMPILE`/`BUILD`/`RUN`**); **`--fuzz-iters`** / **`--fuzz-seed`**; global **~120s** wall-clock budget; **`quit(1)`** on failure. See **[TESTING.md](TESTING.md)** fuzz section. |
 | **`Computer`**, **`BasicInterpreter`**, **`Assembler6502`**, **`CPU6502`**, **`MemoryBus`** | Fuzz targets and **oracles**. |
 
 **Convention:** new fuzz drivers live under **`tests/`** as `test_fuzz_*.gd` (SceneTree scripts) so CI invokes them like regression tests.
@@ -155,30 +157,36 @@ Keeps **`test_regression.gd`** readable while growing coverage.
 
 ## 6. CLI / CI integration
 
-### 6.1 Commands (target interface)
+### 6.1 Commands
 
 ```bash
-# Full regression (existing)
+# All suites (regression + CLI + fuzz smoke); env: GODOT, FUZZ_ITERS, FUZZ_SEED
+./scripts/run_all_tests.sh
+
+# Regression
 godot --path . --headless -s tests/test_regression.gd
 
-# CLI battery (existing)
+# 65x02 JSON step subset (external corpus)
+godot --path . --headless -s tests/test_processor_step_tests.gd
+
+# CLI battery (optional path to .bas / .txt / .bin)
 godot --path . --headless -s tests/test_cli.gd
 
-# Planned: fuzz smoke (short, deterministic seed)
-godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-seed=12345 --fuzz-iters=5000
+# Fuzz smoke (deterministic seed / iteration count)
+godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-seed=12345 --fuzz-iters=500
 
-# Planned: single BASIC fuzz worker (long CI nightly)
+# Planned: long-running BASIC-only fuzz worker (nightly / optional)
 godot --path . --headless -s tests/test_fuzz_basic.gd -- --fuzz-seed=$SEED --fuzz-iters=200000
 ```
 
-Parse **`OS.get_cmdline_user_args()`** (Godot 4) for `--fuzz-seed` / `--fuzz-iters`.
+**`test_fuzz_smoke.gd`** parses **`OS.get_cmdline_user_args()`** (arguments after `--`) for **`--fuzz-seed`** / **`--fuzz-iters`** (minimum iterations enforced in harness).
 
 ### 6.2 CI matrix
 
 | Job | Frequency | Command |
 |-----|-----------|---------|
-| **PR** | Every push | `test_regression.gd` + `test_cli.gd` |
-| **Nightly** | Daily | Above + **`test_fuzz_smoke.gd`** (large iter count) |
+| **PR** | Every push | `./scripts/run_all_tests.sh` or `test_regression.gd` + `test_cli.gd` (+ optional fuzz)
+| **Nightly** | Daily | Above with **`test_fuzz_smoke.gd`** at higher **`--fuzz-iters`** or multi-seed loop |
 | **Weekly** | Low priority | Multi-seed loop shell script × subprocess |
 
 ### 6.3 Exit codes
@@ -203,10 +211,10 @@ Parse **`OS.get_cmdline_user_args()`** (Godot 4) for `--fuzz-seed` / `--fuzz-ite
 
 | Phase | Deliverable |
 |-------|-------------|
-| **P0** | **`tests/test_fuzz_smoke.gd`** (landed): whitelist BASIC **`execute_line`**, random **`assemble`** lines, **`CPU.run`** on random RAM at **`$0800`**; **`--fuzz-iters`** / **`--fuzz-seed`**; global wall-clock budget + per-op stalls; **`QUIT`** nonzero on failure. |
+| **P0** | **`tests/test_fuzz_smoke.gd`** (landed): five rounds — BASIC **`execute_line`**, **`assemble`** fuzz, **`CPU.run`** at **`$0800`**, **TEXT** cart, **C** cart (whitelist; omit random compile/run); **`--fuzz-iters`** / **`--fuzz-seed`**; **~120s** global budget + per-call stall caps; nonzero exit on failure. |
 | **P1** | Fixture runner + **`tests/fixtures/basic/`** (10–20 files). |
 | **P2** | Mutation engine from corpus + **`--fuzz-seed`**. |
-| **P3** | Cart command fuzz + memory poke fuzz integrated. |
+| **P3** | Heavier cart command fuzz + memory poke fuzz (beyond shipped TEXT/C whitelist rounds). |
 | **P4** | CI nightly workflow YAML + artifact upload of failing input. |
 | **P5** | Optional **Rust/C++** grammar fuzzer **out-of-process** feeding `.bas` files if GDScript throughput insufficient (stretch). |
 
@@ -225,10 +233,11 @@ Parse **`OS.get_cmdline_user_args()`** (Godot 4) for `--fuzz-seed` / `--fuzz-ite
 
 ## 10. Related docs
 
-- **`CHANGELOG.md`** — note when fuzz harness lands.
+- **`TESTING.md`** — authoritative list of regression blocks, CLI tests, fuzz smoke behavior, and flags.
+- **`CHANGELOG.md`** — notable harness changes.
 - **`trainer.md`** — future lesson on “why we fuzz inputs.”
-- **`CPU_Emulator_Bugs.md`** — candidate oracle list for CPU fuzz diffs.
+- **`CPU_Emulator_Bugs.md`** — historical bug notes; use **65x02** JSON + regression as primary oracles for CPU changes.
 
 ---
 
-*Document version: 1.0 — BASIC6502 / 6502-Game.*
+*Document version: 1.2 — BASIC6502 / 6502-Game. See TESTING.md for suite inventory.*

@@ -1,6 +1,8 @@
 # CPU Emulator Bugs — Pre-existing Issues
 
-All 12 failing tests are in `test_regression.gd`. The BASIC interpreter passes cleanly (71/71). Below is a breakdown of each bug, its root cause, and a suggested fix.
+> **Note:** This file describes problems observed against an **older** regression snapshot (counts like “12 failing CPU tests” / “71 BASIC tests” are **not** current). Today, opcode-level coverage is reinforced by **`tests/test_processor_step_tests.gd`** (vendored **[65x02](https://github.com/SingleStepTests/65x02)** JSON, MIT) plus the CPU sections of **`tests/test_regression.gd`**. Treat the sections below as **historical debugging notes**, not an up-to-date failure list.
+
+Below is a breakdown of each bug as originally analyzed, its suspected root cause, and a suggested fix.
 
 ---
 

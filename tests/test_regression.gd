@@ -39,6 +39,9 @@ func _init() -> void:
 	test_cart_loader_switch_clears_workspace()
 	test_cart_loader_poke_c030()
 	test_cart_text_editor_commands()
+	test_text_cart_list_range_and_print()
+	test_text_cart_save_load_roundtrip_disk()
+	test_text_cart_catalog_and_scratch_missing()
 	test_reboot_deep_clears_cart_buffers()
 	test_assembler6502_hello_snippet()
 	test_assembler_hello_demo_run_single_A()
@@ -48,6 +51,10 @@ func _init() -> void:
 	test_c_cart_compile_hello()
 	test_c_cart_compile_and_run()
 	test_c_cart_demo_compiles()
+	test_c_cart_build_alias_compiles()
+	test_c_cart_del_line_removes_from_buffer()
+	test_c_cart_demo_list_and_unknown_demo()
+	test_c_cart_save_load_roundtrip_compile()
 	test_hc65_round_trip()
 	test_assembler_meta_directives()
 	test_cart_asm_saveobj_all_demos()
@@ -88,6 +95,18 @@ func _fresh_cpu() -> CPU6502:
 
 func _fresh_mem() -> MemoryBus:
 	return MemoryBus.new()
+
+
+func _dispose_computer(comp: Computer) -> void:
+	if comp == null:
+		return
+	for sig_name in [&"output", &"output_richtext", &"ready_for_input", &"program_finished", &"full_reboot_requested"]:
+		for conn in comp.get_signal_connection_list(sig_name):
+			var cb: Callable = conn["callable"]
+			if cb.is_valid():
+				comp.disconnect(sig_name, cb)
+	comp.disconnect_memory_signal_links()
+
 
 func test_memory_bus() -> void:
 	_begin_test("MemoryBus")
@@ -426,6 +445,7 @@ func test_cart_loader_switch_clears_workspace() -> void:
 	_assert(comp.memory.peek(0xE000) == 0x00, "cart swap clears $E000")
 	_assert(comp.memory.peek(0x0200) == 0xAA, "main RAM preserved")
 	_assert(comp.cart_manager.current.name == "TEXT", "TEXT cart active")
+	_dispose_computer(comp)
 
 func test_cart_loader_poke_c030() -> void:
 	_begin_test("Cart Loader POKE $C030")
@@ -435,6 +455,7 @@ func test_cart_loader_poke_c030() -> void:
 	_assert(comp.memory.peek(0xC030) == 1, "peek C030 matches cart")
 	comp.memory.poke(0xC030, 0)
 	_assert(comp.cart_manager.current.id == 0, "POKE C030 selects BASIC")
+	_dispose_computer(comp)
 
 func test_cart_text_editor_commands() -> void:
 	_begin_test("TEXT Cart Editor")
@@ -452,6 +473,67 @@ func test_cart_text_editor_commands() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("LIST")
 	_assert("HELLO" not in _output, "delete line 10")
+	_dispose_computer(comp)
+
+
+func test_text_cart_list_range_and_print() -> void:
+	_begin_test("TEXT Cart LIST range and PRINT")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(1, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 ALPHA")
+	comp.cart_manager.handle_command("20 BRAVO")
+	comp.cart_manager.handle_command("30 CHARLIE")
+	_output = ""
+	comp.cart_manager.handle_command("LIST 20 30")
+	_assert("BRAVO" in _output and "CHARLIE" in _output, "range lists middle lines")
+	_assert("ALPHA" not in _output, "range excludes low line")
+	_output = ""
+	comp.cart_manager.handle_command("PRINT")
+	_assert("ALPHA" in _output and "BRAVO" in _output and "CHARLIE" in _output, "PRINT dumps all bodies")
+	_dispose_computer(comp)
+
+
+func test_text_cart_save_load_roundtrip_disk() -> void:
+	_begin_test("TEXT Cart SAVE/LOAD round-trip")
+	var path := "user://regtest_text_editor_roundtrip.txt"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(1, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 FIRST LINE")
+	comp.cart_manager.handle_command("20 SECOND LINE")
+	_output = ""
+	comp.cart_manager.handle_command("SAVE regtest_text_editor_roundtrip")
+	_assert("Saved" in _output, "SAVE reports success")
+	comp.cart_manager.handle_command("NEW")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("empty" in _output.to_lower(), "buffer cleared after NEW")
+	_output = ""
+	comp.cart_manager.handle_command("LOAD regtest_text_editor_roundtrip")
+	_assert("Loaded" in _output, "LOAD reports success")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("FIRST" in _output and "SECOND" in _output, "lines restored from disk")
+	_dispose_computer(comp)
+
+
+func test_text_cart_catalog_and_scratch_missing() -> void:
+	_begin_test("TEXT Cart CATALOG and SCRATCH missing file")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(1, false)
+	_output = ""
+	comp.cart_manager.handle_command("CATALOG")
+	_assert(".TXT" in _output or "txt" in _output.to_lower(), "catalog lists txt section")
+	_output = ""
+	comp.cart_manager.handle_command("SCRATCH regtest_text_absolutely_missing_xyz")
+	_assert("not found" in _output.to_lower() or "File not found" in _output, "scratch missing file")
+	_dispose_computer(comp)
 
 
 func test_reboot_deep_clears_cart_buffers() -> void:
@@ -466,6 +548,7 @@ func test_reboot_deep_clears_cart_buffers() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("LIST")
 	_assert("empty source" in _output.to_lower(), "ASM listing empty after REBOOT")
+	_dispose_computer(comp)
 
 func test_assembler6502_hello_snippet() -> void:
 	_begin_test("Assembler6502 hello snippet")
@@ -498,8 +581,10 @@ func test_assembler_hello_demo_run_single_A() -> void:
 	mem.prepare_cpu_stack_for_user_rts(cpu)
 	cpu.PC = asm.last_start & 0xFFFF
 	var captured: Array = [""]
-	mem.output_ready.connect(func(t: String): if t != "[CLR]": captured[0] = t)
+	var capture_cb_a := func(t: String): if t != "[CLR]": captured[0] = t
+	mem.output_ready.connect(capture_cb_a)
 	cpu.run(10000)
+	mem.output_ready.disconnect(capture_cb_a)
 	var s: String = str(captured[0])
 	var ac := 0
 	for i in range(s.length()):
@@ -528,8 +613,10 @@ func test_assembler_stars_demo_run_ten_asterisks() -> void:
 	mem.prepare_cpu_stack_for_user_rts(cpu)
 	cpu.PC = asm.last_start & 0xFFFF
 	var captured: Array = [""]
-	mem.output_ready.connect(func(t: String): if t != "[CLR]": captured[0] = t)
+	var capture_cb := func(t: String): if t != "[CLR]": captured[0] = t
+	mem.output_ready.connect(capture_cb)
 	cpu.run(10000)
+	mem.output_ready.disconnect(capture_cb)
 	var s: String = str(captured[0])
 	var star_count := 0
 	for i in range(s.length()):
@@ -550,6 +637,7 @@ func test_cart_asm_commands() -> void:
 	comp.cart_manager.handle_command("ASM")
 	_assert(comp.memory.peek(0x0800) == 0xA9, "cart ASM pokes code")
 	_assert(comp.memory.peek(0x0805) == 0x60, "RTS in RAM")
+	_dispose_computer(comp)
 
 func test_c_cart_compile_hello() -> void:
 	_begin_test("C cart compile hello")
@@ -564,6 +652,7 @@ func test_c_cart_compile_hello() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("COMPILE")
 	_assert("Compiled" in _output, "compile success: %s" % _output)
+	_dispose_computer(comp)
 
 func test_c_cart_compile_and_run() -> void:
 	_begin_test("C cart compile and run")
@@ -582,6 +671,7 @@ func test_c_cart_compile_and_run() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("RUN")
 	_assert("ABC" in _output, "output contains ABC: %s" % _output)
+	_dispose_computer(comp)
 
 func test_c_cart_demo_compiles() -> void:
 	_begin_test("C cart DEMO sources compile")
@@ -594,6 +684,85 @@ func test_c_cart_demo_compiles() -> void:
 		comp.cart_manager.handle_command("DEMO " + str(demo_name))
 		comp.cart_manager.handle_command("COMPILE")
 		_assert("failed" not in _output.to_lower(), "demo %s compiles (%s)" % [demo_name, _output])
+		_dispose_computer(comp)
+
+
+func test_c_cart_build_alias_compiles() -> void:
+	_begin_test("C cart BUILD alias compiles")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(3, false)
+	_output = ""
+	comp.cart_manager.handle_command("BUILD")
+	_assert("No source" in _output, "BUILD with empty buffer errors")
+	comp.cart_manager.handle_command("10 main() {")
+	comp.cart_manager.handle_command("20 putc(88); putc(13);")
+	comp.cart_manager.handle_command("30 }")
+	_output = ""
+	comp.cart_manager.handle_command("BUILD")
+	_assert("Compiled" in _output, "BUILD compiles like COMPILE: %s" % _output)
+	_dispose_computer(comp)
+
+
+func test_c_cart_del_line_removes_from_buffer() -> void:
+	_begin_test("C cart DEL removes line")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(3, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 main() {")
+	comp.cart_manager.handle_command("20 putc(65);")
+	comp.cart_manager.handle_command("30 putc(13);")
+	comp.cart_manager.handle_command("40 }")
+	comp.cart_manager.handle_command("DEL 30")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("10" in _output and "20" in _output and "40" in _output, "LIST still shows 10/20/40")
+	_assert(not _output.contains("30  putc"), "deleted line 30 absent from LIST")
+	_dispose_computer(comp)
+
+
+func test_c_cart_demo_list_and_unknown_demo() -> void:
+	_begin_test("C cart DEMO list and unknown demo")
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(3, false)
+	_output = ""
+	comp.cart_manager.handle_command("DEMOS")
+	_assert("hello" in _output.to_lower() or "built-in" in _output.to_lower(), "demo list mentions demos")
+	_output = ""
+	comp.cart_manager.handle_command("DEMO definitely_not_a_builtin_demo_name_qxz")
+	_assert("Unknown" in _output or "unknown" in _output.to_lower(), "unknown demo rejected")
+	_dispose_computer(comp)
+
+
+func test_c_cart_save_load_roundtrip_compile() -> void:
+	_begin_test("C cart SAVE/LOAD round-trip and COMPILE")
+	var path := "user://regtest_c_cart_roundtrip.c"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	var comp = Computer.new()
+	comp.output_richtext.connect(_on_output)
+	comp.cart_manager.switch_to(3, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 main() {")
+	comp.cart_manager.handle_command("20 putc(90); putc(13);")
+	comp.cart_manager.handle_command("30 }")
+	_output = ""
+	comp.cart_manager.handle_command("SAVE regtest_c_cart_roundtrip")
+	_assert("Saved" in _output, "SAVE .c success")
+	comp.cart_manager.handle_command("NEW")
+	_output = ""
+	comp.cart_manager.handle_command("LIST")
+	_assert("empty" in _output.to_lower(), "cleared")
+	_output = ""
+	comp.cart_manager.handle_command("LOAD regtest_c_cart_roundtrip")
+	_assert("Loaded" in _output, "LOAD .c success")
+	_output = ""
+	comp.cart_manager.handle_command("COMPILE")
+	_assert("Compiled" in _output, "compile after load: %s" % _output)
+	_dispose_computer(comp)
+
 
 func test_cart_asm_demos_assemble() -> void:
 	_begin_test("ASM cart DEMO sources assemble")
@@ -610,6 +779,7 @@ func test_cart_asm_demos_assemble() -> void:
 			_assert(comp.memory.peek(0x0800) == 0xA9, "hello at $0800")
 		if demo_name == "org_hi":
 			_assert(comp.memory.peek(0x0900) == 0xA9, "org_hi code at $0900")
+		_dispose_computer(comp)
 
 
 func test_hc65_round_trip() -> void:
@@ -676,6 +846,7 @@ func test_cart_asm_saveobj_all_demos() -> void:
 		_assert(code.size() > 0, "nonempty code %s" % demo_name)
 		if demo_name == "org_hi":
 			_assert(int(dec["load_addr"]) == 0x0900, "org_hi load addr")
+		_dispose_computer(comp)
 
 
 func test_basic_loadobj_native_call() -> void:
@@ -709,6 +880,8 @@ func test_computer_cart_serialize_roundtrip() -> void:
 	var st: Dictionary = comp2.cart_manager.serialize_cart_state()
 	_assert(st.has("lines") and st["lines"].size() == 1, "TEXT buffer serialized")
 	_assert(int(st["lines"][0]["ln"]) == 20, "line number preserved")
+	_dispose_computer(comp)
+	_dispose_computer(comp2)
 
 func test_basic_nested_loops() -> void:
 	_begin_test("BASIC Nested FOR/NEXT")
@@ -803,6 +976,7 @@ func test_computer_integration() -> void:
 	comp.run_basic_sync("10 PRINT \"HELLO\"\n20 FOR I = 1 TO 3\n30 PRINT I * I\n40 NEXT I\n50 END")
 	_assert("HELLO" in _output, "Computer prints greeting")
 	_assert("9" in _output, "Computer prints 3*3=9")
+	_dispose_computer(comp)
 
 func test_computer_var_persistence() -> void:
 	_begin_test("Computer Variable Persistence Across RUN")
@@ -821,6 +995,7 @@ func test_computer_var_persistence() -> void:
 	comp.basic.execute_line("NEW")
 	comp.run_basic_sync("10 PRINT X\n20 END")
 	_assert(" 0 " in _output, "X reset to 0 after NEW")
+	_dispose_computer(comp)
 
 func test_bsave_bload() -> void:
 	_begin_test("BSAVE/BLOAD Binary")

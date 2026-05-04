@@ -315,8 +315,9 @@ func step() -> void:
 		"NOP":
 			pass
 		"BRK":
-			PC += 1
-			_push_word(PC)
+			## NMOS BRK pushes PC+2 (opcode + phantom operand byte); IR vectors same as IRQ ($FFFE).
+			var pcbrk := (PC + 2) & 0xFFFF
+			_push_word(pcbrk)
 			_push(P | 0x10)
 			set_flag(Flag.I, true)
 			next_pc = _read_word(0xFFFE)
@@ -424,7 +425,7 @@ func _build_opcode_table() -> void:
 		0x6E: ["ROR", "ABS"], 0x7E: ["ROR", "ABX"],
 		0xE6: ["INC", "ZPG"], 0xF6: ["INC", "ZPX"],
 		0xEE: ["INC", "ABS"], 0xFE: ["INC", "ABX"],
-		0xC6: ["DEC", "ZPG"], 0xD6: ["DEC", "ZPY"],
+		0xC6: ["DEC", "ZPG"], 0xD6: ["DEC", "ZPX"],
 		0xCE: ["DEC", "ABS"], 0xDE: ["DEC", "ABX"],
 		0xA9: ["LDA", "IMM"], 0xA5: ["LDA", "ZPG"], 0xB5: ["LDA", "ZPX"],
 		0xAD: ["LDA", "ABS"], 0xBD: ["LDA", "ABX"], 0xB9: ["LDA", "ABY"],

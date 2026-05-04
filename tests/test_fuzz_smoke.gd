@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Short fuzz smoke: random BASIC one-liners, assembler sources, and CPU runs.
+## Short fuzz smoke: BASIC one-liners, assembler sources, CPU runs, TEXT cart, C cart.
 ## Run: godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-iters=500 --fuzz-seed=42
 
 var _tests_passed: int = 0
@@ -54,7 +54,7 @@ func _init() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_u as int
 
-	var budget_deadline_ms := Time.get_ticks_msec() + 90_000
+	var budget_deadline_ms := Time.get_ticks_msec() + 120_000
 
 	_begin_round("BASIC execute_line fuzz")
 	_fuzz_basic_execute_lines(iters, rng, budget_deadline_ms)
@@ -64,6 +64,12 @@ func _init() -> void:
 
 	_begin_round("CPU random RAM fuzz")
 	_fuzz_cpu_random(iters, rng, budget_deadline_ms)
+
+	_begin_round("TEXT cart command fuzz")
+	_fuzz_text_cart_commands(iters, rng, budget_deadline_ms)
+
+	_begin_round("C cart command fuzz")
+	_fuzz_c_cart_commands(iters, rng, budget_deadline_ms)
 
 	print("\n========== FUZZ RESULTS ==========")
 	print("  PASSED checks: %d" % _tests_passed)
@@ -96,6 +102,7 @@ func _fuzz_basic_execute_lines(iters: int, rng: RandomNumberGenerator, deadline_
 		var t0 := Time.get_ticks_msec()
 		comp.basic.execute_line(line)
 		var dt := Time.get_ticks_msec() - t0
+		comp.disconnect_memory_signal_links()
 		if dt > 5_000:
 			_fail("BASIC execute_line stall >5s line=%s" % line.substr(0, mini(80, line.length())))
 			return
@@ -154,6 +161,130 @@ func _random_string_lit(rng: RandomNumberGenerator) -> String:
 		out += alphabet[rng.randi_range(0, alphabet.length() - 1)]
 	return out
 
+
+func _random_short_ascii_body(rng: RandomNumberGenerator, max_len: int) -> String:
+	var alphabet := "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 (){};_-+/%"
+	var out := ""
+	var ln := rng.randi_range(0, max_len)
+	for _j in range(ln):
+		out += alphabet[rng.randi_range(0, alphabet.length() - 1)]
+	return out
+
+
+func _fuzz_text_cart_commands(iters: int, rng: RandomNumberGenerator, deadline_ms: int) -> void:
+	for _i in range(iters):
+		if Time.get_ticks_msec() > deadline_ms:
+			_fail("global time budget exceeded during TEXT cart fuzz")
+			return
+		var comp := Computer.new()
+		var t0 := Time.get_ticks_msec()
+		comp.cart_manager.switch_to(1, false)
+		var n_cmds := rng.randi_range(2, 7)
+		for _j in range(n_cmds):
+			comp.cart_manager.handle_command(_random_text_cart_command(rng))
+		var dt := Time.get_ticks_msec() - t0
+		comp.disconnect_memory_signal_links()
+		if dt > 8_000:
+			_fail("TEXT cart fuzz stall >8s")
+			return
+		_pass()
+
+
+func _random_text_cart_command(rng: RandomNumberGenerator) -> String:
+	match rng.randi_range(0, 13):
+		0:
+			return "NEW"
+		1:
+			return "HELP"
+		2:
+			return "PRINT"
+		3:
+			return "LIST"
+		4:
+			var a := rng.randi_range(10, 400)
+			var b := rng.randi_range(a, min(a + 800, 9999))
+			return "LIST %d %d" % [a, b]
+		5:
+			return "DIR"
+		6:
+			return "CATALOG"
+		7:
+			return "SAVE fuzz_txt_%d" % rng.randi()
+		8:
+			return "LOAD fuzz_txt_%d" % rng.randi()
+		9:
+			return "SCRATCH fuzz_txt_missing_%d" % rng.randi()
+		10:
+			return "DELETE fuzz_txt_missing_%d" % rng.randi()
+		11:
+			var ln := rng.randi_range(1, 999) * 10
+			return str(ln)
+		_:
+			var ln2 := rng.randi_range(1, 120) * 10
+			var body := _random_short_ascii_body(rng, 44)
+			if body.strip_edges() == "":
+				body = "note"
+			return "%d %s" % [ln2, body]
+
+
+func _fuzz_c_cart_commands(iters: int, rng: RandomNumberGenerator, deadline_ms: int) -> void:
+	var demo_pick := ["hello", "count", "fib", "sum", "max", "stars"]
+	for _i in range(iters):
+		if Time.get_ticks_msec() > deadline_ms:
+			_fail("global time budget exceeded during C cart fuzz")
+			return
+		var comp := Computer.new()
+		var t0 := Time.get_ticks_msec()
+		comp.cart_manager.switch_to(3, false)
+		var n_cmds := rng.randi_range(2, 6)
+		for _j in range(n_cmds):
+			comp.cart_manager.handle_command(_random_c_cart_command(rng, demo_pick))
+		var dt := Time.get_ticks_msec() - t0
+		comp.disconnect_memory_signal_links()
+		if dt > 6_000:
+			_fail("C cart fuzz stall >6s")
+			return
+		_pass()
+
+
+func _random_c_cart_command(rng: RandomNumberGenerator, demos: Array) -> String:
+	## Whitelist-only: avoid COMPILE/BUILD/RUN on random fragments (parser/codegen can stall).
+	match rng.randi_range(0, 14):
+		0:
+			return "NEW"
+		1:
+			return "HELP"
+		2:
+			return "LIST"
+		3:
+			var a := rng.randi_range(10, 300)
+			var b := rng.randi_range(a, min(a + 900, 9999))
+			return "LIST %d %d" % [a, b]
+		4:
+			return "DIR"
+		5:
+			return "CATALOG"
+		6:
+			return "DEMO"
+		7:
+			return "DEMOS"
+		8:
+			return "DEMO %s" % demos[rng.randi_range(0, demos.size() - 1)]
+		9:
+			return "DEMO fuzz_unknown_demo_%d" % rng.randi()
+		10:
+			return "DEL %d" % (rng.randi_range(1, 80) * 10)
+		11:
+			return "SAVE fuzz_c_%d" % rng.randi()
+		12:
+			return "LOAD fuzz_c_%d" % rng.randi()
+		13:
+			var ln_del := rng.randi_range(1, 120) * 10
+			return str(ln_del)
+		_:
+			var ln := rng.randi_range(40, 220) * 10
+			var frag: String = "// %s" % _random_ident(rng)
+			return "%d %s" % [ln, frag]
 
 
 func _fuzz_assembler(iters: int, rng: RandomNumberGenerator, deadline_ms: int) -> void:

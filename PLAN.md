@@ -152,9 +152,13 @@ All sounds are generated procedally at runtime via `AudioStreamWAV` — no audio
 | Error | 200Hz sine + noise, 80ms |
 
 ### Testing
-- `test_regression.gd`: Full regression suite covering Memory Bus, CPU, BASIC, and Computer integration
-- `test_cli.gd`: Headless CLI test runner for quick iteration (`godot --headless -s test_cli.gd`)
-- 71 BASIC tests pass; 12 pre-existing CPU tests remain (see `CPU_Emulator_Bugs.md`)
+- **`TESTING.md`** — inventory of every regression block, CLI battery case, **65x02** JSON step suite, and fuzz rounds
+- **`scripts/run_all_tests.sh`** — regression → `test_processor_step_tests.gd` → `test_cli.gd` → `test_fuzz_smoke.gd` (optional `GODOT`, `FUZZ_ITERS`, `FUZZ_SEED`)
+- **`tests/test_regression.gd`** — memory, CPU, BASIC, `Computer`, carts (BASIC / TEXT / ASM / C), assembler / HC65, files, serialization
+- **`tests/test_processor_step_tests.gd`** — vendored **[SingleStepTests / 65x02](https://github.com/SingleStepTests/65x02)** subset (MIT; see `tests/fixtures/processor_tests/README.md`)
+- **`tests/test_cli.gd`** — lighter headless battery; invoke `godot --path . --headless -s tests/test_cli.gd`
+- **`tests/test_fuzz_smoke.gd`** — BASIC / assembler / CPU / TEXT / C fuzz smoke (whitelist; ~120s global budget); `--fuzz-iters` / `--fuzz-seed` after `--`
+- **`CPU_Emulator_Bugs.md`** — mostly **historical** notes from an older regression snapshot; core opcode coverage is reinforced by internal regression + **65x02** JSON tests
 
 ## Font System
 
@@ -190,9 +194,9 @@ Four fonts are bundled and switchable with F8:
 - [ ] Boot loader menu (see TODO.md)
 - [ ] Disk storage with **140 KiB per floppy side** (Side A / Side B); **280 KiB** per double-sided disk (see TODO.md and `archives/basic_games_disk_catalog.md`)
 - [ ] Cartridge hot-swap from within running programs
-- [ ] 6502 assembler editor + two-pass assembler (see next_steps.md)
-- [ ] Small-C compiler (see next_steps.md)
-- [ ] Fix pre-existing CPU emulator bugs (see CPU_Emulator_Bugs.md)
+- [x] 6502 assembler editor + two-pass assembler (`cart_asm.gd`, `assembler6502.gd`)
+- [x] Small-C compiler cart (`cart_c.gd`; regression + fuzz whitelist coverage)
+- [ ] Audit remaining items in **CPU_Emulator_Bugs.md** (historical doc; cross-check vs **65x02** + regression)
 - [ ] Screen editor mode (edit previously typed lines)
 - [ ] Color support (PETSCII-style color codes)
 - [ ] Web export compatibility

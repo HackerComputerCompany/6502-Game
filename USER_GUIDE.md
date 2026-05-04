@@ -461,6 +461,16 @@ Type `MONITOR` or `MON` to enter the Apple II-style system monitor. Commands inc
 | `H` | Show monitor help |
 | `ESC` or `Q` | Exit monitor |
 
+## Automated testing
+
+Headless suites validate memory, CPU, BASIC, carts, assembler, HC65, CLI flows, and short fuzz passes. From the repo root, run everything:
+
+```bash
+./scripts/run_all_tests.sh
+```
+
+Single-suite examples use **`godot --path . --headless -s tests/<script>.gd`** (see **[TESTING.md](TESTING.md)** for the full list, CLI flags, and fuzz rounds). Design notes and roadmap: **[fuzz_testing_design.md](fuzz_testing_design.md)**.
+
 ## Troubleshooting
 
 | Problem | Solution |

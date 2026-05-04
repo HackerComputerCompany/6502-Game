@@ -143,6 +143,16 @@ func get_main_ram_used_high_water() -> int:
 		return 0
 	return last_nz - MAIN_START + 1
 
+## Remove every outgoing connection (Computer ↔ MemoryBus feedback paths). Safe before dropping Computer.
+func disconnect_all_signal_links() -> void:
+	for sig_name in [&"char_output", &"output_ready", &"cart_switch_requested"]:
+		var conns := get_signal_connection_list(sig_name)
+		for conn in conns:
+			var cb: Callable = conn["callable"]
+			if cb.is_valid():
+				disconnect(sig_name, cb)
+
+
 func serialize() -> Dictionary:
 	return {"ram": ram.hex_encode()}
 

@@ -39,6 +39,13 @@ func _init() -> void:
 	memory.output_ready.connect(_on_output_ready)
 	_ready = true
 
+
+## Break feedback signals and cart backrefs before releasing the last Computer ref (avoids RefCounted cycles).
+func disconnect_memory_signal_links() -> void:
+	memory.disconnect_all_signal_links()
+	cart_manager.release_cart_backrefs()
+
+
 func _on_char_output(ch: String) -> void:
 	_output_buffer += ch
 

@@ -8,17 +8,16 @@ var _tests_failed: int = 0
 var _current_test: String = ""
 
 func _init() -> void:
-	print("╔══════════════════════════════════════════╗")
-	print("║  BASIC6502 CLI Test Environment          ║")
-	print("║  Run tests:  godot --headless -s test_cli.gd            ║")
-	print("║  Run script: godot --headless -s test_cli.gd file.bas   ║")
-	print("╚══════════════════════════════════════════╝")
+	var _bw := 58
+	var _pad := _bw - 2
+	print("╔" + "═".repeat(_bw) + "╗")
+	print("║ " + "BASIC6502 CLI Test Environment".rpad(_pad) + " ║")
+	print("║ " + "godot --path . --headless -s tests/test_cli.gd".rpad(_pad) + " ║")
+	print("║ " + "Optional: same cmd + res:// or user:// path (.bas …)".rpad(_pad) + " ║")
+	print("╚" + "═".repeat(_bw) + "╝")
 	print("")
 
-	_computer = Computer.new()
-	_computer.output.connect(_on_output)
-	_computer.program_finished.connect(_on_program_finished)
-	_basic = _computer.basic
+	_spawn_default_computer()
 
 	var args = OS.get_cmdline_args()
 	var file_arg = ""
@@ -37,6 +36,7 @@ func _init() -> void:
 	print("  FAILED: %d" % _tests_failed)
 	print("  TOTAL:  %d" % (_tests_passed + _tests_failed))
 	print("=============================\n")
+	_dispose_current_computer()
 	quit()
 
 func _on_output(text: String) -> void:
@@ -44,6 +44,27 @@ func _on_output(text: String) -> void:
 
 func _on_program_finished() -> void:
 	pass
+
+
+func _dispose_current_computer() -> void:
+	if _computer == null:
+		return
+	for sig_name in [&"output", &"output_richtext", &"ready_for_input", &"program_finished", &"full_reboot_requested"]:
+		for conn in _computer.get_signal_connection_list(sig_name):
+			var cb: Callable = conn["callable"]
+			if cb.is_valid():
+				_computer.disconnect(sig_name, cb)
+	_computer.disconnect_memory_signal_links()
+	_computer = null
+
+
+func _spawn_default_computer() -> void:
+	_dispose_current_computer()
+	_computer = Computer.new()
+	_computer.output.connect(_on_output)
+	_computer.program_finished.connect(_on_program_finished)
+	_basic = _computer.basic
+
 
 func _run_file(filepath: String) -> void:
 	if not FileAccess.file_exists(filepath):
@@ -72,6 +93,7 @@ func _begin_test(name: String) -> void:
 
 func _run_basic(program: String) -> String:
 	_output = ""
+	_dispose_current_computer()
 	_computer = Computer.new()
 	_computer.output.connect(_on_output)
 	_basic = _computer.basic
@@ -136,6 +158,7 @@ func test_for_reverse() -> void:
 func test_bsave_bload() -> void:
 	_begin_test("BSAVE/BLOAD Binary")
 	_output = ""
+	_dispose_current_computer()
 	_computer = Computer.new()
 	_computer.output.connect(_on_output)
 	_basic = _computer.basic

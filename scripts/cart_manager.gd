@@ -76,6 +76,17 @@ func reboot_clear_all_carts() -> void:
 		if c != null:
 			c.reboot_clear_state()
 
+
+## Break Cart→Computer/MemoryBus refcount cycles before dropping the owning Computer (headless tests).
+func release_cart_backrefs() -> void:
+	computer = null
+	for k in _carts_by_id.keys():
+		var c: ROMCart = _carts_by_id[k] as ROMCart
+		if c != null:
+			c.memory = null
+			c.computer = null
+	current = null
+
 func handle_command(text: String) -> bool:
 	var stripped = text.strip_edges()
 	var upper = stripped.to_upper()
