@@ -122,7 +122,7 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 		var up := body.to_upper()
 		if up.begins_with(".EQU "):
 			var rest := body.substr(5).strip_edges()
-			var eqp := _parse_equ(rest)
+			var eqp: Variant = _parse_equ(rest)
 			if eqp == null:
 				return false
 			equs[eqp["name"]] = int(eqp["val"])
@@ -156,14 +156,15 @@ func assemble(memory: MemoryBus, editor_lines: Array) -> bool:
 				return false
 			lc = v2
 			continue
-		var bytes := _emit_line(memory, body2, lc, int(item["ln"]), false)
+		var bytes: Variant = _emit_line(memory, body2, lc, int(item["ln"]), false)
 		if bytes == null:
 			return false
+		var pb: PackedByteArray = bytes
 		if emit_start < 0:
 			emit_start = lc
-		for i in range(bytes.size()):
-			memory.poke((lc + i) & 0xFFFF, bytes[i])
-		lc += bytes.size()
+		for i in range(pb.size()):
+			memory.poke((lc + i) & 0xFFFF, pb[i])
+		lc += pb.size()
 		emit_end = lc - 1
 	last_start = emit_start
 	last_end = emit_end
@@ -206,7 +207,7 @@ func _parse_equ(rest: String) -> Variant:
 		_err(".EQU needs name and value")
 		return null
 	var nm := parts[0].strip_edges().to_upper()
-	var val := _parse_expr(parts.slice(1).join(" ").strip_edges(), true)
+	var val := _parse_expr(" ".join(parts.slice(1)).strip_edges(), true)
 	if val < 0:
 		return null
 	return {"name": nm, "val": val}
@@ -227,8 +228,28 @@ func _parse_number(s: String) -> int:
 	if s == "":
 		return -1
 	if s.begins_with("$"):
-		s = s.substr(1)
+		return _parse_hex_digits(s.substr(1).strip_edges())
 	return _parse_hex_or_dec(s)
+
+func _parse_hex_digits(s: String) -> int:
+	## Hex only (after a leading `$` in source).
+	s = s.strip_edges()
+	if s == "":
+		return -1
+	var acc := 0
+	for i in range(s.length()):
+		var c := s[i]
+		var d := -1
+		if c >= "0" and c <= "9":
+			d = c.unicode_at(0) - 48
+		elif c >= "A" and c <= "F":
+			d = 10 + c.unicode_at(0) - 65
+		elif c >= "a" and c <= "f":
+			d = 10 + c.unicode_at(0) - 97
+		else:
+			return -1
+		acc = (acc << 4) | d
+	return acc
 
 func _parse_hex_or_dec(s: String) -> int:
 	s = s.strip_edges()
@@ -252,12 +273,12 @@ func _parse_hex_or_dec(s: String) -> int:
 	return acc
 
 func _line_byte_size(body: String, at_pc: int, pass1: bool) -> int:
-	var b := _emit_line(null, body, at_pc, -1, pass1)
+	var b: Variant = _emit_line(null, body, at_pc, -1, pass1)
 	if b == null:
 		return -1
-	return b.size()
+	return (b as PackedByteArray).size()
 
-func _emit_line(_memory: Variant, body: String, at_pc: int, src_ln: int, pass1: bool) -> PackedByteArray:
+func _emit_line(_memory: Variant, body: String, at_pc: int, src_ln: int, pass1: bool) -> Variant:
 	var up := body.to_upper().strip_edges()
 	var ln_str := str(src_ln) if src_ln >= 0 else "?"
 	if up.begins_with(".BYTE "):
@@ -288,7 +309,7 @@ func _emit_line(_memory: Variant, body: String, at_pc: int, src_ln: int, pass1: 
 		return _bytes_opc("JMP", "IND", vi, at_pc, ln_str, pass1)
 	return _emit_data_op(mnem, oper, at_pc, ln_str, pass1)
 
-func _emit_byte_list(rest: String, ln_str: String) -> PackedByteArray:
+func _emit_byte_list(rest: String, ln_str: String) -> Variant:
 	var out := PackedByteArray()
 	for part in rest.split(",", false):
 		var p := part.strip_edges()
@@ -301,7 +322,7 @@ func _emit_byte_list(rest: String, ln_str: String) -> PackedByteArray:
 		out.append(v & 0xFF)
 	return out
 
-func _emit_word_list(rest: String, ln_str: String) -> PackedByteArray:
+func _emit_word_list(rest: String, ln_str: String) -> Variant:
 	var out := PackedByteArray()
 	for part in rest.split(",", false):
 		var p := part.strip_edges()
@@ -315,7 +336,7 @@ func _emit_word_list(rest: String, ln_str: String) -> PackedByteArray:
 		out.append((v >> 8) & 0xFF)
 	return out
 
-func _emit_db(rest: String, ln_str: String) -> PackedByteArray:
+func _emit_db(rest: String, ln_str: String) -> Variant:
 	var out := PackedByteArray()
 	rest = rest.strip_edges()
 	if rest.length() >= 2 and rest[0] == "\"" and rest[rest.length() - 1] == "\"":
@@ -328,7 +349,7 @@ func _emit_db(rest: String, ln_str: String) -> PackedByteArray:
 func _is_branch(m: String) -> bool:
 	return m in ["BCC", "BCS", "BEQ", "BNE", "BMI", "BPL", "BVC", "BVS"]
 
-func _emit_branch(mnem: String, oper: String, at_pc: int, ln_str: String, pass1: bool) -> PackedByteArray:
+func _emit_branch(mnem: String, oper: String, at_pc: int, ln_str: String, pass1: bool) -> Variant:
 	var opc: int = int(_enc.get("%s|REL" % mnem, -1))
 	if opc < 0:
 		return null
@@ -345,7 +366,7 @@ func _emit_branch(mnem: String, oper: String, at_pc: int, ln_str: String, pass1:
 	var rel_b := rel_i & 0xFF
 	return PackedByteArray([opc, rel_b])
 
-func _bytes_opc(mnem: String, mode: String, oper_or_val, at_pc: int, ln_str: String, pass1: bool) -> PackedByteArray:
+func _bytes_opc(mnem: String, mode: String, oper_or_val, at_pc: int, ln_str: String, pass1: bool) -> Variant:
 	var opc_b := int(_enc.get("%s|%s" % [mnem, mode], -1))
 	if opc_b < 0:
 		_err("Line %s: illegal %s %s" % [ln_str, mnem, mode])
@@ -470,7 +491,7 @@ func _infer_mode(mnem: String, oper: String, ln_str: String, pass1: bool) -> Str
 	_err("Line %s: no mode for %s" % [ln_str, mnem])
 	return ""
 
-func _emit_data_op(mnem: String, oper: String, at_pc: int, ln_str: String, pass1: bool) -> PackedByteArray:
+func _emit_data_op(mnem: String, oper: String, at_pc: int, ln_str: String, pass1: bool) -> Variant:
 	var mode := _infer_mode(mnem, oper, ln_str, pass1)
 	if mode == "":
 		return null

@@ -39,6 +39,8 @@ func _init() -> void:
 	test_cart_loader_switch_clears_workspace()
 	test_cart_loader_poke_c030()
 	test_cart_text_editor_commands()
+	test_assembler6502_hello_snippet()
+	test_cart_asm_commands()
 	test_computer_cart_serialize_roundtrip()
 	test_basic_nested_loops()
 	test_basic_for_step()
@@ -439,6 +441,32 @@ func test_cart_text_editor_commands() -> void:
 	_output = ""
 	comp.cart_manager.handle_command("LIST")
 	_assert("HELLO" not in _output, "delete line 10")
+
+func test_assembler6502_hello_snippet() -> void:
+	_begin_test("Assembler6502 hello snippet")
+	var mem = _fresh_mem()
+	var asm = Assembler6502.new()
+	var src: Array = [[10, "LDA #$41"], [20, "STA $C002"], [30, "RTS"]]
+	var ok = asm.assemble(mem, src)
+	_assert(ok, "assemble ok: %s" % str(asm.errors))
+	_assert(mem.peek(0x0800) == 0xA9, "LDA #")
+	_assert(mem.peek(0x0801) == 0x41, "imm")
+	_assert(mem.peek(0x0802) == 0x8D, "STA abs")
+	_assert(mem.peek(0x0803) == 0x02 and mem.peek(0x0804) == 0xC0, "addr C002")
+	_assert(mem.peek(0x0805) == 0x60, "RTS")
+	_assert(asm.last_start == 0x0800 and asm.last_end == 0x0805, "object range")
+
+func test_cart_asm_commands() -> void:
+	_begin_test("ASM cart assemble")
+	var comp = Computer.new()
+	comp.cart_manager.switch_to(2, false)
+	comp.cart_manager.handle_command("NEW")
+	comp.cart_manager.handle_command("10 LDA #$41")
+	comp.cart_manager.handle_command("20 STA $C002")
+	comp.cart_manager.handle_command("30 RTS")
+	comp.cart_manager.handle_command("ASM")
+	_assert(comp.memory.peek(0x0800) == 0xA9, "cart ASM pokes code")
+	_assert(comp.memory.peek(0x0805) == 0x60, "RTS in RAM")
 
 func test_computer_cart_serialize_roundtrip() -> void:
 	_begin_test("Computer Cart Serialize")

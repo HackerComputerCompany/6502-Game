@@ -688,7 +688,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
 	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
 	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program (some accept N)\n"
-	help_text += "[color=yellow]  CART      [/color]- List ROM carts (BASIC, TEXT)\n"
+	help_text += "[color=yellow]  CART      [/color]- List ROM carts (BASIC, TEXT, ASM)\n"
 	help_text += "[color=yellow]  CART name [/color]- Hot-swap cartridge (clears $E000-$EFFF)\n"
 	help_text += "[color=yellow]  BSAVE     [/color]- Save memory range as binary (addr, len)\n"
 	help_text += "[color=yellow]  BLOAD     [/color]- Load binary file into memory (addr)\n"

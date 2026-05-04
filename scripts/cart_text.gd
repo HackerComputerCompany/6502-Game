@@ -66,8 +66,9 @@ func handle_command(text: String) -> bool:
 	if upper == "LIST" or upper.begins_with("LIST "):
 		_cmd_list(t)
 		return true
-	if upper.begins_with("DEL "):
-		_cmd_del(t.substr(4).strip_edges())
+	if upper.begins_with("SCRATCH ") or upper.begins_with("DELETE "):
+		var space_pos := t.find(" ")
+		_cmd_scratch(t.substr(space_pos + 1).strip_edges())
 		return true
 	if upper.begins_with("SAVE "):
 		_cmd_save(t.substr(5).strip_edges())
@@ -86,17 +87,16 @@ func handle_command(text: String) -> bool:
 
 func help_text() -> String:
 	var h := "\n[color=cyan]TEXT cart - line editor[/color]\n"
-	h += "[color=yellow]  n text[/color]     Add/replace line n\n"
-	h += "[color=yellow]  n[/color]          Delete line n\n"
-	h += "[color=yellow]  LIST [n [m]] [/color]List lines (optional range)\n"
-	h += "[color=yellow]  DEL n[/color]      Delete line n\n"
-	h += "[color=yellow]  NEW[/color]          Clear buffer\n"
-	h += "[color=yellow]  PRINT[/color]      Print all lines as plain text\n"
-	h += "[color=yellow]  SAVE name[/color]  Save to user://name.txt\n"
-	h += "[color=yellow]  LOAD name[/color]  Load from user://name.txt\n"
-	h += "[color=yellow]  DIR[/color]          List .txt files on disk\n"
-	h += "[color=yellow]  CART BASIC[/color] Return to BASIC\n"
-	h += "[color=lime]Buffer mirrored at $E000-$EFFF (null-terminated lines). SYS $F000 for banner.[/color]\n"
+	h += "[color=yellow]  n text[/color]      Add/replace line n\n"
+	h += "[color=yellow]  n[/color]           Delete line n\n"
+	h += "[color=yellow]  LIST [n [m]] [/color] List lines (optional range)\n"
+	h += "[color=yellow]  NEW[/color]           Clear buffer\n"
+	h += "[color=yellow]  PRINT[/color]       Print all lines as plain text\n"
+	h += "[color=yellow]  SAVE name[/color]   Save to user://name.txt\n"
+	h += "[color=yellow]  LOAD name[/color]   Load from user://name.txt\n"
+	h += "[color=yellow]  DIR[/color]           List .txt files on disk\n"
+	h += "[color=yellow]  SCRATCH name[/color]Delete a .txt file\n"
+	h += "[color=lime]Type CART BASIC to return to BASIC. Line buffer at $E000-$EFFF.[/color]\n"
 	return h
 
 func banner_text() -> String:
@@ -127,11 +127,14 @@ func _cmd_list(arg_line: String) -> void:
 	if _lines.is_empty():
 		_emit("[color=yellow](empty buffer)[/color]\n")
 
-func _cmd_del(arg: String) -> void:
-	if not arg.is_valid_int():
-		_emit("[color=red]Usage: DEL n[/color]\n")
-		return
-	_delete_line(int(arg))
+func _cmd_scratch(raw_name: String) -> void:
+	var base := _sanitize_name(raw_name)
+	var path := "user://%s.txt" % base
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+		_emit("[color=lime]Deleted %s.txt[/color]\n" % base)
+	else:
+		_emit("[color=red]File not found: %s.txt[/color]\n" % base)
 
 func _delete_line(ln: int) -> void:
 	for i in range(_lines.size()):

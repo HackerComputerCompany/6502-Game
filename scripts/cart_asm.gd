@@ -2,7 +2,7 @@ class_name CartAsm
 extends ROMCart
 
 var _lines: Array = []
-var _asm := Assembler6502.new()
+var _asm: Assembler6502
 var _last_ok: bool = false
 
 const WORKSPACE_START = 0xE000
@@ -13,7 +13,7 @@ const BANK_END = 0xFC00
 func _init() -> void:
 	id = 2
 	name = "ASM"
-	description = "6502 line editor + two-pass assembler (SAVE/LOAD .asm)"
+	description = "6502 line editor, assembler, HELP/DEMO (SAVE/LOAD .asm)"
 	prompt = "ASM>"
 
 func install() -> void:
@@ -88,6 +88,12 @@ func handle_command(text: String) -> bool:
 	if upper == "DIR" or upper == "CATALOG":
 		_cmd_dir()
 		return true
+	if upper == "DEMO" or upper == "DEMOS":
+		_cmd_demo_list()
+		return true
+	if upper.begins_with("DEMO ") or upper.begins_with("DEMOS "):
+		_cmd_demo_load(t.substr(5).strip_edges())
+		return true
 	if t[0].is_valid_int():
 		_cmd_line_entry(t)
 		return true
@@ -95,25 +101,184 @@ func handle_command(text: String) -> bool:
 	return true
 
 func help_text() -> String:
-	var h := "\n[color=cyan]ASM cart — 6502 source + assembler[/color]\n"
-	h += "[color=yellow]  n text[/color]     Add/replace source line n\n"
-	h += "[color=yellow]  n[/color]          Delete line n\n"
-	h += "[color=yellow]  LIST [n [m]][/color] List lines\n"
-	h += "[color=yellow]  DEL n[/color]      Delete line n\n"
-	h += "[color=yellow]  NEW[/color]          Clear source\n"
-	h += "[color=yellow]  ASM[/color]          Assemble to RAM ($0800+ or .ORG)\n"
-	h += "[color=yellow]  RUN[/color]          Run last object (same idea as SYS)\n"
-	h += "[color=yellow]  SYM[/color]          Show labels from last ASM\n"
-	h += "[color=yellow]  HEX[/color]          Hex dump of last object range\n"
-	h += "[color=yellow]  SAVE name[/color]  Save source to user://name.asm\n"
-	h += "[color=yellow]  LOAD name[/color]  Load source from user://name.asm\n"
-	h += "[color=yellow]  DIR[/color]          List .asm files\n"
-	h += "[color=yellow]  CART BASIC[/color] Return to BASIC\n"
-	h += "[color=lime]Source mirrored at $E000-$EFFF. SYS $F000 for banner.[/color]\n"
+	var h := "\n[color=cyan]ASM cart — 6502 source + two-pass assembler[/color]\n"
+	h += "[color=white]Quick reference[/color]\n"
+	h += "  [color=yellow]n text[/color]       Store/replace line [color=white]n[/color] with assembly source\n"
+	h += "  [color=yellow]n[/color]             Delete line [color=white]n[/color] (same as [color=yellow]DEL n[/color])\n"
+	h += "  [color=yellow]LIST[/color] / [color=yellow]LIST lo hi[/color]   List all lines, or only lines [color=white]lo..hi[/color]\n"
+	h += "  [color=yellow]DEL n[/color]          Remove line [color=white]n[/color]\n"
+	h += "  [color=yellow]NEW[/color]            Clear the whole source buffer\n"
+	h += "  [color=yellow]ASM[/color]            Assemble into RAM (default origin [color=white]$0800[/color], or [color=white].ORG[/color])\n"
+	h += "  [color=yellow]RUN[/color]            Execute last successful object from [color=white]ASM[/color] (up to 10k cycles)\n"
+	h += "  [color=yellow]SYM[/color]            Show labels and [color=white].EQU[/color] names after [color=yellow]ASM[/color]\n"
+	h += "  [color=yellow]HEX[/color]            Hex dump of the last assembled byte range\n"
+	h += "  [color=yellow]SAVE name[/color]      Write source to [color=white]user://name.asm[/color]\n"
+	h += "  [color=yellow]LOAD name[/color]      Read source from [color=white]user://name.asm[/color]\n"
+	h += "  [color=yellow]DIR[/color] / [color=yellow]CATALOG[/color]    List [color=white].asm[/color] files on disk\n"
+	h += "  [color=yellow]DEMO[/color] / [color=yellow]DEMOS[/color]     List built-in ASM demos\n"
+	h += "  [color=yellow]DEMO name[/color]      Load demo source (then [color=yellow]ASM[/color] and [color=yellow]RUN[/color])\n"
+	h += "  [color=yellow]HELP[/color]           This screen\n"
+	h += "  [color=yellow]CART BASIC[/color]     Return to BASIC cart\n"
+	h += "\n[color=white]Examples — edit / assemble / run[/color]\n"
+	h += "  [color=gray]ASM> NEW[/color]\n"
+	h += "  [color=gray]ASM> 10 LDA #$41[/color]\n"
+	h += "  [color=gray]ASM> 20 STA $C002[/color]     [color=gray]; char to screen[/color]\n"
+	h += "  [color=gray]ASM> 30 LDA #$0D[/color]\n"
+	h += "  [color=gray]ASM> 40 STA $C003[/color]     [color=gray]; flush line to terminal[/color]\n"
+	h += "  [color=gray]ASM> 50 RTS[/color]\n"
+	h += "  [color=gray]ASM> LIST[/color]\n"
+	h += "  [color=gray]ASM> ASM[/color]\n"
+	h += "  [color=gray]ASM> RUN[/color]              [color=gray]; prints A then newline[/color]\n"
+	h += "\n[color=white]Examples — labels and branches[/color]\n"
+	h += "  [color=gray]ASM> 10 START: LDA #$00[/color]\n"
+	h += "  [color=gray]ASM> 20 BEQ SKIP[/color]        [color=gray]; branch when Z=1[/color]\n"
+	h += "  [color=gray]ASM> 30 LDA #$58[/color]         [color=gray]; 'X' if branch not taken[/color]\n"
+	h += "  [color=gray]ASM> 40 SKIP: LDA #$59[/color]   [color=gray]; 'Y' when branch taken[/color]\n"
+	h += "  [color=gray]ASM> 50 STA $C002[/color]\n"
+	h += "  [color=gray]ASM> 60 RTS[/color]\n"
+	h += "\n[color=white]Directives (mix with instructions by line number)[/color]\n"
+	h += "  [color=yellow].EQU NAME expr[/color]   Constant (e.g. [color=gray].EQU PORT $C002[/color] then [color=gray]STA PORT[/color])\n"
+	h += "  [color=yellow].ORG addr[/color]        Set PC origin for following object code\n"
+	h += "  [color=yellow].BYTE b,b,...[/color]    Raw bytes ([color=gray].BYTE $48,$69[/color]) — often after [color=gray]RTS[/color]\n"
+	h += "  [color=yellow].WORD w,w,...[/color]    16-bit words, low byte first\n"
+	h += "  [color=yellow].DB \"text\"[/color]       String bytes ([color=gray].DB \"OK\"[/color])\n"
+	h += "\n[color=white]Comments[/color]\n"
+	h += "  Anything after [color=yellow];[/color] on a line is ignored (e.g. [color=gray]LDA #$01 ; load one[/color]).\n"
+	h += "\n[color=white]Demos[/color]\n"
+	h += "  [color=gray]ASM> DEMO[/color]              [color=gray]; list names[/color]\n"
+	h += "  [color=gray]ASM> DEMO hello[/color]        [color=gray]; load sample, then ASM and RUN[/color]\n"
+	h += "\n[color=lime]Source is mirrored at $E000-$EFFF. SYS $F000 runs the cart banner ROM.[/color]\n"
 	return h
 
 func banner_text() -> String:
-	return "\n[color=green]ASM cart — line editor + 6502 assembler. Type HELP.[/color]\n"
+	return "\n[color=green]ASM cart — 6502 editor + assembler. Type HELP or DEMO for samples.[/color]\n"
+
+
+func _demo_definitions() -> Dictionary:
+	## name -> { "desc": String, "lines": Array of [int, String] }
+	return {
+		"hello": {
+			"desc": "Print 'A' and newline (screen $C002 / $C003)",
+			"lines": [
+				[10, "LDA #$41"],
+				[20, "STA $C002"],
+				[30, "LDA #$0D"],
+				[40, "STA $C003"],
+				[50, "RTS"],
+			],
+		},
+		"stars": {
+			"desc": "Print ten '*' characters",
+			"lines": [
+				[10, "LDX #$0A"],
+				[20, "LOOP LDA #$2A"],
+				[30, "STA $C002"],
+				[40, "DEX"],
+				[50, "BNE LOOP"],
+				[60, "LDA #$0D"],
+				[70, "STA $C003"],
+				[80, "RTS"],
+			],
+		},
+		"digits": {
+			"desc": "Print digits 0 through 9",
+			"lines": [
+				[10, "LDX #$00"],
+				[20, "LOOP TXA"],
+				[30, "CLC"],
+				[40, "ADC #$30"],
+				[50, "STA $C002"],
+				[60, "INX"],
+				[70, "CPX #$0A"],
+				[80, "BNE LOOP"],
+				[90, "LDA #$0D"],
+				[100, "STA $C003"],
+				[110, "RTS"],
+			],
+		},
+		"branch": {
+			"desc": "BEQ forward to label SKIP (prints 'Y')",
+			"lines": [
+				[10, "LDA #$00"],
+				[20, "BEQ SKIP"],
+				[30, "LDA #$58"],
+				[40, "STA $C002"],
+				[50, "SKIP LDA #$59"],
+				[60, "STA $C002"],
+				[70, "LDA #$0D"],
+				[80, "STA $C003"],
+				[90, "RTS"],
+			],
+		},
+		"equ_star": {
+			"desc": ".EQU alias for screen port, print '*'",
+			"lines": [
+				[5, ".EQU SCREEN $C002"],
+				[10, "LDA #$2A"],
+				[20, "STA SCREEN"],
+				[30, "LDA #$0D"],
+				[40, "STA $C003"],
+				[50, "RTS"],
+			],
+		},
+		"org_hi": {
+			"desc": ".ORG $0900 then code (object not at $0800)",
+			"lines": [
+				[10, ".ORG $0900"],
+				[20, "START LDA #$48"],
+				[30, "STA $C002"],
+				[40, "LDA #$0D"],
+				[50, "STA $C003"],
+				[60, "RTS"],
+			],
+		},
+		"data_end": {
+			"desc": "Code then .BYTE padding after RTS",
+			"lines": [
+				[10, "LDA #$48"],
+				[20, "STA $C002"],
+				[30, "LDA #$0D"],
+				[40, "STA $C003"],
+				[50, "RTS"],
+				[60, ".BYTE $00,$FF"],
+			],
+		},
+	}
+
+
+func _cmd_demo_list() -> void:
+	var defs: Dictionary = _demo_definitions()
+	var keys: Array = defs.keys()
+	keys.sort()
+	var buf := "\n[color=cyan]BUILT-IN ASM DEMOS[/color]\n"
+	buf += "[color=yellow]  Load with DEMO name, then ASM and RUN[/color]\n\n"
+	for k in keys:
+		var entry: Dictionary = defs[k]
+		buf += "[color=yellow]  %-12s[/color] %s\n" % [str(k), str(entry.get("desc", ""))]
+	buf += "\n[color=lime]Example:  DEMO hello[/color]\n"
+	_emit(buf)
+
+
+func _cmd_demo_load(arg: String) -> void:
+	var name := arg.strip_edges().to_lower()
+	if name == "":
+		_cmd_demo_list()
+		return
+	var defs: Dictionary = _demo_definitions()
+	if not defs.has(name):
+		_emit("[color=red]Unknown demo \"%s\". Type DEMO for a list.[/color]\n" % name)
+		return
+	var entry: Dictionary = defs[name]
+	var raw_lines: Array = entry["lines"]
+	_lines.clear()
+	for pair in raw_lines:
+		if pair is Array and (pair as Array).size() >= 2:
+			var p: Array = pair as Array
+			_lines.append([int(p[0]), str(p[1])])
+	_lines.sort_custom(func(a, b): return int(a[0]) < int(b[0]))
+	_last_ok = false
+	_sync_workspace()
+	_emit("[color=lime]Loaded demo \"%s\" (%d lines). Type ASM then RUN.[/color]\n" % [name, _lines.size()])
 
 func _cmd_asm() -> void:
 	_asm = Assembler6502.new()
@@ -356,10 +521,11 @@ func serialize() -> Dictionary:
 	var arr: Array = []
 	for entry in _lines:
 		arr.append({"ln": int(entry[0]), "t": str(entry[1])})
-	return {"lines": arr, "last_ok": _last_ok}
+	return {"lines": arr}
 
 func deserialize(data: Dictionary) -> void:
 	_lines.clear()
+	_last_ok = false
 	if data.has("lines"):
 		for item in data["lines"]:
 			if item is Dictionary:
@@ -367,5 +533,4 @@ func deserialize(data: Dictionary) -> void:
 				if d.has("ln") and d.has("t"):
 					_lines.append([int(d["ln"]), str(d["t"])])
 	_lines.sort_custom(func(a, b): return int(a[0]) < int(b[0]))
-	_last_ok = bool(data.get("last_ok", false))
 	_sync_workspace()
