@@ -53,7 +53,6 @@ var _current_clock_idx: int = 1
 var _cycles_per_line: int = 1000
 
 var _output_queue: String = ""
-var _output_timer: float = 0.0
 var _is_streaming: bool = false
 
 var _instant_output: bool = false
@@ -1505,13 +1504,13 @@ func _show_catalog() -> void:
 		while file_name != "":
 			if file_name.ends_with(".bas"):
 				var f = FileAccess.open("user://" + file_name, FileAccess.READ)
-				var size = f.get_length() if f else 0
+				var file_size = f.get_length() if f else 0
 				if f:
 					f.close()
-				total_bytes += size
-				var name = file_name.replace(".bas", "")
-				var size_str = _format_size(size)
-				screen.append_text("[color=yellow]  %-16s %s\n[/color]" % [name, size_str])
+				total_bytes += file_size
+				var prog_name = file_name.replace(".bas", "")
+				var size_str = _format_size(file_size)
+				screen.append_text("[color=yellow]  %-16s %s\n[/color]" % [prog_name, size_str])
 				count += 1
 			file_name = dir.get_next()
 		if count == 0:
@@ -1612,16 +1611,16 @@ func _show_demos() -> void:
 	screen.append_text(text)
 	_instant_output = false
 
-func _load_demo(name: String, param: String = "") -> void:
-	var program = computer.load_demo(name)
+func _load_demo(demo_name: String, param: String = "") -> void:
+	var program = computer.load_demo(demo_name)
 	if program != "":
 		computer.basic.load_program(program)
 		computer.basic._running = false
 		computer._program_running = false
-		if param != "" and _demos_with_param.has(name):
+		if param != "" and _demos_with_param.has(demo_name):
 			computer.basic._variables["N"] = float(param)
 		_instant_output = true
-		screen.append_text("[color=lime]Loaded demo: " + name + "\n[/color]")
+		screen.append_text("[color=lime]Loaded demo: " + demo_name + "\n[/color]")
 		_list_program()
 		screen.append_text("[color=lime]Type RUN to execute.\n[/color]")
 		_instant_output = false
@@ -1825,7 +1824,7 @@ func _show_disassembly(addr: int, count: int) -> void:
 	var disasm = computer.cpu.disassemble(addr, count)
 	for entry in disasm:
 		var a: int = entry["addr"]
-		var num_bytes = 0
+		var _num_bytes = 0
 		screen.append_text("[color=white]$%04X: %s[/color]\n" % [a, entry["disasm"]])
 	_instant_output = false
 

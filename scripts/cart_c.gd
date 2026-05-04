@@ -257,15 +257,15 @@ func _cmd_demo_list() -> void:
 	_emit(buf)
 
 func _cmd_demo_load(arg: String) -> void:
-	var name := arg.strip_edges().to_lower()
-	if name == "":
+	var demo_name := arg.strip_edges().to_lower()
+	if demo_name == "":
 		_cmd_demo_list()
 		return
 	var defs: Dictionary = _demo_definitions()
-	if not defs.has(name):
-		_emit("[color=red]Unknown demo \"%s\". Type DEMO for a list.[/color]\n" % name)
+	if not defs.has(demo_name):
+		_emit("[color=red]Unknown demo \"%s\". Type DEMO for a list.[/color]\n" % demo_name)
 		return
-	var entry: Dictionary = defs[name]
+	var entry: Dictionary = defs[demo_name]
 	var raw_lines: Array = entry["lines"]
 	_lines.clear()
 	for pair in raw_lines:
@@ -275,7 +275,7 @@ func _cmd_demo_load(arg: String) -> void:
 	_lines.sort_custom(func(a, b): return int(a[0]) < int(b[0]))
 	_last_ok = false
 	_sync_workspace()
-	_emit("[color=lime]Loaded demo \"%s\" (%d lines). Type COMPILE then RUN.[/color]\n" % [name, _lines.size()])
+	_emit("[color=lime]Loaded demo \"%s\" (%d lines). Type COMPILE then RUN.[/color]\n" % [demo_name, _lines.size()])
 
 func _cmd_compile() -> void:
 	if _lines.is_empty():

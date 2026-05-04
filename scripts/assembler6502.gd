@@ -442,7 +442,7 @@ func _emit_branch(mnem: String, oper: String, at_pc: int, ln_str: String, pass1:
 		return PackedByteArray([opc, rel_b])
 	return PackedByteArray([opc, 0])
 
-func _bytes_opc(mnem: String, mode: String, oper_or_val, at_pc: int, ln_str: String, pass1: bool) -> Variant:
+func _bytes_opc(mnem: String, mode: String, oper_or_val, _at_pc: int, ln_str: String, pass1: bool) -> Variant:
 	var opc_b := int(_enc.get("%s|%s" % [mnem, mode], -1))
 	if opc_b < 0:
 		_err("Line %s: illegal %s %s" % [ln_str, mnem, mode])
