@@ -11,6 +11,7 @@ where versioning applies.
 ### Added
 
 - **`REBOOT`** command (handled in **`CartManager`** so it works from BASIC, ASM, TEXT, and C carts): deep reset clears **all** cart editor buffers (**`ROMCart.reboot_clear_state()`**), RAM, BASIC interpreter, returns to BASIC cart; **`Computer.request_full_reboot()`** runs that logic even headless. Terminal listens for **`full_reboot_requested`** to replay **BIOS POST** CRT sequence (`_boot_done` / `_boot_phase` reset). **`RESET`** remains a faster path without POST and without clearing ASM/TEXT/C line buffers.
+- **`tests/test_fuzz_smoke.gd`**: headless fuzz smoke — safe-whitelist **`BasicInterpreter.execute_line`**, random assembler **`editor_lines`**, **`CPU6502.run`** over random bytes at **`$0800`**; CLI **`--fuzz-iters`** / **`--fuzz-seed`** (see **`fuzz_testing_design.md`**).
 - **`fuzz_testing_design.md`**: design for **fuzz testing** (BASIC, assembler, CPU, memory, carts), **hang detection**, CLI **`--fuzz-seed`** / iteration hooks, **`tests/fixtures/`** BASIC/ASM expansion, and CI staging—complements **`test_regression.gd`** / **`test_cli.gd`**.
 - **`archives/basic_games_disk_catalog.md`**: curated **text-only** classic BASIC games (Ahl anthology + magazine lineage), selection criteria, **Side A / B** placement notes, and **`§ Virtual floppy`** (**140 KiB** per side, **280 KiB** double-sided disk).
 - **`trainer.md`**: design plan for a future **Trainer** ROM cart — in-game BASIC + ASM curriculum (keywords, operators, mnemonics, interactive quizzes), pedagogy, and engineering requirements.

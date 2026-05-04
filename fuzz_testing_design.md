@@ -203,7 +203,7 @@ Parse **`OS.get_cmdline_user_args()`** (Godot 4) for `--fuzz-seed` / `--fuzz-ite
 
 | Phase | Deliverable |
 |-------|-------------|
-| **P0** | `tests/test_fuzz_smoke.gd`: BASIC random **`execute_line`** + assembler random lines + CPU random RAM; **1k iter** default; **timeout** helper. |
+| **P0** | **`tests/test_fuzz_smoke.gd`** (landed): whitelist BASIC **`execute_line`**, random **`assemble`** lines, **`CPU.run`** on random RAM at **`$0800`**; **`--fuzz-iters`** / **`--fuzz-seed`**; global wall-clock budget + per-op stalls; **`QUIT`** nonzero on failure. |
 | **P1** | Fixture runner + **`tests/fixtures/basic/`** (10–20 files). |
 | **P2** | Mutation engine from corpus + **`--fuzz-seed`**. |
 | **P3** | Cart command fuzz + memory poke fuzz integrated. |

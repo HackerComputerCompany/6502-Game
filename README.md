@@ -30,7 +30,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Save/load state** — full system persistence including memory, CPU, BASIC program, variables, CRT settings, and active cart
 - **Context-sensitive HELP** — `HELP PRINT`, `HELP FOR`, etc. for detailed syntax and examples
 - **Changelog** — see [CHANGELOG.md](CHANGELOG.md) for notable fixes and features by release
-- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`; fuzz/strategy design in **`fuzz_testing_design.md`**
+- **CLI test runner** — headless tests via `godot --headless -s test_cli.gd`; **`test_fuzz_smoke.gd`** for quick randomized BASIC/asm/CPU stress; strategy in **`fuzz_testing_design.md`**
 - **Cross-platform** — runs on macOS, Windows, and Linux via Godot 4
 
 ## Quick Start
@@ -144,6 +144,7 @@ mygodot/
   tests/
     test_regression.gd     # Full regression test suite (BASIC + CPU)
     test_cli.gd            # Headless CLI test runner
+    test_fuzz_smoke.gd     # Short fuzz smoke (BASIC / assembler / CPU); see fuzz_testing_design.md
   CHANGELOG.md             # Notable changes (Keep a Changelog style)
   GETTING_STARTED.md      # Installation and first steps
   USER_GUIDE.md            # Language + commands + **hands-on ASM→BSAVE→SYS tutorial**
@@ -305,6 +306,7 @@ From the command line:
 ```bash
 godot --path . --headless -s tests/test_regression.gd
 godot --path . --headless -s tests/test_cli.gd
+godot --path . --headless -s tests/test_fuzz_smoke.gd -- --fuzz-iters=400 --fuzz-seed=42
 ```
 
 Tests cover: Memory Bus, CPU (all opcodes, addressing modes, flags, stack, branches), BASIC (PRINT, variables, arithmetic, loops, GOSUB, functions, strings, arrays, POKE/PEEK, colon separator), carts, assembler/HC65, and Computer integration.
