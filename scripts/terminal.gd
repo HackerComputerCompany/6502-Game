@@ -483,8 +483,11 @@ func _print_banner() -> void:
 	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
 	screen.append_text("[color=green]F1=Help F3=Settings F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
-	screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
-	screen.append_text("[color=green]Some demos take a number: DEMO PRIMENUMS 100 or DEMO PI 1000\n[/color]")
+	if computer.cart_manager.get_current_id() == 2:
+		screen.append_text("[color=green]ASM cart: type DEMO for sample sources, HELP for all commands; then ASM and RUN.\n[/color]")
+	else:
+		screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
+		screen.append_text("[color=green]Some demos take a number: DEMO PRIMENUMS 100 or DEMO PI 1000\n[/color]")
 	screen.append_text("[color=lime]" + computer.cart_manager.get_prompt() + "\n[/color]")
 	_instant_output = false
 
@@ -667,8 +670,32 @@ func _handle_command(text: String) -> void:
 		computer.execute_basic_line(text)
 	_update_status()
 
+func _help_keyboard_shortcuts_block() -> String:
+	var b := "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
+	b += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
+	b += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
+	b += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
+	b += "[color=yellow]  F8  [/color]- Cycle font\n"
+	b += "[color=yellow]  F9  [/color]- Take screenshot\n"
+	b += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
+	b += "[color=yellow]  F1  [/color]- Show this help\n"
+	b += "[color=yellow]  F5  [/color]- Run program (from start)\n"
+	b += "[color=yellow]  F10 [/color]- Reset system\n"
+	return b
+
+
 func _show_help() -> void:
 	_instant_output = true
+	var cur = computer.cart_manager.current
+	if cur != null:
+		var cart_h := cur.help_text()
+		if cart_h != "":
+			screen.append_text(cart_h)
+			screen.append_text(_help_keyboard_shortcuts_block())
+			if computer.cart_manager.get_current_id() == 0:
+				screen.append_text("\n[color=lime]Type HELP <topic> for BASIC details. Examples: HELP PRINT, HELP FOR[/color]\n")
+			_instant_output = false
+			return
 	var help_text = "\n[color=cyan]BASIC6502 Commands:[/color]\n"
 	help_text += "[color=yellow]  RUN [n]   [/color]- Run program (optionally from line n)\n"
 	help_text += "[color=yellow]  LIST [n]  [/color]- List program (or line range)\n"
@@ -686,24 +713,15 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  SCRATCH   [/color]- Delete a saved program (or DELETE)\n"
 	help_text += "[color=yellow]  RENAME    [/color]- Rename a saved program\n"
 	help_text += "[color=yellow]  DIR       [/color]- List saved programs\n"
-	help_text += "[color=yellow]  DEMO      [/color]- List built-in demo programs\n"
-	help_text += "[color=yellow]  DEMO name [/color]- Load a demo program (some accept N)\n"
+	help_text += "[color=yellow]  DEMO      [/color]- List built-in BASIC demo programs\n"
+	help_text += "[color=yellow]  DEMO name [/color]- Load a BASIC demo (some accept N); on ASM cart use DEMO for assembler samples\n"
 	help_text += "[color=yellow]  CART      [/color]- List ROM carts (BASIC, TEXT, ASM)\n"
 	help_text += "[color=yellow]  CART name [/color]- Hot-swap cartridge (clears $E000-$EFFF)\n"
 	help_text += "[color=yellow]  BSAVE     [/color]- Save memory range as binary (addr, len)\n"
 	help_text += "[color=yellow]  BLOAD     [/color]- Load binary file into memory (addr)\n"
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
-	help_text += "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
-	help_text += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
-	help_text += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
-	help_text += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
-	help_text += "[color=yellow]  F8  [/color]- Cycle font\n"
-	help_text += "[color=yellow]  F9  [/color]- Take screenshot\n"
-	help_text += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
-	help_text += "[color=yellow]  F1  [/color]- Show this help\n"
-	help_text += "[color=yellow]  F5  [/color]- Run program (from start)\n"
-	help_text += "[color=yellow]  F10 [/color]- Reset system\n"
+	help_text += _help_keyboard_shortcuts_block()
 	help_text += "\n[color=cyan]Save/Load (in System Settings panel - F3):[/color]\n"
 	help_text += "[color=yellow]  Save State[/color] - Save system settings, program, variables & memory\n"
 	help_text += "[color=yellow]  Load State[/color] - Restore a previously saved state\n"
@@ -718,7 +736,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  TAN(), ATN(), LOG(), EXP(), SGN()[/color]\n"
 	help_text += "[color=yellow]  LEN(), CHR$(), ASC(), LEFT$(), RIGHT$()[/color]\n"
 	help_text += "[color=yellow]  MID$(), STR$(), VAL(), PEEK(), TAB()[/color]\n"
-	help_text += "\n[color=lime]Type HELP <topic> for details. Examples: HELP PRINT, HELP FOR, HELP POKE[/color]\n"
+	help_text += "\n[color=lime]Type HELP <topic> for BASIC details. Examples: HELP PRINT, HELP FOR, HELP POKE[/color]\n"
 	screen.append_text(help_text)
 	_instant_output = false
 
@@ -1927,13 +1945,21 @@ func _on_load_state() -> void:
 		screen.append_text("\n[color=red]ERROR: Could not read save file.[/color]\n")
 		_instant_output = false
 		return
-	var json_text = file.get_as_text()
+	var raw_bytes = file.get_buffer(file.get_length())
 	file.close()
+	var json_text = raw_bytes.get_string_from_utf8()
+	if json_text == "":
+		_instant_output = true
+		screen.append_text("\n[color=red]ERROR: Corrupt save file (invalid encoding). Deleted.[/color]\n")
+		_instant_output = false
+		DirAccess.remove_absolute(SAVE_PATH)
+		return
 	var json = JSON.new()
 	if json.parse(json_text) != OK:
 		_instant_output = true
-		screen.append_text("\n[color=red]ERROR: Corrupt save file.[/color]\n")
+		screen.append_text("\n[color=red]ERROR: Corrupt save file. Deleted.[/color]\n")
 		_instant_output = false
+		DirAccess.remove_absolute(SAVE_PATH)
 		return
 	var data = json.data
 	_apply_saved_state(data)
@@ -1948,10 +1974,15 @@ func _load_state_silent() -> void:
 	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if not file:
 		return
-	var json_text = file.get_as_text()
+	var raw_bytes = file.get_buffer(file.get_length())
 	file.close()
+	var json_text = raw_bytes.get_string_from_utf8()
+	if json_text == "":
+		DirAccess.remove_absolute(SAVE_PATH)
+		return
 	var json = JSON.new()
 	if json.parse(json_text) != OK:
+		DirAccess.remove_absolute(SAVE_PATH)
 		return
 	_apply_saved_state(json.data)
 	_boot_done = true

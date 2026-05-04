@@ -41,6 +41,7 @@ func _init() -> void:
 	test_cart_text_editor_commands()
 	test_assembler6502_hello_snippet()
 	test_cart_asm_commands()
+	test_cart_asm_demos_assemble()
 	test_computer_cart_serialize_roundtrip()
 	test_basic_nested_loops()
 	test_basic_for_step()
@@ -467,6 +468,22 @@ func test_cart_asm_commands() -> void:
 	comp.cart_manager.handle_command("ASM")
 	_assert(comp.memory.peek(0x0800) == 0xA9, "cart ASM pokes code")
 	_assert(comp.memory.peek(0x0805) == 0x60, "RTS in RAM")
+
+func test_cart_asm_demos_assemble() -> void:
+	_begin_test("ASM cart DEMO sources assemble")
+	var demo_names: Array = ["hello", "stars", "digits", "branch", "equ_star", "org_hi", "data_end"]
+	for demo_name in demo_names:
+		var comp = Computer.new()
+		comp.output_richtext.connect(_on_output)
+		_output = ""
+		comp.cart_manager.switch_to(2, false)
+		comp.cart_manager.handle_command("DEMO " + str(demo_name))
+		comp.cart_manager.handle_command("ASM")
+		_assert("Assembly failed" not in _output, "demo %s assembles (%s)" % [demo_name, _output])
+		if demo_name == "hello":
+			_assert(comp.memory.peek(0x0800) == 0xA9, "hello at $0800")
+		if demo_name == "org_hi":
+			_assert(comp.memory.peek(0x0900) == 0xA9, "org_hi code at $0900")
 
 func test_computer_cart_serialize_roundtrip() -> void:
 	_begin_test("Computer Cart Serialize")

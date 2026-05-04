@@ -130,12 +130,26 @@ func help_text() -> String:
 	h += "  [color=gray]ASM> ASM[/color]\n"
 	h += "  [color=gray]ASM> RUN[/color]              [color=gray]; prints A then newline[/color]\n"
 	h += "\n[color=white]Examples — labels and branches[/color]\n"
-	h += "  [color=gray]ASM> 10 START: LDA #$00[/color]\n"
+	h += "  [color=gray]ASM> 10 START: LDA #$00[/color]   [color=gray]; label before opcode uses ':'[/color]\n"
 	h += "  [color=gray]ASM> 20 BEQ SKIP[/color]        [color=gray]; branch when Z=1[/color]\n"
 	h += "  [color=gray]ASM> 30 LDA #$58[/color]         [color=gray]; 'X' if branch not taken[/color]\n"
-	h += "  [color=gray]ASM> 40 SKIP: LDA #$59[/color]   [color=gray]; 'Y' when branch taken[/color]\n"
+	h += "  [color=gray]ASM> 40 SKIP: LDA #$59[/color]   [color=gray]; 'Y' when branch taken (label needs ':')[/color]\n"
 	h += "  [color=gray]ASM> 50 STA $C002[/color]\n"
 	h += "  [color=gray]ASM> 60 RTS[/color]\n"
+	h += "\n[color=white]Command details (with examples)[/color]\n"
+	h += "  [color=yellow]NEW[/color] — Clears lines and invalidates the last ASM. [color=gray]NEW[/color]\n"
+	h += "  [color=yellow]n text[/color] — Store line [color=white]n[/color]. [color=gray]120 LDA #$00[/color]\n"
+	h += "  [color=yellow]n[/color] — Delete line [color=white]n[/color]. [color=gray]120[/color]\n"
+	h += "  [color=yellow]LIST[/color] — Show all. [color=yellow]LIST 50 200[/color] — only lines 50–200.\n"
+	h += "  [color=yellow]DEL n[/color] — Remove one line. [color=gray]DEL 120[/color]\n"
+	h += "  [color=yellow]ASM[/color] — Two-pass assemble into RAM; errors print in red.\n"
+	h += "  [color=yellow]RUN[/color] — CPU runs from last object start (10k cycles). [color=gray]ASM[/color] first.\n"
+	h += "  [color=yellow]SYM[/color] — Labels + [color=white].EQU[/color] constants after a good [color=gray]ASM[/color].\n"
+	h += "  [color=yellow]HEX[/color] — Hex dump of last object (first 32 rows max).\n"
+	h += "  [color=yellow]SAVE name[/color] — [color=gray]SAVE myprog[/color] → [color=white]user://myprog.asm[/color]\n"
+	h += "  [color=yellow]LOAD name[/color] — [color=gray]LOAD myprog[/color] from [color=white]user://myprog.asm[/color]\n"
+	h += "  [color=yellow]DIR[/color] — Lists [color=white]*.asm[/color] in [color=white]user://[/color].\n"
+	h += "  [color=yellow]DEMO[/color] / [color=yellow]DEMO name[/color] — Built-in source; then [color=gray]ASM[/color] + [color=gray]RUN[/color].\n"
 	h += "\n[color=white]Directives (mix with instructions by line number)[/color]\n"
 	h += "  [color=yellow].EQU NAME expr[/color]   Constant (e.g. [color=gray].EQU PORT $C002[/color] then [color=gray]STA PORT[/color])\n"
 	h += "  [color=yellow].ORG addr[/color]        Set PC origin for following object code\n"
@@ -171,7 +185,7 @@ func _demo_definitions() -> Dictionary:
 			"desc": "Print ten '*' characters",
 			"lines": [
 				[10, "LDX #$0A"],
-				[20, "LOOP LDA #$2A"],
+				[20, "LOOP: LDA #$2A"],
 				[30, "STA $C002"],
 				[40, "DEX"],
 				[50, "BNE LOOP"],
@@ -184,7 +198,7 @@ func _demo_definitions() -> Dictionary:
 			"desc": "Print digits 0 through 9",
 			"lines": [
 				[10, "LDX #$00"],
-				[20, "LOOP TXA"],
+				[20, "LOOP: TXA"],
 				[30, "CLC"],
 				[40, "ADC #$30"],
 				[50, "STA $C002"],
@@ -203,7 +217,7 @@ func _demo_definitions() -> Dictionary:
 				[20, "BEQ SKIP"],
 				[30, "LDA #$58"],
 				[40, "STA $C002"],
-				[50, "SKIP LDA #$59"],
+				[50, "SKIP: LDA #$59"],
 				[60, "STA $C002"],
 				[70, "LDA #$0D"],
 				[80, "STA $C003"],
@@ -225,7 +239,7 @@ func _demo_definitions() -> Dictionary:
 			"desc": ".ORG $0900 then code (object not at $0800)",
 			"lines": [
 				[10, ".ORG $0900"],
-				[20, "START LDA #$48"],
+				[20, "START: LDA #$48"],
 				[30, "STA $C002"],
 				[40, "LDA #$0D"],
 				[50, "STA $C003"],
