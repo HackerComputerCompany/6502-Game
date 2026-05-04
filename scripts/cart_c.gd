@@ -493,14 +493,15 @@ func _sync_workspace() -> void:
 		var body: String = str(entry[1])
 		if body == "":
 			continue
-		var chunk := body + char(0)
-		for j in range(chunk.length()):
+		for j in range(body.length()):
 			if addr >= WORKSPACE_END:
 				return
-			memory.poke(addr, chunk.unicode_at(j) & 0xFF)
+			memory.poke(addr, body.unicode_at(j) & 0xFF)
 			addr += 1
 		if addr >= WORKSPACE_END:
 			return
+		memory.poke(addr, 0)
+		addr += 1
 
 func serialize() -> Dictionary:
 	var arr: Array = []
