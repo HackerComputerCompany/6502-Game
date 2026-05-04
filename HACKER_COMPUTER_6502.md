@@ -743,7 +743,7 @@ This wraparound is a documented feature of the 6502 and is fully emulated.
 | Cycle-accurate timing | Approximate | Instruction timing is not cycle-exact |
 | DMA | Not implemented | No direct memory access hardware |
 | Disk controller | Simulated | File I/O uses host filesystem, not a simulated disk controller |
-| 420KB disk limit | Planned | Future firmware will enforce a simulated floppy disk capacity |
+| Floppy quota (140 KiB × Side A/B) | Planned | Future firmware: **143,360 bytes per side**, **flip** metaphor; see `archives/basic_games_disk_catalog.md` |
 
 ---
 

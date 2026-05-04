@@ -188,7 +188,7 @@ Four fonts are bundled and switchable with F8:
 - [x] Safety limits to prevent infinite execution hangs
 - [x] Headless CLI test runner (test_cli.gd)
 - [ ] Boot loader menu (see TODO.md)
-- [ ] Disk storage with 420KB limit (see TODO.md)
+- [ ] Disk storage with **140 KiB per floppy side** (Side A / Side B); **280 KiB** per double-sided disk (see TODO.md and `archives/basic_games_disk_catalog.md`)
 - [ ] Cartridge hot-swap from within running programs
 - [ ] 6502 assembler editor + two-pass assembler (see next_steps.md)
 - [ ] Small-C compiler (see next_steps.md)

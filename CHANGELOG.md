@@ -10,7 +10,7 @@ where versioning applies.
 
 ### Added
 
-- **`archives/basic_games_disk_catalog.md`**: curated catalog of **text-only** classic BASIC games (Ahl anthology + magazine lineage), selection criteria, suggested **Disk 1** starter pack, and **HCC 420K** virtual-floppy concept for a future in-game disk library.
+- **`archives/basic_games_disk_catalog.md`**: curated **text-only** classic BASIC games (Ahl anthology + magazine lineage), selection criteria, **Side A / B** placement notes, and **`§ Virtual floppy`** (**140 KiB** per side, **280 KiB** double-sided disk).
 - **`trainer.md`**: design plan for a future **Trainer** ROM cart — in-game BASIC + ASM curriculum (keywords, operators, mnemonics, interactive quizzes), pedagogy, and engineering requirements.
 - **HC65 object module** (`scripts/hc65_object.gd`): encode/decode for `.obj` blobs used by `SAVEOBJ` / `LOADOBJ`.
 - **BASIC `LOADOBJ`**: load a HC65 object from `user://`, optional `, NAME` to register a **native-style statement** (callable like a BASIC keyword after load).
@@ -25,6 +25,7 @@ where versioning applies.
 
 ### Changed
 
+- **Virtual floppy model**: dropped the single **~420K** byte-budget sketch in favor of **140 KiB per side** (**143,360 B**, Apple II–style sector arithmetic), **Side A / Side B**, and **280 KiB** per double-sided disk (`TODO.md`, `PLAN.md`, `HACKER_COMPUTER_6502.md`, `README.md`, `archives/basic_games_disk_catalog.md`).
 - **User-facing docs** (`README.md`, `GETTING_STARTED.md`, `USER_GUIDE.md`, `PLAN.md`, `TODO.md`): aligned with ROM carts, `CART` switching, ASM editor, HC65 workflow, and `SYS` / memory map notes.
 - **`terminal.gd`**: help and command text updates where carts and `SYS` / `LOADOBJ` are described.
 

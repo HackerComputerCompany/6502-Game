@@ -50,7 +50,7 @@ The system currently boots directly into BASIC6502 ROM at `$F000-$FFFF`. A boot 
 - `CART` command (already planned in next_steps.md) lists available carts
 - `CART BASIC` / `CART ASM` / `CART C` swaps the active cart
 - Hot swap procedure:
-  1. Saves current cart workspace to GDScript-side dict (not limited by 420KB disk)
+  1. Saves current cart workspace to GDScript-side dict (not limited by floppy quota)
   2. Clears `$E000-$EFFF` and `$F000-$FBFF`
   3. Loads new cart ROM into `$F000-$FBFF`
   4. Resets cart workspace from saved state (or fresh if new)
@@ -61,44 +61,54 @@ The system currently boots directly into BASIC6502 ROM at `$F000-$FFFF`. A boot 
 - Hot swap does NOT preserve: cart workspace (`$E000-$EFFF`) unless same cart type
 - Warning displayed if program is running: "PROGRAM RUNNING - OK TO SWITCH? (Y/N)"
 
-### Disk Storage (420KB Limit)
-The simulated disk drive has exactly 420KB of storage, mimicking a real 8-bit floppy (a single-sided 40-track floppy like the Apple II had ~140KB; our 420KB is more like a C64 1541 double-sided or a TRS-80 double-density). This constraint applies to:
+### Disk Storage (140 KiB × Side A / Side B)
 
-- **BASIC programs** saved with `SAVE` — stored as `.bas` files
+The simulated floppy follows a **classic double-sided 5.25″ mental model**:
+
+- **Side A** and **Side B** are separate catalogs; each side holds up to **140 KiB** (**143,360 bytes** — same arithmetic as **35 × 16 × 256** Apple II sectors per surface).
+- **Both sides together** = **280 KiB** on one piece of plastic—teaches **FLIP DISK**, **SIDE FULL**, and planning where large listings live.
+- Implementation can be **folder quotas** (`side_a/`, `side_b/`) rather than raw sectors at first.
+
+This constraint applies to:
+
+- **BASIC programs** saved with `SAVE` — stored as `.bas` files (on the **active side**)
 - **Assembly source** saved from the ASM cart — stored as `.asm` files
 - **C source** saved from the SMALL-C cart — stored as `.c` files
 - **Cart RAM dumps** saved with `SAVE` — stored as `.bin` files (up to 4KB each)
-- **State saves** (F3 System Settings) — these are GDScript-side JSON files, NOT counted against 420KB
+- **State saves** (F3 System Settings) — GDScript-side JSON files, **NOT** counted against floppy space
 
-#### Disk Layout
+#### Disk Layout (conceptual)
 ```
-DISK: 420 KB TOTAL
+MEDIUM: 5.25" DS (conceptual)    Volume: BASIC6502
 
-Volume: BASIC6502
-  420 KB free
+SIDE A  140 KiB max (143,360 bytes)
+  Used:    1,664 bytes (3 files)
+  Free:  141,696 bytes
+  Files:
+    HELLO.BAS       128
+    MANDEL.ASM    1,024
+    PRIMES.BAS      512
 
-Files:
-  HELLO.BAS       128 bytes
-  MANDEL.ASM     1,024 bytes
-  PRIMES.BAS       512 bytes
-  ─────────────────────────
-  3 files, 1,664 bytes used
-  418,336 bytes free
+SIDE B  140 KiB max
+  Used:        0 bytes   READY
+
+ACTIVE SIDE: A     (FLIP to switch to B)
 ```
 
-#### Disk Commands
-- `DIR` / `CATALOG` — show file listing with sizes, free space
-- `SAVE filename` — save to disk (error if not enough space)
-- `LOAD filename` — load from disk
-- `SCRATCH filename` — delete a file
-- `DISK` — show disk info (total/free space, file count)
+#### Disk Commands (planned)
+- `DIR` / `CATALOG` — list files on **active side** (or `DIR A` / `DIR B` if explicit)
+- `USE A` / `USE B` / `FLIP` — choose which side receives **SAVE** / **LOAD** context
+- `SAVE filename` — save to disk (**error if active side would exceed 140 KiB**)
+- `LOAD filename` — load from disk (search active side, or both with rules)
+- `SCRATCH filename` — delete a file on active side
+- `DISK` — show **both** sides’ usage + active side
 
-#### Space Calculation
-- Each BASIC program: stored as text, ~100 bytes to ~10KB
-- Each ASM source: stored as text, ~500 bytes to ~20KB
-- Each C source: stored as text, ~1KB to ~30KB
-- Each binary dump: fixed 4KB (`$E000-$EFFF`)
-- Track total used bytes; refuse writes that would exceed 420KB
+#### Space calculation
+- Track **`bytes_used_side_a`** and **`bytes_used_side_b`** separately; cap each at **143360**.
+- Typical BASIC listing ~100 B–10 KiB; ASM/C sources vary; `.bin` dumps ~4 KiB.
+- Refuse writes when active side **does not have enough free bytes** for the new file (“SIDE FULL — FLIP DISK OR DELETE FILES”).
+
+See **`archives/basic_games_disk_catalog.md`** for game curation and Side A/B placement ideas.
 
 ### Implementation Phases
 
@@ -110,7 +120,7 @@ Files:
 - Test: power on → see menu → select cart → boots correctly
 
 #### Phase 2: Disk Storage System (2 sessions)
-- Implement `disk_manager.gd` with 420KB limit
+- Implement `disk_manager.gd` with **per-side 140 KiB** limits (see above)
 - Track file sizes, enforce space limits
 - Update `SAVE`/`LOAD`/`DIR` to use disk manager
 - Add `SCRATCH` command

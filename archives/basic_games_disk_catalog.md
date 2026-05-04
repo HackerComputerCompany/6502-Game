@@ -1,20 +1,65 @@
-# BASIC games archive — text-only disk catalog
+# BASIC games archive — text-only floppy catalog
 
-This document **curates** classic **early BASIC** games that need **no bitmap graphics**: play happens in **PRINT / INPUT** text, ASCII art, or simple numeric grids. The goal is a future **in-game “disk”** library for BASIC6502—typed listings you can **LOAD**, **RUN**, and study—while teaching the **disk metaphor** (files live on a volume, not only in RAM).
+This document **curates** classic **early BASIC** games that need **no bitmap graphics**: play happens in **PRINT / INPUT** text, ASCII art, or simple numeric grids. The goal is a future **in-game floppy** library—typed listings you **LOAD**, **RUN**, and study—using a **two-sided, 140 KiB-per-side** metaphor rooted in real **late-1970s / early-1980s** hardware.
 
 ---
 
-## Virtual “420K” floppy (concept)
+## Virtual floppy: **140 KiB × Side A / Side B**
 
-Home computers of the late 1970s–1980s often used **5.25″ floppy drives**. Capacities varied by machine and format (Apple DOS ~**140 KiB** per disk side, PC-DOS **360 KiB** double-density, etc.). For BASIC6502 we adopt a **fictional but memorable** label:
+### Why this geometry?
 
-| Name (working) | Size | Role |
-|----------------|------|------|
-| **HCC 420K Disk** | **~420 KiB** nominal | One **virtual floppy** image (`user://` or bundled `res://`) holding **many short `.bas` listings** + this catalog. |
+Single-sided **5.25″ DOS 3.3–style** layouts on the **Apple II** are famously about **140 KiB per surface**: **35 tracks × 16 sectors × 256 bytes = 143,360 bytes**, which is exactly **140 × 1024 = 140 KiB**. Learners who read Apple II or Applesoft histories already bump into this number.
 
-**Why 420 KiB?** It is in the same ballpark as a **single-sided, double-density 5.25″** PC-class disk in some formulations, rounds nicely for teaching, and reads as a **product name** (“four-twenty-K disk”) without tying us to one historic geometry. Implementation can map it to **ZIP of text files**, a **folder manifest**, or a **packed archive** later.
+We adopt it deliberately:
 
-**This phase:** catalog and source pointers only—**no drive emulation code yet**.
+| Idea | Detail |
+|------|--------|
+| **One floppy disk** | Two independent **surfaces**: **Side A** and **Side B**. |
+| **Capacity per side** | **140 KiB** (143,360 bytes) — hard budget for files catalogued on that side. |
+| **Total on the plastic** | Up to **280 KiB** if **both** sides are formatted and used (double-sided disk). |
+| **Pedagogy** | **Flip the disk** to reach the other catalog; **SIDE FULL** errors; planning where big listings live. |
+
+This replaces an earlier **single lump-sum “420K”** sketch. **280 KiB** (both sides) is still modest—forcing curation—but **Side A / Side B** matches **physical intuition** and classroom explanations better than one opaque quota.
+
+### Conceptual layers (no code yet)
+
+1. **Physical metaphor** — The user imagines a **5.25″ floppy**: label facing up → **Side A**; flip → **Side B**. Some drives were **single-sided** (only Side A existed on early media); we can simulate “double-sided only” for simplicity.
+
+2. **Volume vs side** — Each **side** is its own **small filesystem view**: `DIR` lists files **on the active side only**, or `DIR A:` / `DIR B:` if we expose explicit paths.
+
+3. **Active side** — Commands like **`USE A`** / **`USE B`**, **`FLIP`**, or **`MOUNT SIDE=B`** switch context. **SAVE** writes to the active side; refuse if **remaining free bytes are less than the file size**.
+
+4. **Catalog spanning** — This markdown catalog lists **more games than fit one side**; implementation assigns each shipped `.bas` to **Side A**, **Side B**, or **needs second disk** (future **Disk 2**).
+
+5. **Not RAM** — Same teaching as before: **disk** persists across sessions (within **user://**); **RAM** is volatile unless **SAVEd**.
+
+6. **State saves (F3)** — Still **host JSON**, **not** charged against floppy KiB (keeps saves reliable).
+
+### UX snippets (future)
+
+```
+DISK STATUS
+  Medium: 5.25" DS/DD (conceptual)
+  Side A:  87,040 / 140 KiB bytes used (62%)   22 files
+  Side B: 140 KiB free                         READY
+  Active side: A
+
+FLIP
+  Now using SIDE B.
+```
+
+### Implementation sketch (folders)
+
+Binary-accurate sector images are **optional** later; **v1** can enforce quotas on folders:
+
+```
+user://floppy0/
+  side_a/       # ≤ 140 KiB total file bytes
+  side_b/       # ≤ 140 KiB total file bytes
+  manifest.json # optional: label, volume name, assignment table
+```
+
+Shipped read-only content: **`res://archives/floppy0_side_a/`** etc., with **user://** overlay for saves.
 
 ---
 
@@ -22,10 +67,10 @@ Home computers of the late 1970s–1980s often used **5.25″ floppy drives**. C
 
 1. **No graphics hardware** — no `POKE` to video RAM for pixels; **ASCII / text** only (lines of stars, coarse maps, etc. are OK).  
 2. **Actually a game** — goal, rules, replay value (not only a demo).  
-3. **BASIC-sized** — typically **under ~8 KiB** source; fits many titles on one “420K” volume.  
+3. **BASIC-sized** — many listings **under ~8 KiB**; several fit **per side** with room for docs.  
 4. **Reasonable port** — runs or **almost runs** on **Microsoft-style BASIC** with `PRINT`, `INPUT`, `GOTO`, `FOR`/`NEXT`, `IF`/`THEN`, `RND`, strings; flag heavy **machine-specific** calls.
 
-**BASIC6502 notes:** Our dialect is documented in **USER_GUIDE.md**. Watch for: **`TAB`**, **`RND`**, **`INT`**, **`LEFT$`/`MID$`/`RIGHT$`**, **`ON ... GOTO`**, **`PEEK`/`POKE`** (only if game uses them for **non-graphical** I/O), **`DATA`/`READ`**, **`GOSUB`**, **`DEF FN`** (if used). Games that assume **INKEY$**, **GET**, **sound**, or **CLS** as hardware opcodes may need tiny edits.
+**BASIC6502 notes:** See **USER_GUIDE.md**. Watch for **`TAB`**, **`RND`**, **`INT`**, string functions, **`ON ... GOTO`**, **`PEEK`/`POKE`** (non-graphical only), **`DATA`/`READ`**, **`GOSUB`**, **`DEF FN`**. Games using **INKEY$**, **GET**, **hardware CLS**, or **PETSCII-only** art may need edits.
 
 ---
 
@@ -33,23 +78,23 @@ Home computers of the late 1970s–1980s often used **5.25″ floppy drives**. C
 
 | Resource | Notes |
 |----------|--------|
-| **David H. Ahl, *BASIC Computer Games* (1978, Microcomputer Edition)** | ~**101** listings; many are text-only; widely reprinted; **Internet Archive** hosts scans and sometimes OCR text. [Wikipedia overview](https://en.wikipedia.org/wiki/BASIC_Computer_Games). |
-| **Creative Computing** magazine listings | Short games in **BASIC**; mixed graphics—**cherry-pick** text titles. |
-| **DEC “101 BASIC Computer Games” (1973)** | Earlier edition; subset overlaps Ahl 1978. |
+| **David H. Ahl, *BASIC Computer Games* (1978, Microcomputer Edition)** | ~**101** listings; many text-only; [Wikipedia](https://en.wikipedia.org/wiki/BASIC_Computer_Games). |
+| **Creative Computing** | Mixed; cherry-pick text titles. |
+| **DEC “101 BASIC Computer Games” (1973)** | Overlaps Ahl 1978. |
 
-When we **vendor** `.bas` files into the repo, prefer **typed clean listings** with **attribution** (author name from the book where given) and a **one-line license** note (many community retypes are **MIT** or **CC0**; book text itself may still be **copyright**—legal review before shipping verbatim scans).
+When **vendoring** `.bas` files: **attribution** + **license** note per file; book scans may still be **copyright**—legal review before verbatim ship.
 
 ---
 
 ## Catalog — curated text-only games
 
-Legend: **★** = especially strong for teaching; **Port** = typical friction for BASIC6502.
+Legend: **★** = strong for teaching; **Port** = friction for BASIC6502.
 
 | # | Title | Era / book | Genre | Why it fits (no gfx) | Port notes |
 |---|--------|--------------|-------|----------------------|------------|
 | 1 | **Acey Ducey** | Ahl | Card / gambling | Text cards & stakes | Simple |
 | 2 | **Amazing** | Ahl | Maze | ASCII maze generation | Loops + arrays |
-| 3 | **Animal** | Ahl | Guessing / learning | Binary tree of questions | Strings; teach AI idea |
+| 3 | **Animal** | Ahl | Guessing / learning | Binary tree of questions | Strings |
 | 4 | **Awari** | Ahl | Mancala-style | Board as numbers | Array indexing |
 | 5 | **Bagels** / **Digits** family | Ahl / variants | Logic puzzle | Digits & clues | String compare |
 | 6 | **Banner** | Ahl | Toy | Big letters from `*` | Loops only |
@@ -83,7 +128,7 @@ Legend: **★** = especially strong for teaching; **Port** = typical friction fo
 | 34 | **Hurkle** | Ahl | Hide & seek grid | “NW” hints on grid | Coordinates ★ |
 | 35 | **Kinema** | Ahl | Physics quiz | Word problems | Education |
 | 36 | **Letter** | Ahl | Word ladder | Transform word | Strings |
-| 37 | **Life** (text board) | many ports | Cellular automaton | ASCII generation | Some ports use gfx—**pick text-only** |
+| 37 | **Life** (text board) | many ports | Cellular automaton | ASCII generation | Pick text-only ports |
 | 38 | **Lunar / Rocket** | Ahl | Lander | Fuel & thrust numbers | Physics ★ |
 | 39 | **Master Mind** | Ahl | Code breaking | Bulls & cows style | Logic ★ |
 | 40 | **Math Dice** | Ahl | Drill | Arithmetic speed | Teaching |
@@ -101,72 +146,53 @@ Legend: **★** = especially strong for teaching; **Port** = typical friction fo
 | 52 | **Rock Sissors Paper** | Ahl | Hand game | vs computer | `RND` beginner |
 | 53 | **Roulette** | Ahl | Casino | Text wheel | `RND` |
 | 54 | **Salvo** | Ahl | Battleship-like | Grid + reports | May be long |
-| 55 | **Sine Wave** | Ahl | Demo | `*` across screen | **ASCII only** OK |
+| 55 | **Sine Wave** | Ahl | Demo | `*` across screen | ASCII OK |
 | 56 | **Slots** | Ahl | Casino | Reels as text | `RND` |
 | 57 | **Stars** (number guessing) | Ahl | “Thermometer” stars | `*` distance hint | Beginner ★ |
 | 58 | **Stock Market** | Ahl | Sim | Portfolio text | Econ ★ |
 | 59 | **Synonym** | Ahl | Vocab drill | Thesaurus quiz | `DATA` |
 | 60 | **Target** | Ahl | Shooting | Numeric scoring | Simple |
 | 61 | **3-D Plot** / **Cube** family | Ahl | Math viz | ASCII projection | Math club |
-| 62 | **Tic-Tac-Toe** | everywhere | Board | 3×3 ASCII | Classic port ★ |
-| 63 | **Tower** | Ahl | Hanoi | Disk moves text | Recursion / stacks idea |
+| 62 | **Tic-Tac-Toe** | everywhere | Board | 3×3 ASCII | Classic ★ |
+| 63 | **Tower** | Ahl | Hanoi | Disk moves text | Stacks idea |
 | 64 | **War** (card war) | Ahl | Card | Compare piles | Simple |
 | 65 | **Word** | Ahl | Hangman-like | Guess letters | Strings ★ |
 | 66 | **Yahtzee**-style dice | magazines | Dice | Categories | Arrays |
-| 67 | **Super Star Trek** | Ahl | Space sim | **All text** map & phasers | **Long**; iconic ★ |
-| 68 | **Star Trek** (short variants) | magazines | Space | Lighter than Super | Shorter port |
-| 69 | **Wumpus** / **Hunt the Wumpus** | many BASIC ports | Cave hunt | Text dodecahedron map | Graph traversal ★ |
+| 67 | **Super Star Trek** | Ahl | Space sim | All-text map & phasers | Long ★ |
+| 68 | **Star Trek** (short variants) | magazines | Space | Lighter than Super | Shorter |
+| 69 | **Wumpus** / **Hunt the Wumpus** | many BASIC ports | Cave hunt | Text dodecahedron map | Graph ★ |
 | 70 | **Eliza** (tiny ELIZA) | Weizenbaum ports | Chatbot | Conversation | Strings; length |
-| 71 | **Hangman** | school listings | Word game | ASCII gallows optional | Very common |
+| 71 | **Hangman** | school listings | Word game | ASCII gallows optional | Common |
 | 72 | **Concentration** | listings | Memory | Paired numbers | Text match |
 | 73 | **Battleship** (text) | many | Grid game | Row/column fire | I/O heavy |
-| 74 | **Oregon Trail**-style (lite) | inspired listings | Trek | Text choices | Often multi-file—**trim** |
-| 75 | **Camel** / **Lunar** variants | Creative Computing lineage | Resource trek | Numbers | Short fun |
+| 74 | **Oregon Trail**-style (lite) | inspired listings | Trek | Text choices | Often trim |
+| 75 | **Camel** / **Lunar** variants | Creative Computing | Resource trek | Numbers | Short fun |
 
-**Excluded (for this disk):** games whose **primary fun** is **moving sprites**, **PSET/DRAW**, **joystick** (e.g. many **action** arcade ports). **Screen codes** (C64 PETSCII) that are **not** plain ASCII may need a **translation pass**.
-
----
-
-## Suggested “Disk 1” starter pack (priority order)
-
-First wave to type-check against BASIC6502 (smallest + highest teaching value):
-
-1. **Guess** / **Stars** (number games)  
-2. **Rock Scissors Paper**  
-3. **Tic-Tac-Toe**  
-4. **Hurkle** or **Mugwump**  
-5. **Nim** or **Even Wins**  
-6. **Master Mind**  
-7. **Hammurabi** / **King**  
-8. **Fur Trader**  
-9. **Reverse**  
-10. **Word** / **Hangman**  
-
-Then medium: **Lunar**, **Combat**, **Civil War**, **Super Star Trek** (split into chapters if needed).
+**Excluded:** sprite graphics, joystick arcade ports; **PETSCII-only** may need ASCII translation.
 
 ---
 
-## File layout (future implementation)
+## Suggested placement on **Side A / Side B**
 
-```
-user://disk420/
-  CATALOG.md          # copy of or symlink to this catalog
-  games/
-    guess.bas
-    stars.bas
-    ...
-```
+Rough split for **Disk 1** (both sides = **280 KiB** games+demos budget):
 
-Or **`res://archives/disk420/`** for read-only shipped games + **`user://`** overlay for saves.
+| Side | Role | Starter contents |
+|------|------|------------------|
+| **A** | **Learn + tiny games** | Tutorial snippets, **Guess**, **Stars**, **Rock Scissors Paper**, **Tic-Tac-Toe**, **Nim**, **High-Q** samples |
+| **B** | **Play + longer listings** | **Hammurabi**, **Fur Trader**, **Master Mind**, **Reverse**, **Word**, **Mugwump**, **Lunar** |
+
+Heavy titles (**Super Star Trek**, **Civil War**) may **consume much of one side alone**—either ship **trimmed ports**, **split chapters**, or **Disk 2**.
 
 ---
 
-## Next steps (engineering, later)
+## Next steps (engineering)
 
-- [ ] Pick **license-clean** `.bas` sources (typed from PD listings or contributor originals).  
-- [ ] Add **`DIR`/`LOAD`** integration or **`DISK`** command to **mount** `disk420` volume.  
-- [ ] Byte budget: enforce **~420 KiB** total for teaching moment (“disk full”).  
-- [ ] **Trainer cart** (`trainer.md`) cross-link: “Load `games/reverse.bas` and predict output.”
+- [ ] **`disk_manager.gd`**: track **`bytes_used_side_a`**, **`bytes_used_side_b`**, **cap = 143_360** each.  
+- [ ] **`USE A` / `USE B` / `FLIP`** (or equivalent) in terminal / BASIC.  
+- [ ] **`DISK`** status line: active side + both utilizations.  
+- [ ] **`SAVE`**: refuse if active side over quota (“SIDE FULL — FLIP DISK OR DELETE”).  
+- [ ] Ship **`res://archives/floppy0/`** with manifest mapping catalog rows → filenames → side.  
+- [ ] **Trainer cart**: quizzes referencing “load from Side B slot 3,” etc.
 
 ---
 
@@ -174,8 +200,9 @@ Or **`res://archives/disk420/`** for read-only shipped games + **`user://`** ove
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 0.1 | 2026-05-03 | Initial curation: criteria, 420K concept, 75-row catalog, starter pack, future layout. |
+| 0.1 | 2026-05-03 | Initial curation; 75-row catalog; starter pack. |
+| 0.2 | 2026-05-03 | **140 KiB per side**, **Side A / Side B** model; removed single **420K** volume concept; added UX + folder sketches; A/B placement table. |
 
 ---
 
-*Maintainers: append rows as you vet each listing; keep “text-only” column honest.*
+*Maintainers: when assigning files to sides, append columns **Side** and **Bytes** to this doc or to `manifest.json`.*
