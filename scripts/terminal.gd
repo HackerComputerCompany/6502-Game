@@ -388,11 +388,13 @@ func _input(event: InputEvent) -> void:
 				_apply_font()
 				_update_font_label()
 				handled = true
-			KEY_F9:
+KEY_F9:
 				var path = debug.take_screenshot()
 				_instant_output = true
 				screen.append_text("\n[color=green]Screenshot: " + path + "[/color]\n")
-				_instant_output = false
+				handled = true
+			KEY_F11:
+				_toggle_fullscreen()
 				handled = true
 			KEY_F10:
 				computer.reset()
@@ -700,6 +702,7 @@ func _help_keyboard_shortcuts_block() -> String:
 	b += "[color=yellow]  F1  [/color]- Show this help\n"
 	b += "[color=yellow]  F5  [/color]- Run program (from start)\n"
 	b += "[color=yellow]  F10 [/color]- Reset system\n"
+	b += "[color=yellow]  F11 [/color]- Toggle fullscreen\n"
 	return b
 
 
@@ -1057,7 +1060,7 @@ func _init_help_topics() -> void:
 		},
 		"LOAD": {
 			"syntax": "LOAD filename",
-			"desc": "Load a previously saved BASIC program from disk (from user:// directory). Replaces the current program and clears all variables.",
+			"desc": "Load a saved BASIC program from user:// (`.bas` is appended for you — use LOAD MYPROG, not LOAD MYPROG.bas). Supports SAVE's JSON format and plain line-numbered BASIC text. Replaces the current program and clears variables.",
 			"examples": [
 				'LOAD MYPROG                       -> load MYPROG.bas',
 				'LOAD TEST1                         -> load TEST1.bas',
@@ -1075,7 +1078,7 @@ func _init_help_topics() -> void:
 		},
 		"SCRATCH": {
 			"syntax": "SCRATCH filename  |  DELETE filename",
-			"desc": "Delete a saved program file from disk. The file is permanently removed. Use DIR first to see what files exist.",
+			"desc": "Delete user://filename.bas (do not add `.bas` unless you mean that literal suffix — see LOAD). Use DIR first to see names.",
 			"examples": [
 				'SCRATCH MYPROG                  -> delete MYPROG.bas',
 				'DELETE TEST1                      -> same as SCRATCH',
@@ -1475,7 +1478,18 @@ func _add_program_line(text: String) -> void:
 	screen.append_text("[color=white]%5d %s\n[/color]" % [line_num, stmt])
 	_instant_output = false
 
+
+## DIR lists names without ".bas"; SAVE/LOAD append ".bas". Strip a user-supplied suffix so
+## `LOAD myprime.bas` does not become `myprime.bas.bas` (FILE NOT FOUND).
+func _normalize_program_basename(filename: String) -> String:
+	var n := filename.strip_edges()
+	if n.to_upper().ends_with(".BAS"):
+		return n.substr(0, n.length() - 4).strip_edges()
+	return n
+
+
 func _save_program(filename: String) -> void:
+	filename = _normalize_program_basename(filename)
 	if filename == "":
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: MISSING FILENAME\n[/color]")
@@ -1496,6 +1510,7 @@ func _save_program(filename: String) -> void:
 		screen.append_text("[color=red]ERROR: CANNOT SAVE FILE\n[/color]")
 
 func _load_program(filename: String) -> void:
+	filename = _normalize_program_basename(filename)
 	if filename == "":
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: MISSING FILENAME\n[/color]")
@@ -1506,16 +1521,30 @@ func _load_program(filename: String) -> void:
 		file.close()
 		var json = JSON.new()
 		var result = json.parse(json_str)
-		if result == OK:
-			var data = json.data
-			var prog_text = ""
-			for entry in data["program"]:
-				prog_text += str(entry["line"]) + " " + str(entry["code"]) + "\n"
-			computer.run_basic(prog_text)
-			screen.append_text("[color=lime]LOADED: " + filename + "\n[/color]")
+		if result == OK and json.data is Dictionary:
+			var data: Dictionary = json.data
+			if data.has("program") and data["program"] is Array:
+				var prog_text = ""
+				for entry in data["program"]:
+					prog_text += str(entry["line"]) + " " + str(entry["code"]) + "\n"
+				computer.run_basic(prog_text)
+				screen.append_text("[color=lime]LOADED: " + filename + "\n[/color]")
+			else:
+				sound.play_error()
+				screen.append_text("[color=red]ERROR: INVALID FILE FORMAT\n[/color]")
 		else:
-			sound.play_error()
-			screen.append_text("[color=red]ERROR: INVALID FILE FORMAT\n[/color]")
+			## Plain-text BASIC (legacy or hand-edited .bas): line-numbered source only.
+			var plain := json_str.strip_edges()
+			if plain != "":
+				computer.run_basic(plain)
+				if computer.basic._program.size() > 0:
+					screen.append_text("[color=lime]LOADED: " + filename + " (plain text)\n[/color]")
+				else:
+					sound.play_error()
+					screen.append_text("[color=red]ERROR: INVALID FILE FORMAT\n[/color]")
+			else:
+				sound.play_error()
+				screen.append_text("[color=red]ERROR: INVALID FILE FORMAT\n[/color]")
 	else:
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: FILE NOT FOUND\n[/color]")
@@ -1557,6 +1586,7 @@ func _format_size(bytes: int) -> String:
 		return str(bytes / 1048576.0) + " MB"
 
 func _scratch_program(filename: String) -> void:
+	filename = _normalize_program_basename(filename)
 	if filename == "":
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: MISSING FILENAME\n[/color]")
@@ -1579,8 +1609,8 @@ func _rename_program(args: String) -> void:
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: RENAME OLD NEW\n[/color]")
 		return
-	var old_name = parts[0].strip_edges()
-	var new_name = parts[1].strip_edges()
+	var old_name := _normalize_program_basename(parts[0].strip_edges())
+	var new_name := _normalize_program_basename(parts[1].strip_edges())
 	if old_name == "" or new_name == "":
 		sound.play_error()
 		screen.append_text("[color=red]ERROR: RENAME OLD NEW\n[/color]")
@@ -1670,6 +1700,17 @@ func _break_running_program() -> void:
 	screen.append_text("\n[color=yellow]BREAK at line " + str(computer.basic._current_line) + "[/color]\n")
 	_instant_output = false
 	sound.play_bell()
+
+func _toggle_fullscreen() -> void:
+	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		_instant_output = true
+		screen.append_text("\n[color=green]Windowed mode[/color]\n")
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		_instant_output = true
+		screen.append_text("\n[color=green]Fullscreen mode[/color]\n")
+	_instant_output = false
 
 func _cmd_stop() -> void:
 	_break_running_program()
