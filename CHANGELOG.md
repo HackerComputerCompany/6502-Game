@@ -10,6 +10,7 @@ where versioning applies.
 
 ### Added
 
+- **`cart_native.gd`** (**`NATIVE`** cart, id **4**): **`HYBRID`** / **`NATIVE`** / **`STATUS`** toggles **`BasicInterpreter.basic_runtime_mode`**; **`native_basic_softfloat.gd`** implements IEEE754 binary32 **`+ − × ÷`** (and comparisons via decode) for **NATIVE** mode — groundwork for a future **6502** soft-float pack callable from the emulator.
 - **`TESTING.md`**: single reference for **all headless suites** (regression blocks, CLI battery, **65x02** step tests, fuzz rounds, CLI flags, `run_all_tests.sh`).
 - **`scripts/run_all_tests.sh`**: runs regression → **`test_processor_step_tests.gd`** → CLI → fuzz (optional **`GODOT`**, **`FUZZ_ITERS`**, **`FUZZ_SEED`**).
 - **`tests/test_processor_step_tests.gd`** plus **`tests/fixtures/processor_tests/`**: vendored subset of **[SingleStepTests / 65x02](https://github.com/SingleStepTests/65x02)** (MIT, **Thomas Harte et al.**); **`build_subset.py`** regenerates JSON from upstream; see **`tests/fixtures/processor_tests/README.md`**.

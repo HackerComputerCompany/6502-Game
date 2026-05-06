@@ -20,6 +20,12 @@ var _returned: bool = false
 ## Uppercase name -> { "entry_addr": int, "syntax": String, "desc": String, "examples": Array }
 var _native_extensions: Dictionary = {}
 
+## HYBRID: GDScript float. NATIVE: IEEE754 soft-float (`native_basic_softfloat.gd`) for + − × ÷ and unary −.
+const _SoftFloatScript := preload("res://scripts/native_basic_softfloat.gd")
+enum BasicRuntimeMode { HYBRID, NATIVE }
+var basic_runtime_mode: BasicRuntimeMode = BasicRuntimeMode.HYBRID
+var _native_sf: RefCounted
+
 enum TT {
 	NUMBER, STRING, IDENT, OP, LPAREN, RPAREN,
 	COMMA, SEMI, KW, EOL, NEQ, LTE, GTE, COLON
@@ -31,6 +37,7 @@ func _init(sram: MemoryBus, output_cb: Callable, input_cb: Callable) -> void:
 	_memory = sram
 	_output_callback = output_cb
 	_input_callback = input_cb
+	_native_sf = _SoftFloatScript.new()
 	_setup_keywords()
 
 func _setup_keywords() -> void:
@@ -322,6 +329,26 @@ func _tokenize(text: String) -> Array:
 # ---- Position-tracking variable for _eval ----
 var _ep: int = 0
 
+
+func _runtime_sf_bits_from_variant(v: Variant) -> int:
+	return _native_sf.float_bits(float(v))
+
+
+func _runtime_promote_sf(bits: int) -> Variant:
+	var f: float = _native_sf.bits_float(bits)
+	if _native_sf.is_nan(bits):
+		return f
+	if _native_sf.is_inf(bits):
+		return f
+	if f == floor(f) and abs(f) < 2147483647:
+		return int(f)
+	return f
+
+
+func _runtime_both_plain_numeric(a: Variant, b: Variant) -> bool:
+	return not (a is String or b is String)
+
+
 func _eval(toks: Array, start_pos: int) -> Variant:
 	_ep = start_pos
 	return _eval_or(toks)
@@ -365,13 +392,24 @@ func _eval_cmp(toks: Array) -> Variant:
 			break
 		_ep += 1
 		var right = _eval_add(toks)
-		match op:
-			"<": val = 1 if val < right else 0
-			">": val = 1 if val > right else 0
-			"=": val = 1 if val == right else 0
-			"<=": val = 1 if val <= right else 0
-			">=": val = 1 if val >= right else 0
-			"<>": val = 1 if val != right else 0
+		if basic_runtime_mode == BasicRuntimeMode.NATIVE and _runtime_both_plain_numeric(val, right):
+			var ia := _runtime_sf_bits_from_variant(val)
+			var ib := _runtime_sf_bits_from_variant(right)
+			match op:
+				"<": val = 1 if _native_sf.lt_bits(ia, ib) else 0
+				">": val = 1 if _native_sf.gt_bits(ia, ib) else 0
+				"=": val = 1 if _native_sf.eq_bits(ia, ib) else 0
+				"<=": val = 1 if _native_sf.lte_bits(ia, ib) else 0
+				">=": val = 1 if _native_sf.gte_bits(ia, ib) else 0
+				"<>": val = 1 if _native_sf.ne_bits(ia, ib) else 0
+		else:
+			match op:
+				"<": val = 1 if val < right else 0
+				">": val = 1 if val > right else 0
+				"=": val = 1 if val == right else 0
+				"<=": val = 1 if val <= right else 0
+				">=": val = 1 if val >= right else 0
+				"<>": val = 1 if val != right else 0
 	return val
 
 func _eval_add(toks: Array) -> Variant:
@@ -388,13 +426,23 @@ func _eval_add(toks: Array) -> Variant:
 			elif right is String:
 				val = str(val) + right
 			else:
-				val = float(val) + float(right)
+				if basic_runtime_mode == BasicRuntimeMode.NATIVE:
+					var bx := _runtime_sf_bits_from_variant(val)
+					var by := _runtime_sf_bits_from_variant(right)
+					val = _runtime_promote_sf(_native_sf.add_bits(bx, by))
+				else:
+					val = float(val) + float(right)
+					if val == int(val) and abs(val) < 2147483647:
+						val = int(val)
+		else:
+			if basic_runtime_mode == BasicRuntimeMode.NATIVE:
+				var bx2 := _runtime_sf_bits_from_variant(val)
+				var by2 := _runtime_sf_bits_from_variant(right)
+				val = _runtime_promote_sf(_native_sf.sub_bits(bx2, by2))
+			else:
+				val = float(val) - float(right)
 				if val == int(val) and abs(val) < 2147483647:
 					val = int(val)
-		else:
-			val = float(val) - float(right)
-			if val == int(val) and abs(val) < 2147483647:
-				val = int(val)
 	return val
 
 func _eval_mul(toks: Array) -> Variant:
@@ -403,12 +451,25 @@ func _eval_mul(toks: Array) -> Variant:
 		var op = toks[_ep][1]
 		_ep += 1
 		var right = _eval_power(toks)
-		if op == "*":
-			val = float(val) * float(right)
+		if basic_runtime_mode == BasicRuntimeMode.NATIVE:
+			var bx := _runtime_sf_bits_from_variant(val)
+			var by := _runtime_sf_bits_from_variant(right)
+			var rz: int
+			if op == "*":
+				rz = _native_sf.mul_bits(bx, by)
+			else:
+				if _native_sf.is_zero(by):
+					rz = _native_sf.float_bits(0.0)
+				else:
+					rz = _native_sf.div_bits(bx, by)
+			val = _runtime_promote_sf(rz)
 		else:
-			val = float(val) / float(right) if float(right) != 0 else 0.0
-		if val == int(val) and abs(val) < 2147483647:
-			val = int(val)
+			if op == "*":
+				val = float(val) * float(right)
+			else:
+				val = float(val) / float(right) if float(right) != 0 else 0.0
+			if val == int(val) and abs(val) < 2147483647:
+				val = int(val)
 	return val
 
 func _eval_power(toks: Array) -> Variant:
@@ -424,8 +485,11 @@ func _eval_power(toks: Array) -> Variant:
 func _eval_unary(toks: Array) -> Variant:
 	if _ep < toks.size() and toks[_ep][0] == TT.OP and toks[_ep][1] == "-":
 		_ep += 1
-		var val = float(_eval_atom(toks))
-		return -val
+		var atom: Variant = _eval_atom(toks)
+		if basic_runtime_mode == BasicRuntimeMode.NATIVE:
+			var bi := _runtime_sf_bits_from_variant(atom)
+			return _runtime_promote_sf(_native_sf.neg_bits(bi))
+		return -float(atom)
 	if _ep < toks.size() and toks[_ep][0] == TT.OP and toks[_ep][1] == "+":
 		_ep += 1
 		return _eval_atom(toks)
@@ -1157,6 +1221,18 @@ func get_variable(name: String) -> Variant:
 func execute_line(stmt: String) -> void:
 	_execute_statement(stmt)
 
+
+func set_runtime_mode_hybrid() -> void:
+	basic_runtime_mode = BasicRuntimeMode.HYBRID
+
+
+func set_runtime_mode_native() -> void:
+	basic_runtime_mode = BasicRuntimeMode.NATIVE
+
+
+func is_runtime_mode_native() -> bool:
+	return basic_runtime_mode == BasicRuntimeMode.NATIVE
+
 func serialize() -> Dictionary:
 	var prog_lines = []
 	for entry in _program:
@@ -1167,6 +1243,7 @@ func serialize() -> Dictionary:
 		"arrays": _arrays,
 		"data_values": _data_values,
 		"data_pointer": _data_pointer,
+		"basic_runtime_mode": basic_runtime_mode,
 	}
 
 func deserialize(data: Dictionary) -> void:
@@ -1177,6 +1254,8 @@ func deserialize(data: Dictionary) -> void:
 	_arrays = data.get("arrays", {})
 	_data_values = data.get("data_values", [])
 	_data_pointer = int(data.get("data_pointer", 0))
+	var rm := int(data.get("basic_runtime_mode", BasicRuntimeMode.HYBRID))
+	basic_runtime_mode = rm as BasicRuntimeMode if rm >= 0 and rm <= BasicRuntimeMode.NATIVE else BasicRuntimeMode.HYBRID
 	_for_stack.clear()
 	_gosub_stack.clear()
 	_native_extensions.clear()

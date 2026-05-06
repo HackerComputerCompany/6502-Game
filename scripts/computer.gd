@@ -1,6 +1,8 @@
 class_name Computer
 extends RefCounted
 
+const _CartNativeGd := preload("res://scripts/cart_native.gd")
+
 var memory: MemoryBus
 var cpu: CPU6502
 var basic: BasicInterpreter
@@ -33,6 +35,7 @@ func _init() -> void:
 	cart_manager.register(CartText.new())
 	cart_manager.register(CartAsm.new())
 	cart_manager.register(CartC.new())
+	cart_manager.register(_CartNativeGd.new())
 	memory.cart_switch_requested.connect(cart_manager._on_cart_switch_requested)
 	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)

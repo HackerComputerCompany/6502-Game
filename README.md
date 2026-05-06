@@ -9,7 +9,7 @@ A retro computing environment combining a **BASIC programming language interpret
 - **Hex number notation** — prefix with `$` (e.g., `$FF`, `$C000`, `$DEAD`)
 - **Binary file I/O** — `BSAVE` saves memory ranges, `BLOAD` loads binary files with optional destination address
 - **Text file I/O** — `WRITE` creates text files, `READFILE` loads text into string variables
-- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor), ASM (6502 assembler + HC65 `SAVEOBJ` / `LOADOBJ`), C (Small-C compiler cart)
+- **ROM cartridge system** — switchable carts via `CART` command; current carts: BASIC (default), TEXT (line editor), ASM (6502 assembler + HC65 `SAVEOBJ` / `LOADOBJ`), C (Small-C compiler cart), NATIVE (HYBRID vs IEEE soft-float runtime toggle for BASIC arithmetic)
 - **64KB memory bus** with memory-mapped I/O ports at `$C000-$C030` and cart banking at `$E000-$EFFF`
 - **Pre-loaded ROM** at `$F000-$F1FF` with working 6502 machine code routines
 - **Retro terminal UI** with CRT effects (scanlines, vignette, glow, flicker, barrel distortion)
@@ -132,6 +132,8 @@ mygodot/
     cart_text.gd          # Line editor cartridge
     cart_asm.gd           # 6502 assembler cart (ASM, RUN, DEMO, SAVE/LOAD .asm)
     cart_c.gd             # Small-C compiler cart (COMPILE, BUILD, SAVE/LOAD .c)
+    cart_native.gd        # RUNTIME cart: BASIC HYBRID / NATIVE (IEEE soft-float core)
+    native_basic_softfloat.gd # IEEE754 binary32 ops for NATIVE mode (+ − × ÷); 6502 port planned
     assembler6502.gd      # Two-pass assembler used by cart_asm
     hc65_object.gd        # HC65 .obj encode/decode (SAVEOBJ / LOADOBJ)
   shaders/

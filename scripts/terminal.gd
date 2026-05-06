@@ -230,8 +230,7 @@ func _process_boot(delta: float) -> void:
 	crt_overlay.material.set_shader_parameter("static_intensity", static_amt)
 	var phases = [
 		{"time": 0.0, "msg": null},
-		{"time": 0.5, "msg": "[color=green][b]Hacker Computer Company[/b][/color]\n"},
-		{"time": 1.0, "msg": "[color=green][b]BASIC6502 BIOS v1.4[/b][/color]\n"},
+		{"time": 1.0, "msg": "[color=green]*BASIC6502 BIOS v1.4[/color]\n"},
 		{"time": 1.2, "msg": "[color=green]Testing RAM... 65536 bytes OK[/color]\n"},
 		{"time": 2.0, "msg": "[color=green]6502 CPU @ 1MHz... OK[/color]\n"},
 		{"time": 2.6, "msg": "[color=green]ROM at $F000... OK[/color]\n"},
@@ -481,10 +480,13 @@ func _input(event: InputEvent) -> void:
 
 func _print_banner() -> void:
 	_instant_output = true
-	screen.append_text("[color=green][b]Hacker Computer Company[/b][/color]\n")
-	screen.append_text("[color=green][b]BASIC6502[/b] - 6502-Powered BASIC Environment[/color]\n")
-	screen.append_text("[color=green]Version 1.4 | 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n")
-	screen.append_text("[color=green]F1=Help F3=Settings F4=Clock F5=Run F6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=green]Hacker Computer Company[/color]\n")
+	screen.append_text("[color=green]BASIC6502 - 6502-Powered BASIC Environment[/color]\n")
+	screen.append_text("[color=green] 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n\n")
+	screen.append_text("------------------------------------------------\n")
+	screen.append_text("[color=blue]F1=Help F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("------------------------------------------------\n\n")
+
 	if computer.cart_manager.get_current_id() == 2:
 		screen.append_text("[color=green]ASM cart: type DEMO for sample sources, HELP for all commands; then ASM and RUN.\n[/color]")
 	else:

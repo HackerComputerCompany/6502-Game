@@ -92,6 +92,17 @@ Single-process **deterministic** checks: memory bus, CPU opcodes and flows, BASI
 | **TEXT Cart CATALOG and SCRATCH missing file** | `CATALOG` label path and missing-file scratch |
 | **REBOOT deep clears ASM buffer** | `REBOOT` clears cart editor state (e.g. ASM source) |
 
+### NATIVE runtime cart (`cart_native.gd`, id **4**, name **`NATIVE`**)
+
+Switch cart with **`CART NATIVE`**, then **`HYBRID`** / **`NATIVE`** / **`STATUS`** / **`HELP`**. **`NATIVE`** selects **`BasicInterpreter`** soft-float path for **`+ − × ÷`** and unary **`−`** (still IEEE754 binary32 in GDScript today; intended for a future 6502 blob). **`CART BASIC`** returns to the interpreter cart.
+
+| Block | What it checks |
+|-------|----------------|
+| **Native IEEE soft-float primitives** | `float_bits` / `add_bits` / `sub_bits` / `mul_bits` / `div_bits` smoke |
+| **BASIC NATIVE runtime arithmetic** | `PRINT` using soft-float vs hybrid; `/ 0` → `0` matches BASIC rule |
+| **Basic runtime mode serialize** | `basic_runtime_mode` survives `Computer.serialize` / `deserialize` |
+| **Cart NATIVE registered** | `CART NATIVE` / back to BASIC |
+
 ### Assembler6502 and ASM cart
 
 | Block | What it checks |
@@ -142,7 +153,7 @@ Headless tests disconnect **`MemoryBus`** signals and release cart backrefs (`Ca
 
 `Running:` lines appear in this sequence:
 
-MemoryBus → Memory Reset Vectors → CPU Load/Store → CPU Arithmetic → CPU Logical → CPU Shift/Rotate → CPU Comparisons → CPU Branches → CPU Stack → CPU Jumps/Subroutines → CPU Flag Instructions → CPU Transfers → CPU NOP/BRK → BASIC PRINT → BASIC Variables → BASIC Arithmetic → BASIC IF/THEN → BASIC FOR/NEXT → BASIC GOSUB/RETURN → BASIC Built-in Functions → BASIC String Functions → BASIC Arrays → BASIC READ/DATA → BASIC POKE/PEEK → BASIC ON GOSUB → Computer Integration → Computer Variable Persistence Across RUN → Memory Cart Select $C030 → Main RAM high-water → Cart Loader Workspace → Cart Loader POKE $C030 → TEXT Cart Editor → TEXT Cart LIST range and PRINT → TEXT Cart SAVE/LOAD round-trip → TEXT Cart CATALOG and SCRATCH missing file → REBOOT deep clears ASM buffer → Assembler6502 hello snippet → hello-style object run prints one A then halts → stars demo RUN prints exactly ten asterisks → ASM cart assemble → ASM cart DEMO sources assemble → C cart compile hello → C cart compile and run → C cart DEMO sources compile → C cart BUILD alias compiles → C cart DEL removes line → C cart DEMO list and unknown demo → C cart SAVE/LOAD round-trip and COMPILE → HC65 encode/decode → Assembler .EXPORT .ENTRY .HELP → ASM SAVEOBJ HC65 for all demos → BASIC LOADOBJ + native call → Computer Cart Serialize → BASIC Nested FOR/NEXT → BASIC FOR STEP → BASIC FOR Reverse Step → BSAVE/BLOAD Binary → WRITE/READFILE Text
+MemoryBus → Memory Reset Vectors → CPU Load/Store → CPU Arithmetic → CPU Logical → CPU Shift/Rotate → CPU Comparisons → CPU Branches → CPU Stack → CPU Jumps/Subroutines → CPU Flag Instructions → CPU Transfers → CPU NOP/BRK → BASIC PRINT → BASIC Variables → BASIC Arithmetic → BASIC IF/THEN → BASIC FOR/NEXT → BASIC GOSUB/RETURN → BASIC Built-in Functions → BASIC String Functions → BASIC Arrays → BASIC READ/DATA → BASIC POKE/PEEK → BASIC ON GOSUB → Computer Integration → Computer Variable Persistence Across RUN → Memory Cart Select $C030 → Main RAM high-water → Cart Loader Workspace → Cart Loader POKE $C030 → TEXT Cart Editor → TEXT Cart LIST range and PRINT → TEXT Cart SAVE/LOAD round-trip → TEXT Cart CATALOG and SCRATCH missing file → REBOOT deep clears ASM buffer → Assembler6502 hello snippet → hello-style object run prints one A then halts → stars demo RUN prints exactly ten asterisks → ASM cart assemble → ASM cart DEMO sources assemble → C cart compile hello → C cart compile and run → C cart DEMO sources compile → C cart BUILD alias compiles → C cart DEL removes line → C cart DEMO list and unknown demo → C cart SAVE/LOAD round-trip and COMPILE → HC65 encode/decode → Assembler .EXPORT .ENTRY .HELP → ASM SAVEOBJ HC65 for all demos → BASIC LOADOBJ + native call → Computer Cart Serialize → Native IEEE soft-float primitives → BASIC NATIVE runtime arithmetic → Basic runtime mode serialize → Cart NATIVE registered → BASIC Nested FOR/NEXT → BASIC FOR STEP → BASIC FOR Reverse Step → BSAVE/BLOAD Binary → WRITE/READFILE Text
 
 ---
 

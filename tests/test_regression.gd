@@ -1,11 +1,15 @@
 extends SceneTree
 
+const _SoftFloatScript := preload("res://scripts/native_basic_softfloat.gd")
+var _reg_sf: RefCounted
+
 var _tests_passed: int = 0
 var _tests_failed: int = 0
 var _current_test: String = ""
 var _output: String = ""
 
 func _init() -> void:
+	_reg_sf = _SoftFloatScript.new()
 	print("\n========== BASIC6502 REGRESSION TEST SUITE ==========\n")
 	test_memory_bus()
 	test_memory_reset_vectors()
@@ -60,6 +64,10 @@ func _init() -> void:
 	test_cart_asm_saveobj_all_demos()
 	test_basic_loadobj_native_call()
 	test_computer_cart_serialize_roundtrip()
+	test_native_softfloat_primitives()
+	test_native_basic_runtime_arithmetic()
+	test_basic_runtime_mode_serialize()
+	test_cart_native_registered()
 	test_basic_nested_loops()
 	test_basic_for_step()
 	test_basic_for_reverse()
@@ -882,6 +890,63 @@ func test_computer_cart_serialize_roundtrip() -> void:
 	_assert(int(st["lines"][0]["ln"]) == 20, "line number preserved")
 	_dispose_computer(comp)
 	_dispose_computer(comp2)
+
+
+func test_native_softfloat_primitives() -> void:
+	_begin_test("Native IEEE soft-float primitives")
+	var one: int = _reg_sf.float_bits(1.0)
+	var two: int = _reg_sf.float_bits(2.0)
+	var thr: int = _reg_sf.add_bits(one, two)
+	_assert(thr == _reg_sf.float_bits(3.0), "add 1+2")
+	var neg: int = _reg_sf.sub_bits(thr, two)
+	_assert(neg == one, "sub 3-2")
+	var ten: int = _reg_sf.mul_bits(_reg_sf.float_bits(2.5), _reg_sf.float_bits(4.0))
+	_assert(ten == _reg_sf.float_bits(10.0), "mul 2.5*4")
+	var dv: int = _reg_sf.div_bits(_reg_sf.float_bits(10.0), _reg_sf.float_bits(4.0))
+	_assert(abs(_reg_sf.bits_float(dv) - 2.5) < 1e-5, "div 10/4")
+
+
+func test_native_basic_runtime_arithmetic() -> void:
+	_begin_test("BASIC NATIVE runtime arithmetic")
+	var mem := _fresh_mem()
+	var basic := BasicInterpreter.new(mem, _on_output, func(_p): return [""])
+	basic.basic_runtime_mode = BasicInterpreter.BasicRuntimeMode.NATIVE
+	_output = ""
+	basic.execute_line("PRINT 2.5*4")
+	_assert(_output.strip_edges() == "10", "PRINT 2.5*4 native")
+	_output = ""
+	basic.execute_line("PRINT 10/4")
+	var q := float(_output.strip_edges())
+	_assert(abs(q - 2.5) < 1e-4, "PRINT 10/4 native")
+	_output = ""
+	basic.execute_line("PRINT 1/0")
+	_assert(_output.strip_edges() == "0", "native div0 -> 0")
+	_output = ""
+	basic.basic_runtime_mode = BasicInterpreter.BasicRuntimeMode.HYBRID
+	basic.execute_line("PRINT 1/0")
+	_assert(_output.strip_edges() == "0", "hybrid div0 -> 0")
+
+
+func test_basic_runtime_mode_serialize() -> void:
+	_begin_test("Basic runtime mode serialize")
+	var comp := Computer.new()
+	comp.basic.basic_runtime_mode = BasicInterpreter.BasicRuntimeMode.NATIVE
+	var data := comp.serialize()
+	var comp2 := Computer.new()
+	comp2.deserialize(data)
+	_assert(comp2.basic.basic_runtime_mode == BasicInterpreter.BasicRuntimeMode.NATIVE, "mode restored")
+	_dispose_computer(comp)
+	_dispose_computer(comp2)
+
+
+func test_cart_native_registered() -> void:
+	_begin_test("Cart NATIVE registered")
+	var comp := Computer.new()
+	_assert(comp.cart_manager.switch_to("NATIVE", true), "switch to NATIVE cart")
+	_assert(comp.cart_manager.current.name == "NATIVE", "current cart")
+	_assert(comp.cart_manager.switch_to(0, true), "back to BASIC")
+	_dispose_computer(comp)
+
 
 func test_basic_nested_loops() -> void:
 	_begin_test("BASIC Nested FOR/NEXT")
