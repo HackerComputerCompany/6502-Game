@@ -487,7 +487,6 @@ func _print_banner() -> void:
 		screen.append_text("[color=green]ASM cart: type DEMO for sample sources, HELP for all commands; then ASM and RUN.\n[/color]")
 	else:
 		screen.append_text("[color=green]Type DEMO to list built-in programs, DEMO name to load one.\n[/color]")
-		screen.append_text("[color=green]Some demos take a number: DEMO PRIMENUMS 100 or DEMO PI 1000\n[/color]")
 	screen.append_text("[color=lime]" + computer.cart_manager.get_prompt() + "\n[/color]")
 	_instant_output = false
 
@@ -596,9 +595,8 @@ func _update_font_label() -> void:
 func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
 	var path = font_info["path"]
-	var dynamic_font = FontFile.new()
-	var err = dynamic_font.load_dynamic_font(path)
-	if err != OK:
+	var dynamic_font = load(path)
+	if dynamic_font == null or not dynamic_font is FontFile:
 		if not _fonts_loaded:
 			get_tree().create_timer(0.2).timeout.connect(_apply_font_deferred)
 		return

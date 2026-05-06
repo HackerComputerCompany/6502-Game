@@ -209,8 +209,11 @@ func _execute_single(stmt: String) -> void:
 			var val = _eval(toks, pos)
 			_variables[name] = val
 		else:
-			var val = _eval(toks, 0)
-			_output_callback.call(str(val) + "\n")
+			if _variables.has(name):
+				var val = _eval(toks, 0)
+				_output_callback.call(str(val) + "\n")
+			else:
+				_output_callback.call("ERROR: UNKNOWN COMMAND '%s'\n" % name)
 	elif t[0] == TT.NUMBER or t[0] == TT.OP or t[0] == TT.LPAREN or t[0] == TT.STRING:
 		var val = _eval(toks, 0)
 		_output_callback.call(str(val) + "\n")
