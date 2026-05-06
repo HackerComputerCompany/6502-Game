@@ -388,7 +388,7 @@ func _input(event: InputEvent) -> void:
 				_apply_font()
 				_update_font_label()
 				handled = true
-KEY_F9:
+			KEY_F9:
 				var path = debug.take_screenshot()
 				_instant_output = true
 				screen.append_text("\n[color=green]Screenshot: " + path + "[/color]\n")
