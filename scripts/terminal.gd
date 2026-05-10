@@ -368,9 +368,6 @@ func _input(event: InputEvent) -> void:
 				return
 		var handled = false
 		match event.keycode:
-			KEY_F1:
-				_show_help()
-				handled = true
 			KEY_F2:
 				_debug_panel.visible = not _debug_panel.visible
 				_refresh_debug_panel()
@@ -501,7 +498,7 @@ func _print_banner() -> void:
 	screen.append_text("[color=green]BASIC6502 - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green] 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n\n")
 	screen.append_text("------------------------------------------------\n")
-	screen.append_text("[color=blue]F1=Help F2=Debug F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=blue]F2=Debug F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("------------------------------------------------\n\n")
 
 	if computer.cart_manager.get_current_id() == 2:
@@ -728,7 +725,6 @@ func _handle_command(text: String) -> void:
 
 func _help_keyboard_shortcuts_block() -> String:
 	var b := "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
-	b += "[color=yellow]  F1  [/color]- Show help\n"
 	b += "[color=yellow]  F2  [/color]- Toggle Debug Panel (register viewer)\n"
 	b += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
 	b += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
