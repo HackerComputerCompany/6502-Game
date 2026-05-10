@@ -1,10 +1,18 @@
 class_name MemoryBus
 extends RefCounted
 
+## Base memory bus for the Teaching Lab.
+## Owns a flat 64 KB RAM array. Subclasses (MemoryBus6502) add CPU-specific
+## I/O devices and address decoding.
+##
+## Signals are forwarded from I/O devices by each subclass.
 var ram: PackedByteArray
 
+## Emitted by ScreenDevice (forwarded through MemoryBus6502) for each character.
 signal char_output(ch: String)
+## Emitted by ScreenDevice when a complete line or clear-code arrives.
 signal output_ready(text: String)
+## Emitted by CartSelectDevice when the CPU writes to the cart-select address.
 signal cart_switch_requested(cart_id: int)
 
 func _init() -> void:

@@ -25,6 +25,10 @@ func _init() -> void:
 	test_cpu_flags()
 	test_cpu_transfers()
 	test_cpu_nop_brk()
+	test_cpu_register_info()
+	test_cpu_register_info_base_class()
+	test_cpu_disassemble()
+	test_cpu_get_state()
 	test_basic_print()
 	test_basic_variables()
 	test_basic_arithmetic()
@@ -74,6 +78,10 @@ func _init() -> void:
 	test_basic_for_reverse()
 	test_bsave_bload()
 	test_write_readfile()
+	test_profile_manager_presets()
+	test_profile_save_load_roundtrip()
+	test_profile_apply()
+	test_profile_delete()
 	print("\n========== TEST RESULTS ==========")
 	print("  PASSED: %d" % _tests_passed)
 	print("  FAILED: %d" % _tests_failed)
@@ -395,6 +403,75 @@ func test_cpu_nop_brk() -> void:
 	mem.poke(0x0800, 0xEA)
 	cpu.step()
 	_assert(cpu.PC == 0x0801, "NOP increments PC")
+
+func test_cpu_register_info() -> void:
+	_begin_test("CPU Register Info")
+	var mem = _fresh_mem()
+	var cpu = CPU6502.new(mem)
+	var info = cpu.get_register_info()
+	_assert(info.size() > 0, "6502 has register info entries")
+
+	var found_regs := 0
+	var found_flags := 0
+	var keys_checked := PackedStringArray()
+	for entry in info:
+		var key = entry.get("key", "")
+		var group = entry.get("group", "")
+		var name = entry.get("name", "")
+		var desc = entry.get("desc", "")
+		keys_checked.append(key)
+		_assert(key != "", "register info entry has key: %s" % str(entry))
+		_assert(name != "", "register info entry has name: %s" % key)
+		_assert(desc != "", "register info entry has description: %s" % key)
+
+		if group == "register":
+			found_regs += 1
+		elif group == "flag":
+			found_flags += 1
+
+	_assert(found_regs >= 4, "has at least 4 register entries, got %d" % found_regs)
+	_assert(found_flags >= 4, "has at least 4 flag entries, got %d" % found_flags)
+	_assert("A" in keys_checked, "register info includes A")
+	_assert("C" in keys_checked, "register info includes Carry flag")
+	_assert("Z" in keys_checked, "register info includes Zero flag")
+
+func test_cpu_register_info_base_class() -> void:
+	_begin_test("CPU Register Info Base Class")
+	var cpu = CPU6502.new(MemoryBus.new())
+	var info = cpu.get_register_info()
+	_assert(info.size() > 0, "6502 register info is non-empty with %d entries" % info.size())
+	for entry in info:
+		_assert(entry.get("desc", "") != "", "entry %s has description" % entry.get("key", "?"))
+
+func test_cpu_disassemble() -> void:
+	_begin_test("CPU Disassemble")
+	var mem = _fresh_mem()
+	var cpu = CPU6502.new(mem)
+	mem.poke(0x0800, 0xA9)
+	mem.poke(0x0801, 0x41)
+	mem.poke(0x0802, 0x8D)
+	mem.poke(0x0803, 0x02)
+	mem.poke(0x0804, 0xC0)
+	mem.poke(0x0805, 0x60)
+	var disasm = cpu.disassemble(0x0800, 3)
+	_assert(disasm.size() == 3, "disassemble returns %d lines" % disasm.size())
+	_assert(disasm[0]["addr"] == 0x0800, "disasm addr 0")
+	var line0 = disasm[0]["disasm"]
+	_assert(line0.contains("LDA") or line0.contains("lda"), "disasm LDA: %s" % line0)
+	_assert(disasm[2]["disasm"].contains("RTS") or disasm[2]["disasm"].contains("rts"), "disasm RTS")
+
+func test_cpu_get_state() -> void:
+	_begin_test("CPU Get State")
+	var mem = _fresh_mem()
+	var cpu = CPU6502.new(mem)
+	cpu.A = 0x42
+	cpu.X = 0x24
+	var state = cpu.get_state()
+	_assert(state["A"] == 0x42, "state A=0x42")
+	_assert(state["X"] == 0x24, "state X=0x24")
+	_assert(state.has("PC"), "state has PC")
+	_assert(state.has("C"), "state has Carry flag")
+	_assert(state.has("Z"), "state has Zero flag")
 
 func test_basic_print() -> void:
 	_begin_test("BASIC PRINT")
@@ -1105,3 +1182,64 @@ func test_write_readfile() -> void:
 			_assert(content == "HELLO FROM BASIC", "WRITE stores correct content, got: %s" % content)
 	else:
 		print("  [SKIP] Cannot verify READFILE")
+
+func test_profile_manager_presets() -> void:
+	_begin_test("ProfileManager Presets")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	var pm = comp.profile_manager
+	_assert(pm != null, "ProfileManager created")
+	var presets = pm.get_preset_names()
+	_assert(presets.size() >= 3, "At least 3 presets available, got %d" % presets.size())
+	_assert("6502_trainer" in presets, "6502_trainer preset exists")
+	_assert("6502_minimal" in presets, "6502_minimal preset exists")
+	_assert("6502_apple_ii_style" in presets, "6502_apple_ii_style preset exists")
+	var trainer = pm.get_preset("6502_trainer")
+	_assert(not trainer.is_empty(), "6502_trainer preset data non-empty")
+	_assert(trainer.get("cpu_type") == "6502", "Preset cpu_type is 6502")
+	_assert(trainer.get("memory_size_kb") == 64, "Preset memory_size_kb is 64")
+	_assert(trainer.get("default_clock_mhz") == 1.0, "Preset default_clock_mhz is 1.0")
+	_dispose_computer(comp)
+
+func test_profile_save_load_roundtrip() -> void:
+	_begin_test("Profile Save/Load Roundtrip")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	var pm = comp.profile_manager
+	var saved = pm.save_profile("test_profile_save")
+	_assert(saved, "Profile saved successfully")
+	var loaded = pm.load_profile("test_profile_save")
+	_assert(not loaded.is_empty(), "Profile loaded successfully (non-empty)")
+	_assert(loaded.get("name") == "test_profile_save", "Loaded profile name matches")
+	_assert(loaded.get("cpu_type") == "6502", "Loaded profile cpu_type is 6502")
+	_assert(loaded.get("active_cart_id") == 0, "Loaded profile active_cart_id is 0")
+	var cleaned = pm.delete_profile("test_profile_save")
+	_assert(cleaned, "Test profile cleaned up")
+	_dispose_computer(comp)
+
+func test_profile_apply() -> void:
+	_begin_test("Profile Apply")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	var pm = comp.profile_manager
+	var profile = pm.get_preset("6502_minimal")
+	_assert(not profile.is_empty(), "Got 6502_minimal preset")
+	pm.apply_profile(profile)
+	_assert(comp.cpu.cpu_type == profile.get("cpu_type"), "CPU type unchanged after apply")
+	_dispose_computer(comp)
+
+func test_profile_delete() -> void:
+	_begin_test("Profile Delete")
+	var comp = Computer.new()
+	comp.output.connect(_on_output)
+	var pm = comp.profile_manager
+	pm.save_profile("test_delete_me")
+	var exists = pm.load_profile("test_delete_me")
+	_assert(not exists.is_empty(), "Saved profile exists before delete")
+	var deleted = pm.delete_profile("test_delete_me")
+	_assert(deleted, "Profile deleted successfully")
+	var gone = pm.load_profile("test_delete_me")
+	_assert(gone.is_empty(), "Deleted profile no longer loadable")
+	var preset_delete = pm.delete_profile("6502_trainer")
+	_assert(not preset_delete, "Preset profile cannot be deleted")
+	_dispose_computer(comp)

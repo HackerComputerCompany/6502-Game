@@ -31,6 +31,7 @@ var computer: Computer
 var sound: SoundManager
 var command_history: Array = []
 var history_pos: int = -1
+var _debug_panel: PanelContainer
 
 var _base_font_size: int = 18
 
@@ -96,6 +97,16 @@ func _ready() -> void:
 	add_child(sound)
 	debug = DebugManager.new()
 	add_child(debug)
+	_debug_panel = preload("res://scripts/debug_panel.gd").new()
+	_debug_panel.setup(computer)
+	add_child(_debug_panel)
+	_debug_panel.visible = false
+	_debug_panel.anchors_preset = Control.PRESET_RIGHT_WIDE
+	_debug_panel.offset_left = -330
+	_debug_panel.offset_top = 30
+	_debug_panel.offset_right = -10
+	_debug_panel.offset_bottom = -10
+	_debug_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	input_line = $VBoxContainer/InputLine
 	input_line.visible = false
 	input_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -358,6 +369,10 @@ func _input(event: InputEvent) -> void:
 			KEY_F1:
 				_show_help()
 				handled = true
+			KEY_F2:
+				_debug_panel.visible = not _debug_panel.visible
+				_debug_panel.refresh()
+				handled = true
 			KEY_F3:
 				_debug_visible = not _debug_visible
 				settings_panel.visible = _debug_visible
@@ -484,7 +499,7 @@ func _print_banner() -> void:
 	screen.append_text("[color=green]BASIC6502 - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green] 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n\n")
 	screen.append_text("------------------------------------------------\n")
-	screen.append_text("[color=blue]F1=Help F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=blue]F1=Help F2=Debug F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
 	screen.append_text("------------------------------------------------\n\n")
 
 	if computer.cart_manager.get_current_id() == 2:
@@ -524,6 +539,7 @@ func _emit_prompt() -> void:
 func _on_full_reboot_requested() -> void:
 	computer.memory.clear_input()
 	_monitor_mode = false
+	_debug_panel.visible = false
 	_monitor_addr = computer.cpu.PC & 0xFFFF
 	screen.clear()
 	command_history.clear()
@@ -565,6 +581,8 @@ func _format_title_ram_usage(used: int) -> String:
 
 func _update_status() -> void:
 	_update_title_bar()
+	if _debug_panel and _debug_panel.visible:
+		_debug_panel.refresh()
 	var state = computer.cpu.get_state()
 	var rec: String = " [REC]" if debug.is_recording() else ""
 	var run: String = " [RUN]" if computer._program_running else ""
@@ -680,6 +698,10 @@ func _handle_command(text: String) -> void:
 		else:
 			demo_name = demo_arg.to_lower()
 		_load_demo(demo_name, demo_param)
+	elif upper == "PROFILES":
+		_list_profiles()
+	elif upper.begins_with("PROFILE "):
+		_handle_profile_command(text.substr(8).strip_edges())
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
@@ -695,14 +717,15 @@ func _handle_command(text: String) -> void:
 
 func _help_keyboard_shortcuts_block() -> String:
 	var b := "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
+	b += "[color=yellow]  F1  [/color]- Show help\n"
+	b += "[color=yellow]  F2  [/color]- Toggle Debug Panel (register viewer)\n"
 	b += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
 	b += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
+	b += "[color=yellow]  F5  [/color]- Run program (from start)\n"
+	b += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
 	b += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	b += "[color=yellow]  F8  [/color]- Cycle font\n"
 	b += "[color=yellow]  F9  [/color]- Take screenshot\n"
-	b += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
-	b += "[color=yellow]  F1  [/color]- Show this help\n"
-	b += "[color=yellow]  F5  [/color]- Run program (from start)\n"
 	b += "[color=yellow]  F10 [/color]- Reset system\n"
 	b += "[color=yellow]  F11 [/color]- Toggle fullscreen\n"
 	return b
@@ -720,7 +743,11 @@ func _show_help() -> void:
 				screen.append_text("\n[color=lime]Type HELP <topic> for BASIC details. Examples: HELP PRINT, HELP FOR[/color]\n")
 			_instant_output = false
 			return
-	var help_text = "\n[color=cyan]BASIC6502 Commands:[/color]\n"
+	var help_text = "\n[color=cyan]Debug Panel (F2):[/color]\n"
+	help_text += "[color=yellow]  F2         [/color]- Toggle register viewer with live values, disassembly,\n"
+	help_text += "               Step/Continue/Reset, and register descriptions for\n"
+	help_text += "               self-paced learning. Works with any CPU.\n\n"
+	help_text += "\n[color=cyan]BASIC6502 Commands:[/color]\n"
 	help_text += "[color=yellow]  RUN [n]   [/color]- Run program (optionally from line n)\n"
 	help_text += "[color=yellow]  LIST [n]  [/color]- List program (or line range)\n"
 	help_text += "[color=yellow]  NEW       [/color]- Clear the program and variables\n"
@@ -747,6 +774,8 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  LOADOBJ   [/color]- Load HC65 .obj from user://; optional , NAME registers native call\n"
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
+	help_text += "[color=yellow]  PROFILES  [/color]- List available computer profiles\n"
+	help_text += "[color=yellow]  PROFILE   [/color]- Save/load/delete profiles (SAVE name, LOAD name, DELETE name)\n"
 	help_text += _help_keyboard_shortcuts_block()
 	help_text += "\n[color=cyan]Save/Load (in System Settings panel - F3):[/color]\n"
 	help_text += "[color=yellow]  Save State[/color] - Save system settings, program, variables & memory\n"
@@ -1035,10 +1064,10 @@ func _init_help_topics() -> void:
 		},
 		"CPU": {
 			"syntax": "CPU",
-			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X and Y (index), SP (stack pointer), PC (program counter), and status flags (NVDIZC).",
+			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X and Y (index), SP (stack pointer), PC (program counter), and status flags (NVDIZC). Press F2 for the live register viewer panel with step-by-step controls and in-register descriptions.",
 			"examples": [
 				'CPU                               -> show all CPU registers',
-				'-> Useful after STEP or HALT for debugging',
+				'-> Press F2 for live debug panel with Step/Continue controls',
 				'10 SYS 61488: CPU                  -> run 6502 code then show regs',
 			]
 		},
@@ -1126,20 +1155,20 @@ func _init_help_topics() -> void:
 		},
 		"STEP": {
 			"syntax": "STEP",
-			"desc": "Execute a single 6502 CPU instruction at the current program counter, then display the instruction and registers. Useful for debugging machine code. Only works when CPU is halted.",
+			"desc": "Execute a single 6502 CPU instruction at the current program counter, then display the instruction and registers. Useful for debugging machine code. Only works when CPU is halted. Also available in the debug panel (F2).",
 			"examples": [
 				'STEP                               -> execute one CPU instruction',
 				'-> Use after HALT or in MONITOR mode',
-				'-> Shows the instruction that was just executed',
+				'-> Press F2 for the live register viewer with Step button',
 			]
 		},
 		"MONITOR": {
 			"syntax": "MONITOR  |  MON",
-			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list.",
+			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list. For a graphical register viewer, press F2.",
 			"examples": [
 				'MONITOR                            -> enter monitor mode',
 				'MON                                -> same shortcut',
-				'-> Type H inside monitor for help, ESC to exit',
+				'-> Type H inside monitor for help, ESC to exit. F2 for debug panel.',
 			]
 		},
 		"POWEROFF": {
@@ -1651,6 +1680,72 @@ func _show_cpu_state() -> void:
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
+
+func _list_profiles() -> void:
+	_instant_output = true
+	var text := "\n[color=cyan]COMPUTER PROFILES:[/color]\n"
+	var profiles = computer.profile_manager.list_profiles()
+	for p in profiles:
+		var tag := "[preset]" if p.get("_preset", false) else ""
+		text += "[color=yellow]  %-20s[/color] %s %s\n" % [p.get("name", "?"), tag, p.get("description", "")]
+	text += "\n[color=lime]PROFILE SAVE <name>  - Save current config[/color]\n"
+	text += "[color=lime]PROFILE LOAD <name>  - Load a profile[/color]\n"
+	text += "[color=lime]PROFILE DELETE <name> - Delete user profile[/color]\n"
+	screen.append_text(text)
+	_instant_output = false
+
+func _handle_profile_command(args: String) -> void:
+	var parts := args.split(" ", true, 1)
+	if parts.size() < 1:
+		_list_profiles()
+		return
+	var cmd := parts[0].to_upper()
+	var name := parts[1].strip_edges() if parts.size() > 1 else ""
+	if cmd == "SAVE":
+		if name == "":
+			_instant_output = true
+			screen.append_text("[color=red]Usage: PROFILE SAVE <name>[/color]\n")
+			_instant_output = false
+			return
+		if computer.profile_manager.save_profile(name):
+			_instant_output = true
+			screen.append_text("[color=green]Profile '%s' saved.[/color]\n" % name)
+			_instant_output = false
+		else:
+			_instant_output = true
+			screen.append_text("[color=red]Failed to save profile '%s'.[/color]\n" % name)
+			_instant_output = false
+	elif cmd == "LOAD":
+		if name == "":
+			_list_profiles()
+			return
+		var profile = computer.profile_manager.load_profile(name)
+		if profile.is_empty():
+			_instant_output = true
+			screen.append_text("[color=red]Profile '%s' not found.[/color]\n" % name)
+			_instant_output = false
+		else:
+			computer.profile_manager.apply_profile(profile)
+			_instant_output = true
+			screen.append_text("[color=green]Profile '%s' loaded.[/color]\n" % profile.get("name", name))
+			_instant_output = false
+			_update_status()
+	elif cmd == "DELETE":
+		if name == "":
+			_instant_output = true
+			screen.append_text("[color=red]Usage: PROFILE DELETE <name>[/color]\n")
+			_instant_output = false
+			return
+		if computer.profile_manager.delete_profile(name):
+			_instant_output = true
+			screen.append_text("[color=green]Profile '%s' deleted.[/color]\n" % name)
+			_instant_output = false
+		else:
+			_instant_output = true
+			screen.append_text("[color=red]Failed to delete profile '%s'. Presets cannot be deleted.[/color]\n" % name)
+			_instant_output = false
+	else:
+		_list_profiles()
 
 func _show_demos() -> void:
 	_instant_output = true

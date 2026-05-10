@@ -379,6 +379,22 @@ func get_state() -> Dictionary:
 		"V": get_flag(Flag.V), "N": get_flag(Flag.N),
 	}
 
+func get_register_info() -> Array:
+	return [
+		{"key": "A", "name": "A", "desc": "Accumulator. Primary register for arithmetic, logic, and data movement.", "group": "register"},
+		{"key": "X", "name": "X", "desc": "X Index. Used for counters, array indexing, and data copying.", "group": "register"},
+		{"key": "Y", "name": "Y", "desc": "Y Index. Used for array operations and indirect addressing.", "group": "register"},
+		{"key": "SP", "name": "SP", "desc": "Stack Pointer. Points to next free byte on the hardware stack ($0100-$01FF).", "group": "register"},
+		{"key": "PC", "name": "PC", "desc": "Program Counter. Address of the next instruction to execute.", "group": "register"},
+		{"key": "P", "name": "P", "desc": "Processor Status. Combined flags register (N V . B D I Z C).", "group": "register"},
+		{"key": "C", "name": "Carry", "desc": "Set if an operation produced a carry (ADC) or borrow (SBC). Also used by shifts/rotates.", "group": "flag"},
+		{"key": "Z", "name": "Zero", "desc": "Set if the result of an operation was zero.", "group": "flag"},
+		{"key": "I", "name": "IRQ Dis", "desc": "When set, maskable interrupts (IRQ) are ignored. NMI still triggers.", "group": "flag"},
+		{"key": "D", "name": "Decimal", "desc": "When set, ADC/SBC use BCD. (Not emulated in this implementation.)", "group": "flag"},
+		{"key": "V", "name": "Overflow", "desc": "Set if an arithmetic operation produced a signed overflow (>127 or <-128).", "group": "flag"},
+		{"key": "N", "name": "Negative", "desc": "Set if bit 7 (sign bit) of the result is set.", "group": "flag"},
+	]
+
 func serialize() -> Dictionary:
 	return {
 		"A": A, "X": X, "Y": Y, "SP": SP, "PC": PC,

@@ -23,7 +23,7 @@ Standardize I/O across CPUs with a unified device framework.
 Allow one CPU to interact with another (e.g., 6502 dev machine → Z80 target).
 
 ### Epic 6: Debugging Tools per CPU
-CPU-aware disassemblers, register viewers, memory viewers, breakpoints.
+CPU-aware disassemblers, register viewers (F2 debug panel), memory viewers, breakpoints.
 
 ### Epic 7: Computer Profiles
 Define complete system configurations (CPU + Memory + I/O + ROMs) as loadable profiles.
@@ -72,14 +72,14 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 - [ ] **US-5.2**: As a user, I want one CPU to trigger interrupts on another CPU.
 - [ ] **US-5.3**: As a developer, I want a `InterCPUBridge` class to manage these connections.
 
-### Debugging
-- [ ] **US-6.1**: As a user, I want a disassembler that knows the instruction set of the current CPU.
-- [ ] **US-6.2**: As a user, I want a register viewer showing CPU-specific registers (A/X/Y/PS for 6502; A/B/C/D/E/H/L/PSW for Z80).
-- [ ] **US-6.3**: As a user, I want step-by-step execution that works per CPU.
+### Debugging [Phase 5 ✓]
+- [x] **US-6.1**: As a user, I want a disassembler that knows the instruction set of the current CPU.
+- [x] **US-6.2**: As a user, I want a register viewer showing CPU-specific registers (A/X/Y/PS for 6502; A/B/C/D/E/H/L/PSW for Z80).
+- [x] **US-6.3**: As a user, I want step-by-step execution that works per CPU.
 
-### Computer Profiles
-- [ ] **US-7.1**: As a user, I want to save/load a complete machine configuration (CPU + memory size + devices + carts).
-- [ ] **US-7.2**: As a user, I want preset profiles like "6502 Trainer", "CP/M 8080", "IBM PC 8086".
+### Computer Profiles [Phase 6 ✓]
+- [x] **US-7.1**: As a user, I want to save/load a complete machine configuration (CPU + memory size + devices + carts).
+- [x] **US-7.2**: As a user, I want preset profiles like "6502 Trainer", "6502 Minimal", "6502 Apple II-style".
 
 ### New CPUs
 - [ ] **US-8.1**: As a system, I want a working Intel 4004 implementation.
@@ -111,6 +111,16 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 - [ ] **US-12.6**: As a user, I want a MiSTer core that can load and run the Learning Lab's cartridge format.
 
 ---
+
+## Definition of Done
+
+For every phase and user story:
+
+1. **Code** — Implementation complete, follows established patterns (base → subclass, preload not class_name, typed where practical)
+2. **Inline comments** — Every new/modified file has a header comment explaining its role in the architecture; non-obvious logic has inline explanations
+3. **Tests pass** — All 3849 checks (310 regression + 1510 step + 29 CLI + 2000 fuzz) pass cleanly
+4. **Backlog updated** — User stories marked ✓, phase priority updated
+5. **Committed** — Changes committed on `exp/teaching-lab` with descriptive message
 
 ## Additional Considerations
 
@@ -171,8 +181,8 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 2. **Phase 2 ✓**: Memory architecture split (base MemoryBus + MemoryBus6502)
 3. **Phase 3 ✓**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
 4. **Phase 4 ✓**: US-4.1, US-4.2 (I/O abstraction)
-5. **Phase 5**: US-6.1, US-6.2, US-6.3 (Debugging tools)
-6. **Phase 6**: US-7.1, US-7.2 (Profiles)
+5. **Phase 5 ✓**: US-6.1, US-6.2, US-6.3 (Debugging tools)
+6. **Phase 6 ✓**: US-7.1, US-7.2 (Computer Profiles)
 7. **Phase 7**: US-5.1, US-5.2, US-5.3 (Cross-CPU)
 8. **Phase 8**: US-10.1, US-10.2, US-10.3, US-10.4 (Synthetic CPU)
 9. **Phase 9**: US-11.1, US-11.2, US-11.3, US-11.4, US-11.5, US-11.6 (Graphics/GPU)

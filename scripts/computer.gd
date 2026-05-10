@@ -3,6 +3,7 @@ extends RefCounted
 
 const _CartNativeGd := preload("res://scripts/cart_native.gd")
 const _MemoryBus6502 := preload("res://scripts/memory_bus_6502.gd")
+const _ProfileManager := preload("res://scripts/profile_manager.gd")
 
 var memory
 var cpu
@@ -12,6 +13,8 @@ var cart_manager: CartManager
 
 var _output_buffer: String = ""
 var _ready: bool = false
+
+var profile_manager
 
 var _program_running: bool = false
 var _awaiting_input: bool = false
@@ -27,7 +30,7 @@ signal full_reboot_requested()
 func emit_richtext(text: String) -> void:
 	output_richtext.emit(text)
 
-func _init() -> void:
+func _init(profile: Dictionary = {}) -> void:
 	memory = _MemoryBus6502.new()
 	cpu = CPU6502.new(memory)
 	basic = BasicInterpreter.new(memory, _on_output, _on_input)
@@ -41,6 +44,9 @@ func _init() -> void:
 	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)
 	memory.output_ready.connect(_on_output_ready)
+	profile_manager = _ProfileManager.new(self)
+	if not profile.is_empty():
+		profile_manager.apply_profile(profile)
 	_ready = true
 
 
