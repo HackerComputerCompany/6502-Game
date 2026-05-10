@@ -3,9 +3,6 @@ extends RefCounted
 
 var ram: PackedByteArray
 
-var _input_buffer: String = ""
-var _input_pos: int = 0
-
 signal char_output(ch: String)
 signal output_ready(text: String)
 signal cart_switch_requested(cart_id: int)
@@ -30,16 +27,12 @@ func poke_word(addr: int, val: int) -> void:
 
 func reset() -> void:
 	ram.fill(0)
-	_input_buffer = ""
-	_input_pos = 0
 
 func push_input(text: String) -> void:
-	_input_buffer += text + "\n"
-	_input_pos = 0
+	pass
 
 func clear_input() -> void:
-	_input_buffer = ""
-	_input_pos = 0
+	pass
 
 func load_bytes(data: PackedByteArray, start_addr: int) -> void:
 	for i in range(data.size()):

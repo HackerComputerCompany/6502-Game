@@ -62,9 +62,9 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 - [x] **US-3.2**: As a system, I want to reject loading a cart if the current CPU isn't in its manifest.
 - [ ] **US-3.3**: As a developer, I want carts to have CPU-specific handlers (e.g., 6502 BASIC vs Z80 BASIC are different code).
 
-### I/O Abstraction
-- [ ] **US-4.1**: As a developer, I want an `IODevice` base class with `read()`, `write()` methods.
-- [ ] **US-4.2**: As a system, I want devices to be mapped to port ranges that vary per CPU.
+### I/O Abstraction [Phase 4 ✓]
+- [x] **US-4.1**: As a developer, I want an `IODevice` base class with `read()`, `write()` methods.
+- [x] **US-4.2**: As a system, I want devices to be mapped to port ranges that vary per CPU.
 - [ ] **US-4.3**: As a user, I want to configure which devices are attached to a system.
 
 ### Cross-CPU Communication
@@ -170,7 +170,7 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 1. **Phase 1 ✓**: US-1.1, US-1.2, US-2.1, US-2.2 (CPU + Memory base)
 2. **Phase 2 ✓**: Memory architecture split (base MemoryBus + MemoryBus6502)
 3. **Phase 3 ✓**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
-4. **Phase 4**: US-4.1, US-4.2 (I/O abstraction)
+4. **Phase 4 ✓**: US-4.1, US-4.2 (I/O abstraction)
 5. **Phase 5**: US-6.1, US-6.2, US-6.3 (Debugging tools)
 6. **Phase 6**: US-7.1, US-7.2 (Profiles)
 7. **Phase 7**: US-5.1, US-5.2, US-5.3 (Cross-CPU)

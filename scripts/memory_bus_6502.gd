@@ -1,17 +1,9 @@
 extends "res://scripts/memory_bus.gd"
 
-var _output_buffer: String = ""
+var _keyboard
+var _screen
+var _cart_select
 
-## Value returned by peek($C030); updated by CartManager after each swap.
-var _cart_id_readback: int = 0
-
-const ADDR_KEYBOARD_DATA = 0xC000
-const ADDR_KEYBOARD_STATUS = 0xC001
-const ADDR_SCREEN_OUTPUT = 0xC002
-const ADDR_SCREEN_CTRL = 0xC003
-const ADDR_CURSOR_X = 0xC010
-const ADDR_CURSOR_Y = 0xC011
-const ADDR_RNG_SEED = 0xC020
 const ADDR_CART_SELECT = 0xC030
 ## Poked for user routines that end in RTS without a prior JSR (ASM RUN, BASIC SYS, LOADOBJ native).
 ## Opcode $FF is unimplemented in 6502 and halts after RTS returns (pull + 1) here.
@@ -19,7 +11,22 @@ const USER_RTS_HALT_ADDR := 0xFFF0
 
 func _init() -> void:
 	super()
+	_keyboard = preload("res://scripts/keyboard_device.gd").new()
+	_screen = preload("res://scripts/screen_device.gd").new()
+	_cart_select = preload("res://scripts/cart_select_device.gd").new()
+	_screen.char_output.connect(_on_screen_char)
+	_screen.output_ready.connect(_on_screen_output_ready)
+	_cart_select.cart_switch_requested.connect(_on_cart_switch)
 	_write_vectors()
+
+func _on_screen_char(ch: String) -> void:
+	char_output.emit(ch)
+
+func _on_screen_output_ready(text: String) -> void:
+	output_ready.emit(text)
+
+func _on_cart_switch(cart_id: int) -> void:
+	cart_switch_requested.emit(cart_id)
 
 func _write_boot_stub_fc00() -> void:
 	## LDA #$00 / STA $C030 / JMP $F000 — selects BASIC cart then jumps to banked ROM entry.
@@ -51,52 +58,40 @@ func prepare_cpu_stack_for_user_rts(cpu) -> void:
 	poke(0x01FF, (ret_pc >> 8) & 0xFF)
 	cpu.SP = 0xFD
 
-func reset() -> void:
-	super()
-	_output_buffer = ""
-	_cart_id_readback = 0
-	_write_vectors()
-
-func set_cart_id_readback(id: int) -> void:
-	_cart_id_readback = id & 0xFF
-
 func peek(addr: int) -> int:
 	addr = addr & 0xFFFF
-	if addr == ADDR_KEYBOARD_STATUS:
-		return 1 if _input_pos < _input_buffer.length() else 0
-	if addr == ADDR_KEYBOARD_DATA:
-		if _input_pos < _input_buffer.length():
-			var ch = _input_buffer.unicode_at(_input_pos)
-			_input_pos += 1
-			return ch
-		return 0
-	if addr == ADDR_CART_SELECT:
-		return _cart_id_readback & 0xFF
+	if _keyboard.handles_address(addr):
+		return _keyboard.peek(addr)
+	if _cart_select.handles_address(addr):
+		return _cart_select.peek(addr)
 	return ram[addr]
 
 func poke(addr: int, val: int) -> void:
 	addr = addr & 0xFFFF
 	val = val & 0xFF
-	if addr == ADDR_SCREEN_OUTPUT:
-		var ch = char(val)
-		_output_buffer += ch
-		char_output.emit(ch)
+	if _screen.handles_address(addr):
+		_screen.poke(addr, val)
 		return
-	if addr == ADDR_SCREEN_CTRL:
-		if val == 0x0C:
-			_output_buffer = ""
-			output_ready.emit("[CLR]")
-		elif val == 0x0D:
-			output_ready.emit(_output_buffer)
-			_output_buffer = ""
-		elif val == 0x08:
-			if _output_buffer.length() > 0:
-				_output_buffer = _output_buffer.substr(0, _output_buffer.length() - 1)
-		return
-	if addr == ADDR_CART_SELECT:
-		cart_switch_requested.emit(val)
+	if _cart_select.handles_address(addr):
+		_cart_select.poke(addr, val)
 		return
 	ram[addr] = val
+
+func reset() -> void:
+	super()
+	_keyboard.reset()
+	_screen.reset()
+	_cart_select.reset()
+	_write_vectors()
+
+func push_input(text: String) -> void:
+	_keyboard.push_input(text)
+
+func clear_input() -> void:
+	_keyboard.clear_input()
+
+func set_cart_id_readback(id: int) -> void:
+	_cart_select.set_readback(id)
 
 ## Span from $0200 through last non-zero byte in main RAM ($0200-$DFFF). 0 if empty.
 func get_main_ram_used_high_water() -> int:
