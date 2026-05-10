@@ -101,6 +101,7 @@ func _ready() -> void:
 	_debug_panel.setup(computer)
 	add_child(_debug_panel)
 	_debug_panel.visible = false
+	_debug_panel.z_index = 101
 	_debug_panel.anchors_preset = Control.PRESET_RIGHT_WIDE
 	_debug_panel.offset_left = -330
 	_debug_panel.offset_top = 30
@@ -781,6 +782,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  LOADOBJ   [/color]- Load HC65 .obj from user://; optional , NAME registers native call\n"
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
+	help_text += "[color=yellow]  DEBUG/PANEL[/color]- Toggle debug panel (register viewer)\n"
 	help_text += "[color=yellow]  PROFILES  [/color]- List available computer profiles\n"
 	help_text += "[color=yellow]  PROFILE   [/color]- Save/load/delete profiles (SAVE name, LOAD name, DELETE name)\n"
 	help_text += _help_keyboard_shortcuts_block()
