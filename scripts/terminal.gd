@@ -97,17 +97,9 @@ func _ready() -> void:
 	add_child(sound)
 	debug = DebugManager.new()
 	add_child(debug)
-	_debug_panel = preload("res://scripts/debug_panel.gd").new()
-	_debug_panel.setup(computer)
+	_debug_panel = _build_debug_panel()
 	add_child(_debug_panel)
 	_debug_panel.visible = false
-	_debug_panel.z_index = 101
-	_debug_panel.anchors_preset = Control.PRESET_RIGHT_WIDE
-	_debug_panel.offset_left = -330
-	_debug_panel.offset_top = 30
-	_debug_panel.offset_right = -10
-	_debug_panel.offset_bottom = -10
-	_debug_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	input_line = $VBoxContainer/InputLine
 	input_line.visible = false
 	input_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -372,7 +364,7 @@ func _input(event: InputEvent) -> void:
 				handled = true
 			KEY_F2:
 				_debug_panel.visible = not _debug_panel.visible
-				_debug_panel.refresh()
+				_refresh_debug_panel(_debug_panel)
 				handled = true
 			KEY_F3:
 				_debug_visible = not _debug_visible
@@ -583,7 +575,7 @@ func _format_title_ram_usage(used: int) -> String:
 func _update_status() -> void:
 	_update_title_bar()
 	if _debug_panel and _debug_panel.visible:
-		_debug_panel.refresh()
+		_refresh_debug_panel(_debug_panel)
 	var state = computer.cpu.get_state()
 	var rec: String = " [REC]" if debug.is_recording() else ""
 	var run: String = " [RUN]" if computer._program_running else ""
@@ -706,7 +698,7 @@ func _handle_command(text: String) -> void:
 	elif upper == "DEBUG" or upper == "PANEL":
 		_debug_panel.visible = not _debug_panel.visible
 		if _debug_panel.visible:
-			_debug_panel.refresh()
+			_refresh_debug_panel(_debug_panel)
 			_show_register_summary()
 		else:
 			screen.append_text("\n[color=yellow]Debug panel closed[/color]\n")
@@ -1712,6 +1704,307 @@ func _show_register_summary() -> void:
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
+
+func _debug_panel_bg() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.06, 0.06, 0.15, 0.97)
+	s.border_width_left = 2
+	s.border_width_top = 2
+	s.border_width_right = 2
+	s.border_width_bottom = 2
+	s.border_color = Color(0.2, 0.3, 0.2, 1)
+	s.corner_radius_top_left = 6
+	s.corner_radius_top_right = 6
+	s.corner_radius_bottom_right = 6
+	s.corner_radius_bottom_left = 6
+	return s
+
+func _debug_sep() -> HSeparator:
+	var s = HSeparator.new()
+	s.add_theme_color_override("default_color", Color(0.2, 0.25, 0.2, 0.5))
+	return s
+
+func _build_debug_panel() -> PanelContainer:
+	var panel = PanelContainer.new()
+	panel.z_index = 101
+	panel.anchors_preset = Control.PRESET_RIGHT_WIDE
+	panel.offset_left = -330
+	panel.offset_top = 30
+	panel.offset_right = -10
+	panel.offset_bottom = -10
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.add_theme_stylebox_override("panel", _debug_panel_bg())
+	panel.custom_minimum_size = Vector2(320, 0)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 3)
+	panel.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "  Debug Panel (F2)"
+	title.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	title.add_theme_font_size_override("font_size", 15)
+	vbox.add_child(title)
+
+	panel._cpu_label = Label.new()
+	panel._cpu_label.add_theme_font_size_override("font_size", 10)
+	panel._cpu_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	vbox.add_child(panel._cpu_label)
+
+	vbox.add_child(_debug_sep())
+
+	var rh = Label.new()
+	rh.text = "  Registers"
+	rh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	rh.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(rh)
+
+	panel._reg_container = VBoxContainer.new()
+	panel._reg_container.add_theme_constant_override("separation", 1)
+	vbox.add_child(panel._reg_container)
+
+	vbox.add_child(_debug_sep())
+
+	var fh = Label.new()
+	fh.text = "  Status Flags"
+	fh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	fh.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(fh)
+
+	panel._flag_container = VBoxContainer.new()
+	panel._flag_container.add_theme_constant_override("separation", 1)
+	vbox.add_child(panel._flag_container)
+
+	vbox.add_child(_debug_sep())
+
+	var ch = Label.new()
+	ch.text = "  Controls"
+	ch.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	ch.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(ch)
+
+	var ctrl_box = HBoxContainer.new()
+	ctrl_box.add_theme_constant_override("separation", 5)
+	vbox.add_child(ctrl_box)
+
+	var step_btn = Button.new()
+	step_btn.text = "Step"
+	step_btn.pressed.connect(_on_debug_step.bind(panel))
+	ctrl_box.add_child(step_btn)
+
+	var cont_btn = Button.new()
+	cont_btn.text = "Continue"
+	cont_btn.pressed.connect(_on_debug_continue.bind(panel))
+	ctrl_box.add_child(cont_btn)
+
+	var reset_btn = Button.new()
+	reset_btn.text = "Reset CPU"
+	reset_btn.pressed.connect(_on_debug_reset.bind(panel))
+	ctrl_box.add_child(reset_btn)
+
+	vbox.add_child(_debug_sep())
+
+	var dh = Label.new()
+	dh.text = "  Disassembly"
+	dh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	dh.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(dh)
+
+	panel._disasm_label = RichTextLabel.new()
+	panel._disasm_label.bbcode_enabled = true
+	panel._disasm_label.fit_content = false
+	panel._disasm_label.custom_minimum_size = Vector2(0, 100)
+	panel._disasm_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel._disasm_label.add_theme_font_size_override("normal_font_size", 11)
+	panel._disasm_label.add_theme_color_override("default_color", Color(0.6, 0.6, 0.6))
+	vbox.add_child(panel._disasm_label)
+
+	vbox.add_child(_debug_sep())
+
+	var hh = Label.new()
+	hh.text = "  Register Help"
+	hh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
+	hh.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(hh)
+
+	panel._help_label = RichTextLabel.new()
+	panel._help_label.bbcode_enabled = true
+	panel._help_label.fit_content = true
+	panel._help_label.custom_minimum_size = Vector2(0, 50)
+	panel._help_label.add_theme_font_size_override("normal_font_size", 10)
+	panel._help_label.add_theme_color_override("default_color", Color(0.65, 0.65, 0.65))
+	vbox.add_child(panel._help_label)
+
+	panel._info_cache = []
+	panel._reg_value_labels = {}
+	panel._flag_labels = {}
+	panel._desc_labels = {}
+
+	_populate_debug_info(panel)
+	_refresh_debug_panel(panel)
+	return panel
+
+func _populate_debug_info(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	if not computer.cpu.has_method("get_register_info"):
+		return
+	var info = computer.cpu.get_register_info()
+	panel._info_cache = info
+	for entry in info:
+		var key = entry.get("key", "")
+		var group = entry.get("group", "")
+		if group == "register":
+			_add_debug_reg_row(panel, key, entry.get("name", key), entry.get("desc", ""))
+		elif group == "flag":
+			_add_debug_flag_row(panel, key, entry.get("name", key), entry.get("desc", ""))
+
+func _add_debug_reg_row(panel: PanelContainer, key: String, name: String, desc: String) -> void:
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 3)
+
+	var nl = Label.new()
+	nl.text = "  " + name + ":"
+	nl.add_theme_font_size_override("font_size", 11)
+	nl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0))
+	nl.custom_minimum_size = Vector2(30, 0)
+	hbox.add_child(nl)
+
+	var vl = Label.new()
+	vl.text = "$00"
+	vl.add_theme_font_size_override("font_size", 11)
+	vl.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+	vl.custom_minimum_size = Vector2(75, 0)
+	panel._reg_value_labels[key] = vl
+	hbox.add_child(vl)
+
+	var dl = Label.new()
+	dl.text = desc
+	dl.add_theme_font_size_override("font_size", 9)
+	dl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel._desc_labels[key] = dl
+	hbox.add_child(dl)
+
+	panel._reg_container.add_child(hbox)
+
+func _add_debug_flag_row(panel: PanelContainer, key: String, name: String, desc: String) -> void:
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 3)
+
+	var nl = Label.new()
+	nl.text = "  " + name + ":"
+	nl.add_theme_font_size_override("font_size", 10)
+	nl.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
+	nl.custom_minimum_size = Vector2(70, 0)
+	hbox.add_child(nl)
+
+	var vl = Label.new()
+	vl.text = "0"
+	vl.add_theme_font_size_override("font_size", 11)
+	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vl.custom_minimum_size = Vector2(18, 0)
+	panel._flag_labels[key] = vl
+	hbox.add_child(vl)
+
+	var dl = Label.new()
+	dl.text = desc
+	dl.add_theme_font_size_override("font_size", 9)
+	dl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel._desc_labels[key] = dl
+	hbox.add_child(dl)
+
+	panel._flag_container.add_child(hbox)
+
+func _refresh_debug_panel(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	var state = computer.cpu.get_state()
+	var cpu_type = computer.cpu.cpu_type if computer.cpu.cpu_type != "" else "?"
+	var halted = "Yes" if computer.cpu.halted else "No"
+	var run = "Yes" if computer._program_running else "No"
+	panel._cpu_label.text = "CPU: %s | Halted: %s | Run: %s" % [cpu_type, halted, run]
+
+	for entry in panel._info_cache:
+		var key = entry.get("key", "")
+		var group = entry.get("group", "")
+		if group == "register" and key in state and key in panel._reg_value_labels:
+			var val = state[key]
+			if key == "PC":
+				panel._reg_value_labels[key].text = "$%04X" % val
+			elif key == "P":
+				panel._reg_value_labels[key].text = "$%02X" % val
+			elif key == "SP":
+				panel._reg_value_labels[key].text = "$%02X (%d)" % [val, val]
+			else:
+				panel._reg_value_labels[key].text = "$%02X (%d)" % [val, val]
+		elif group == "flag" and key in state and key in panel._flag_labels:
+			var val = state[key]
+			panel._flag_labels[key].text = "1" if val else "0"
+			if val:
+				panel._flag_labels[key].add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+			else:
+				panel._flag_labels[key].add_theme_color_override("font_color", Color(0.5, 0.3, 0.3))
+
+	_update_debug_disasm(panel)
+
+	panel._help_label.clear()
+	panel._help_label.append_text("[color=#888888]Registers show hex and decimal values.\nFlags: green=set, red=clear.\nUse Step to execute one instruction.[/color]")
+
+func _update_debug_disasm(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	var pc = computer.cpu.PC if "PC" in computer.cpu else 0
+	var lines = computer.cpu.disassemble(pc, 8)
+	panel._disasm_label.clear()
+	for entry in lines:
+		var addr = entry.get("addr", 0)
+		var instr = entry.get("disasm", "???")
+		var bytes_str = ""
+		if computer.memory:
+			var b0 = computer.memory.peek(addr)
+			var b1 = computer.memory.peek(addr + 1)
+			var b2 = computer.memory.peek(addr + 2)
+			bytes_str = "%02X %02X %02X" % [b0, b1, b2]
+		panel._disasm_label.append_text("[color=#888888]$%04X  %s[/color]  [color=#cccccc]%s[/color]\n" % [addr, bytes_str, instr])
+
+func _on_debug_step(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	if computer.cpu.halted:
+		computer.cpu.halted = false
+	computer.cpu.step()
+	var pc = computer.cpu.PC
+	var lines = computer.cpu.disassemble(pc, 1)
+	var instr = lines[0]["disasm"] if lines.size() > 0 else "???"
+	var state = computer.cpu.get_state()
+	var msg = "\n[color=cyan]** STEP **[/color] "
+	msg += "[color=white]PC=$%04X  %s  A=$%02X X=$%02X Y=$%02X[/color]\n" % [pc, instr, state.A, state.X, state.Y]
+	computer.output_richtext.emit(msg)
+	_refresh_debug_panel(panel)
+
+func _on_debug_continue(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	if computer.cpu.halted:
+		computer.cpu.halted = false
+		computer.output_richtext.emit("\n[color=green]CPU resumed.[/color]\n")
+		if not computer._program_running and computer.basic and computer.basic._program.size() > 0:
+			computer.run_basic("", -1)
+	else:
+		if not computer._program_running and computer.basic and computer.basic._program.size() > 0:
+			computer.run_basic("", -1)
+	_refresh_debug_panel(panel)
+
+func _on_debug_reset(panel: PanelContainer) -> void:
+	if not computer or not computer.cpu:
+		return
+	computer.cpu.reset()
+	computer.output_richtext.emit("\n[color=yellow]CPU reset.[/color]\n")
+	_refresh_debug_panel(panel)
 
 func _list_profiles() -> void:
 	_instant_output = true
