@@ -127,7 +127,7 @@ func _build_ui() -> void:
 
 func _make_panel_bg() -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
-	s.bg_color = Color(0.04, 0.04, 0.1, 0.95)
+	s.bg_color = Color(0.06, 0.06, 0.15, 0.97)
 	s.border_width_left = 2
 	s.border_width_top = 2
 	s.border_width_right = 2

@@ -707,9 +707,11 @@ func _handle_command(text: String) -> void:
 		_debug_panel.visible = not _debug_panel.visible
 		if _debug_panel.visible:
 			_debug_panel.refresh()
-			screen.append_text("\n[color=green]Debug panel opened (F2 to toggle)[/color]\n")
+			_show_register_summary()
 		else:
 			screen.append_text("\n[color=yellow]Debug panel closed[/color]\n")
+	elif upper == "REGISTERS" or upper == "REGS":
+		_show_register_summary()
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
@@ -783,6 +785,7 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
 	help_text += "[color=yellow]  DEBUG/PANEL[/color]- Toggle debug panel (register viewer)\n"
+	help_text += "[color=yellow]  REGISTERS [/color]- Show CPU registers in terminal\n"
 	help_text += "[color=yellow]  PROFILES  [/color]- List available computer profiles\n"
 	help_text += "[color=yellow]  PROFILE   [/color]- Save/load/delete profiles (SAVE name, LOAD name, DELETE name)\n"
 	help_text += _help_keyboard_shortcuts_block()
@@ -1686,6 +1689,26 @@ func _show_cpu_state() -> void:
 		"I" if state.I else ".", "D" if state.D else ".",
 		".", "V" if state.V else ".", "N" if state.N else ".", "."
 	]
+	text += "\n"
+	screen.append_text(text)
+	_instant_output = false
+
+func _show_register_summary() -> void:
+	_instant_output = true
+	var s = computer.cpu.get_state()
+	var text = "\n[color=cyan]6502 Registers (F2 or PANEL for GUI):[/color]\n"
+	text += "[color=white]  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X  PC=$%04X\n[/color]" % [s.A, s.X, s.Y, s.SP, s.PC]
+	text += "[color=white]  Flags: C=%d Z=%d I=%d D=%d V=%d N=%d[/color]\n" % [s.C, s.Z, s.I, s.D, s.V, s.N]
+	var lines = computer.cpu.disassemble(s.PC, 3)
+	text += "[color=cyan]  At PC:[/color]\n"
+	for entry in lines:
+		var bytes_str = ""
+		var addr = entry.get("addr", 0)
+		var b0 = computer.memory.peek(addr)
+		var b1 = computer.memory.peek(addr + 1)
+		var b2 = computer.memory.peek(addr + 2)
+		bytes_str = "%02X %02X %02X" % [b0, b1, b2]
+		text += "[color=#888888]  $%04X  %s  %s[/color]\n" % [addr, bytes_str, entry.get("disasm", "")]
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
