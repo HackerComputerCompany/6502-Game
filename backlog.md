@@ -1,7 +1,7 @@
 # Teaching Lab - Backlog
 
 ## Vision
-A multi-CPU emulator "teaching lab" where students can interact with and program 6502, 4004, 8080, Z80, 8086 and other processors. Processors can communicate with each other for cross-development scenarios.
+A multi-CPU emulator "teaching lab" where students can interact with and program 6502, 4004, 8080, Z80, 8086, and synthetic teaching CPUs. Processors can communicate with each other for cross-development scenarios.
 
 ---
 
@@ -33,6 +33,12 @@ Implement 4004, 8080, Z80, and 8086.
 
 ### Epic 9: Hardware Manager GUI
 Visual GUI for managing CPUs, ROMs, Carts, Disks, and I/O devices. A "shelf" of common reference I/O devices (terminals, disk drives, serial ports, etc.) that can be dragged onto a system.
+
+### Epic 10: Synthetic Teaching CPU
+A clean, minimal CPU designed specifically for teaching. Inspired by IMSI/ALRAR front-panel machines where programs are deposited directly into memory via hex switches. Available in 8, 16, 32, and 64-bit word size variants to teach the concept of word width. Uses hex (not octal like early machines). Teaches: fetch-execute cycle, registers, ALU, addressing modes, memory layout — without the historical baggage of real ISAs.
+
+### Epic 11: Graphics Subsystem & GPU
+Display modes (text, bitmap, tile) and a pluggable "graphics card" device. Required for implementing Logo (turtle graphics) and Lisp (graphical environments) in the future. Each CPU/machine profile selects a graphics card, which provides a framebuffer and display registers.
 
 ---
 
@@ -79,6 +85,20 @@ Visual GUI for managing CPUs, ROMs, Carts, Disks, and I/O devices. A "shelf" of 
 - [ ] **US-8.4**: As a system, I want a working Intel 8086 implementation.
 - [ ] **US-8.5**: As a user, I want CP/M-like functionality on 8080/Z80.
 
+### Synthetic Teaching CPU
+- [ ] **US-10.1**: As a user, I want a synthetic CPU with a minimal ISA (load/store/add/sub/branch/halt) so I can understand the fetch-execute cycle.
+- [ ] **US-10.2**: As a user, I want to deposit programs directly into memory using hex values (front-panel style).
+- [ ] **US-10.3**: As a user, I want to choose between 8, 16, 32, and 64-bit word size variants of the same ISA to see how word width affects memory, registers, and ALU.
+- [ ] **US-10.4**: As a user, I want a step-by-step visual of each instruction's execution (register changes, memory access).
+
+### Graphics / GPU
+- [ ] **US-11.1**: As a system, I want a framebuffer device that can be mapped into any CPU's memory space.
+- [ ] **US-11.2**: As a user, I want text mode (80x25 character grid) for terminal-like output.
+- [ ] **US-11.3**: As a user, I want bitmap graphics mode for pixel-level drawing (turtle graphics).
+- [ ] **US-11.4**: As a developer, I want a pluggable GPU interface so different graphics cards can be swapped.
+- [ ] **US-11.5**: As a user, I want to draw lines, shapes, and sprites via memory-mapped GPU registers.
+- [ ] **US-11.6**: As a user, I want multiple display layers (text + graphics overlay).
+
 ---
 
 ## Additional Considerations
@@ -124,12 +144,15 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 ## Priority Order (Suggested)
 
 1. **Phase 1 ✓**: US-1.1, US-1.2, US-2.1, US-2.2 (CPU + Memory base)
-2. **Phase 2**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
-3. **Phase 3**: US-4.1, US-4.2 (I/O abstraction)
-4. **Phase 4**: US-6.1, US-6.2, US-6.3 (Debugging tools)
-5. **Phase 5**: US-7.1, US-7.2 (Profiles)
-6. **Phase 6**: US-5.1, US-5.2, US-5.3 (Cross-CPU)
-7. **Phase 7**: US-8.1, US-8.2, US-8.3, US-8.4 (New CPUs)
+2. **Phase 2 ✓**: Memory architecture split (base MemoryBus + MemoryBus6502)
+3. **Phase 3**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
+4. **Phase 4**: US-4.1, US-4.2 (I/O abstraction)
+5. **Phase 5**: US-6.1, US-6.2, US-6.3 (Debugging tools)
+6. **Phase 6**: US-7.1, US-7.2 (Profiles)
+7. **Phase 7**: US-5.1, US-5.2, US-5.3 (Cross-CPU)
+8. **Phase 8**: US-10.1, US-10.2, US-10.3, US-10.4 (Synthetic CPU)
+9. **Phase 9**: US-11.1, US-11.2, US-11.3, US-11.4, US-11.5, US-11.6 (Graphics/GPU)
+10. **Phase 10**: US-8.1, US-8.2, US-8.3, US-8.4 (New CPUs 4004/8080/Z80/8086)
 
 ---
 
