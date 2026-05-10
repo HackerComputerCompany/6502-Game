@@ -125,12 +125,14 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 
 The software emulator is the **reference design** for eventual FPGA hardware:
 
+- **Right-size by prototyping** — Simulate the hardware architecture in software first to measure gate/bram/dsp requirements before committing to specific FPGA silicon. Lets us target cheap FPGAs (e.g. Cyclone IV / ECP5) instead of jumping to DE10-Nano
 - **MiSTer as proving ground** — Develop MiSTer cores that match the emulator's component architecture; validate correctness by running identical cartridge images
 - **HDL languages** — Verilog / SystemVerilog for FPGA soft-cores; each CPU core becomes a separate module
 - **Bus fabric** — MemoryBus maps to a Wishbone or AXI bus; address decoding, wait states, DMA
+- **Open-source FPGA tooling** — Evaluate [Project Trellis](https://github.com/YosysHQ/prjtrellis) (ECP5), [nextpnr](https://github.com/YosysHQ/nextpnr), [Yosys](https://github.com/YosysHQ/yosys) for open-source synthesis; avoid vendor lock-in. Reference open [MiSTer](https://github.com/MiSTer-devel) and [MegaDrive/Genesis core](https://github.com/MiSTer-devel/Genesis_MiSTer) designs for architecture patterns
 - **Peripheral chips** — Display controller, USB host, audio DAC mapped as I/O devices on the bus
 - **Cartridge format** — Shared ROM image format (flat binary + header) that loads identically in emulator and on hardware
-- **Long-term goal** — Custom PCB "Learning Lab appliance" with FPGA, VGA/HDMI out, USB in, audio jack
+- **Long-term goal** — Custom PCB "Learning Lab appliance" with low-cost FPGA, VGA/HDMI out, USB in, audio jack
 
 ## C++ / GDExtension Strategy
 
