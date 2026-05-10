@@ -702,6 +702,13 @@ func _handle_command(text: String) -> void:
 		_list_profiles()
 	elif upper.begins_with("PROFILE "):
 		_handle_profile_command(text.substr(8).strip_edges())
+	elif upper == "DEBUG" or upper == "PANEL":
+		_debug_panel.visible = not _debug_panel.visible
+		if _debug_panel.visible:
+			_debug_panel.refresh()
+			screen.append_text("\n[color=green]Debug panel opened (F2 to toggle)[/color]\n")
+		else:
+			screen.append_text("\n[color=yellow]Debug panel closed[/color]\n")
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
