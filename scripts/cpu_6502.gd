@@ -23,6 +23,7 @@ var _opcode_table: Dictionary = {}
 
 func _init(mem: MemoryBus) -> void:
 	super(mem)
+	cpu_type = "6502"
 	PC = 0x0800
 	_build_opcode_table()
 

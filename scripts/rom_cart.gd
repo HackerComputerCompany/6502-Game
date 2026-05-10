@@ -8,6 +8,12 @@ var description: String = ""
 ## Prompt shown after each command (e.g. "READY." or "EDIT>")
 var prompt: String = "READY."
 
+## Declares CPU compatibility. Used by CartManager to validate before loading.
+## Override in subclass to support additional CPUs (e.g. {"cpus": ["6502", "z80"]}).
+var manifest: Dictionary = {
+	"cpus": ["6502"],
+}
+
 var memory: MemoryBus
 var computer: Variant
 

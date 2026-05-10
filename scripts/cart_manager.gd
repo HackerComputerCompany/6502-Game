@@ -46,6 +46,11 @@ func switch_to(key: Variant, force: bool = false) -> bool:
 	if not force and current != null and current.id == new_cart.id:
 		computer.memory.set_cart_id_readback(current.id)
 		return true
+	if not force:
+		var supported_cpus: Array = new_cart.manifest.get("cpus", [])
+		if supported_cpus.size() > 0 and not computer.cpu.cpu_type in supported_cpus:
+			computer.emit_richtext("[color=red]Cart '%s' does not support CPU '%s'[/color]\n" % [new_cart.name, computer.cpu.cpu_type])
+			return false
 	_swap_depth += 1
 	if current != null:
 		current.uninstall()

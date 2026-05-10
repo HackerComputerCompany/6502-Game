@@ -54,9 +54,9 @@ Display modes (text, bitmap, tile) and a pluggable "graphics card" device. Requi
 - [x] **US-2.2**: As a developer, I want 6502's current memory implementation to work unchanged as `6502MemoryBus`.
 - [ ] **US-2.3**: As a developer, I want memory-mapped I/O to work per-CPU (different addresses for different CPUs).
 
-### Cartridge System
-- [ ] **US-3.1**: As a developer, I want carts to have a `manifest` declaring supported CPUs (e.g., `["6502"]` or `["6502", "8080"]`).
-- [ ] **US-3.2**: As a system, I want to reject loading a cart if the current CPU isn't in its manifest.
+### Cartridge System [Phase 3 ✓]
+- [x] **US-3.1**: As a developer, I want carts to have a `manifest` declaring supported CPUs (e.g., `["6502"]` or `["6502", "8080"]`).
+- [x] **US-3.2**: As a system, I want to reject loading a cart if the current CPU isn't in its manifest.
 - [ ] **US-3.3**: As a developer, I want carts to have CPU-specific handlers (e.g., 6502 BASIC vs Z80 BASIC are different code).
 
 ### I/O Abstraction
@@ -145,7 +145,7 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 
 1. **Phase 1 ✓**: US-1.1, US-1.2, US-2.1, US-2.2 (CPU + Memory base)
 2. **Phase 2 ✓**: Memory architecture split (base MemoryBus + MemoryBus6502)
-3. **Phase 3**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
+3. **Phase 3 ✓**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
 4. **Phase 4**: US-4.1, US-4.2 (I/O abstraction)
 5. **Phase 5**: US-6.1, US-6.2, US-6.3 (Debugging tools)
 6. **Phase 6**: US-7.1, US-7.2 (Profiles)

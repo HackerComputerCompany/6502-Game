@@ -3,6 +3,7 @@
 extends RefCounted
 
 var memory
+var cpu_type: String = ""
 var PC: int = 0
 var halted: bool = false
 
