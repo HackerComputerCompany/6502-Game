@@ -1391,6 +1391,24 @@ func _init_help_topics() -> void:
 				'30 A = 10 : B = 20 : PRINT A + B   -> three statements',
 			]
 		},
+		"DEBUG": {
+			"syntax": "DEBUG  |  PANEL",
+			"desc": "Toggle the debug panel on the right side of the screen. Shows live CPU registers (A, X, Y, SP, PC, P), status flags (C, Z, I, D, V, N), disassembly of the next 8 instructions at the current program counter, and Step/Continue/Reset buttons. Press F2 or type PANEL as an alias. Type REGISTERS for a terminal-based view.",
+			"examples": [
+				'DEBUG                             -> toggle debug panel open',
+				'PANEL                             -> same as DEBUG',
+				'F2                                -> keyboard shortcut for same',
+			]
+		},
+		"REGISTERS": {
+			"syntax": "REGISTERS  |  REGS",
+			"desc": "Display the current CPU registers and disassembly directly in the terminal. Shows A, X, Y, SP, PC, all flags, and the next 3 instructions at PC. Falls back to F2/PANEL for the graphical debug panel. Also available as REGS for short.",
+			"examples": [
+				'REGISTERS                         -> show registers in terminal',
+				'REGS                              -> same, shorter',
+				'-> Type DEBUG or press F2 for the graphical panel',
+			]
+		},
 	}
 
 func _show_help_topic(topic: String) -> void:
