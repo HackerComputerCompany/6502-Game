@@ -1,7 +1,7 @@
 # Teaching Lab - Backlog
 
 ## Vision
-A multi-CPU emulator "teaching lab" where students can interact with and program 6502, 4004, 8080, Z80, 8086, and synthetic teaching CPUs. Processors can communicate with each other for cross-development scenarios.
+A multi-CPU emulator "teaching lab" where students can interact with and program 6502, 4004, 8080, Z80, 8086, and synthetic teaching CPUs. Processors can communicate with each other for cross-development scenarios. Future target: deploy to custom FPGA-based hardware (inspired by MiSTer) for a physical "learning lab" appliance with dedicated display, USB, and I/O.
 
 ---
 
@@ -39,6 +39,9 @@ A clean, minimal CPU designed specifically for teaching. Inspired by IMSI/ALRAR 
 
 ### Epic 11: Graphics Subsystem & GPU
 Display modes (text, bitmap, tile) and a pluggable "graphics card" device. Required for implementing Logo (turtle graphics) and Lisp (graphical environments) in the future. Each CPU/machine profile selects a graphics card, which provides a framebuffer and display registers.
+
+### Epic 12: FPGA / Hardware Target
+Architect the entire Learning Lab so it can eventually run on custom FPGA hardware (inspired by MiSTer). The software emulator is the proving ground / reference design. Each component maps cleanly to hardware: CPU → soft-core, MemoryBus → bus fabric, I/O controllers → peripheral chips (VGA, USB, audio). MiSTer is the primary prototyping platform for hardware validation; long-term goal is a custom PCB appliance for classrooms.
 
 ---
 
@@ -99,6 +102,14 @@ Display modes (text, bitmap, tile) and a pluggable "graphics card" device. Requi
 - [ ] **US-11.5**: As a user, I want to draw lines, shapes, and sprites via memory-mapped GPU registers.
 - [ ] **US-11.6**: As a user, I want multiple display layers (text + graphics overlay).
 
+### FPGA / Hardware Target
+- [ ] **US-12.1**: As a developer, I want each CPU core to have a documented hardware interface (signals, bus width, timings) so it can be implemented as an FPGA soft-core.
+- [ ] **US-12.2**: As a developer, I want the MemoryBus design to map to a hardware bus fabric (address decoding, wait states, arbitration).
+- [ ] **US-12.3**: As a developer, I want I/O devices to have abstracted hardware interfaces (register maps, interrupts) so they can be swapped between emulation and real hardware.
+- [ ] **US-12.4**: As a developer, I want the software emulator to output cycle-accurate trace logs for validating FPGA core behavior.
+- [ ] **US-12.5**: As a developer, I want to run the same ROM/cartridge images in both the software emulator and on MiSTer to validate correctness.
+- [ ] **US-12.6**: As a user, I want a MiSTer core that can load and run the Learning Lab's cartridge format.
+
 ---
 
 ## Additional Considerations
@@ -109,6 +120,17 @@ Display modes (text, bitmap, tile) and a pluggable "graphics card" device. Requi
 4. **Peripheral Hot-Swap** — Allow adding/removing devices at runtime
 5. **Audio** — Different CPUs may have different sound capabilities
 6. **Expansion Slots** — Define a slot system for adding expansion cards
+
+## FPGA / Hardware Strategy
+
+The software emulator is the **reference design** for eventual FPGA hardware:
+
+- **MiSTer as proving ground** — Develop MiSTer cores that match the emulator's component architecture; validate correctness by running identical cartridge images
+- **HDL languages** — Verilog / SystemVerilog for FPGA soft-cores; each CPU core becomes a separate module
+- **Bus fabric** — MemoryBus maps to a Wishbone or AXI bus; address decoding, wait states, DMA
+- **Peripheral chips** — Display controller, USB host, audio DAC mapped as I/O devices on the bus
+- **Cartridge format** — Shared ROM image format (flat binary + header) that loads identically in emulator and on hardware
+- **Long-term goal** — Custom PCB "Learning Lab appliance" with FPGA, VGA/HDMI out, USB in, audio jack
 
 ## C++ / GDExtension Strategy
 
@@ -153,6 +175,7 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 8. **Phase 8**: US-10.1, US-10.2, US-10.3, US-10.4 (Synthetic CPU)
 9. **Phase 9**: US-11.1, US-11.2, US-11.3, US-11.4, US-11.5, US-11.6 (Graphics/GPU)
 10. **Phase 10**: US-8.1, US-8.2, US-8.3, US-8.4 (New CPUs 4004/8080/Z80/8086)
+11. **Phase 11**: US-12.1, US-12.2, US-12.3, US-12.4, US-12.5, US-12.6 (FPGA/Hardware target)
 
 ---
 
