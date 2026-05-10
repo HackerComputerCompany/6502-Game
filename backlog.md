@@ -31,13 +31,16 @@ Define complete system configurations (CPU + Memory + I/O + ROMs) as loadable pr
 ### Epic 8: New CPU Implementations
 Implement 4004, 8080, Z80, and 8086.
 
+### Epic 9: Hardware Manager GUI
+Visual GUI for managing CPUs, ROMs, Carts, Disks, and I/O devices. A "shelf" of common reference I/O devices (terminals, disk drives, serial ports, etc.) that can be dragged onto a system.
+
 ---
 
 ## User Stories
 
-### CPU Abstraction
-- [ ] **US-1.1**: As a developer, I want a `CPU` base class with `execute_step()`, `read()`, `write()`, `get_state()`, `set_state()` so I can implement multiple CPUs uniformly.
-- [ ] **US-1.2**: As a developer, I want `CPU6502` to inherit from `CPU` without breaking existing functionality.
+### CPU Abstraction [Phase 1 ✓]
+- [x] **US-1.1**: As a developer, I want a `CPU` base class with `step()`, `reset()`, `get_state()`, `disassemble()`, `run()`, `serialize()`, `deserialize()` so I can implement multiple CPUs uniformly.
+- [x] **US-1.2**: As a developer, I want `CPU6502` to inherit from `CPU` without breaking existing functionality.
 - [ ] **US-1.3**: As a user, I want to select which CPU to use when creating a new machine configuration.
 
 ### Memory Architecture
@@ -86,6 +89,35 @@ Implement 4004, 8080, Z80, and 8086.
 4. **Peripheral Hot-Swap** — Allow adding/removing devices at runtime
 5. **Audio** — Different CPUs may have different sound capabilities
 6. **Expansion Slots** — Define a slot system for adding expansion cards
+
+## C++ / GDExtension Strategy
+
+For performance-critical emulation cores and I/O devices, consider GDExtension (C++):
+
+- **CPU emulation cores** — 8080/Z80/8086 cycle-accurate emulation benefits from C++ speed
+- **Prior art to reference**:
+  - [fake86](https://github.com/ohnoimdead/fake86) — 8086 emulator in C
+  - [8080emu](https://github.com/jblang/8080emu) — Altair 8800 CP/M emulator
+  - [MAME](https://github.com/mamedev/mame) — reference implementations for virtually all CPUs
+  - [SameBoy](https://github.com/LIJI32/SameBoy) — cycle-accurate Game Boy (Z80-like), clean C codebase
+  - [SingleStepTests](https://github.com/SingleStepTests) — JSON test suites for 6502, 8080, Z80
+- 6502 core can stay in GDScript (already proven performant)
+- Start with GDScript prototypes; profile, then hot-path to C++ if needed
+
+## Open Source Test Suites per CPU
+
+Following the existing pattern (`test_processor_step_tests.gd` / 65x02 JSON):
+
+| CPU | Test Suite | Approach |
+|-----|-----------|----------|
+| 6502 | [SingleStepTests/65x02](https://github.com/SingleStepTests/65x02) | Already vendored (MIT) |
+| 8080 | [SingleStepTests/8080](https://github.com/SingleStepTests/8080) | JSON step tests (MIT) |
+| Z80 | [SingleStepTests/Z80](https://github.com/SingleStepTests/Z80) | JSON step tests (MIT) |
+| Z80 | [z80-tests](https://github.com/retroudhb/z80-tests) / [Z80Test](https://github.com/raxoft/z80test) | Assembled ROM binaries run in emulator, compare register state |
+| 8086 | [8086-test-suite](https://github.com/barotto/8086-test-suite) | Instruction-level tests |
+| 4004 | [4004-test](https://github.com/wjak/4004-test) | Basic opcode validation |
+
+Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing fixture pattern.
 
 ---
 
