@@ -4,7 +4,7 @@ extends RefCounted
 const _CartNativeGd := preload("res://scripts/cart_native.gd")
 
 var memory: MemoryBus
-var cpu: CPU6502
+var cpu
 var basic: BasicInterpreter
 var rom: ROM
 var cart_manager: CartManager

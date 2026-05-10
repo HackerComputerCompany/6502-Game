@@ -23,10 +23,10 @@ const ADDR_CURSOR_Y = 0xC011
 const ADDR_RNG_SEED = 0xC020
 const ADDR_CART_SELECT = 0xC030
 ## Poked for user routines that end in RTS without a prior JSR (ASM RUN, BASIC SYS, LOADOBJ native).
-## Opcode $FF is unimplemented in our 6502 core and halts after RTS returns (pull + 1) here.
+## Opcode $FF is unimplemented in the 6502 core and halts after RTS returns (pull + 1) here.
 const USER_RTS_HALT_ADDR := 0xFFF0
 
-func prepare_cpu_stack_for_user_rts(cpu: CPU6502) -> void:
+func prepare_cpu_stack_for_user_rts(cpu) -> void:
 	var ret_pc := (USER_RTS_HALT_ADDR - 1) & 0xFFFF
 	poke(USER_RTS_HALT_ADDR, 0xFF)
 	poke(0x01FE, ret_pc & 0xFF)

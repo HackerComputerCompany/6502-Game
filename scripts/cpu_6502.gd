@@ -1,5 +1,5 @@
 class_name CPU6502
-extends RefCounted
+extends "res://scripts/cpu.gd"
 
 enum Flag {
 	C = 0,
@@ -15,20 +15,16 @@ var A: int = 0
 var X: int = 0
 var Y: int = 0
 var SP: int = 0xFD
-var PC: int = 0x0800
 var P: int = 0x24
 
-var memory: MemoryBus
-var halted: bool = false
 var cycles: int = 0
 
 var _opcode_table: Dictionary = {}
 
 func _init(mem: MemoryBus) -> void:
-	memory = mem
+	super(mem)
+	PC = 0x0800
 	_build_opcode_table()
-
-signal cpu_halted()
 
 func reset() -> void:
 	A = 0
