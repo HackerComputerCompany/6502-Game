@@ -6,6 +6,8 @@ extends SceneTree
 var _tests_passed: int = 0
 var _tests_failed: int = 0
 
+const _MemoryBus6502 := preload("res://scripts/memory_bus_6502.gd")
+
 const _ASM_CHUNKS: Array[String] = [
 	"LDA #",
 	"LDX #",
@@ -331,7 +333,7 @@ func _fuzz_cpu_random(iters: int, rng: RandomNumberGenerator, deadline_ms: int) 
 		if Time.get_ticks_msec() > deadline_ms:
 			_fail("global time budget exceeded during CPU fuzz")
 			return
-		var mem := MemoryBus.new()
+		var mem := _MemoryBus6502.new()
 		var cpu := CPU6502.new(mem)
 		mem.prepare_cpu_stack_for_user_rts(cpu)
 		var fill_n := rng.randi_range(16, 384)

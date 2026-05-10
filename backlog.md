@@ -43,9 +43,9 @@ Visual GUI for managing CPUs, ROMs, Carts, Disks, and I/O devices. A "shelf" of 
 - [x] **US-1.2**: As a developer, I want `CPU6502` to inherit from `CPU` without breaking existing functionality.
 - [ ] **US-1.3**: As a user, I want to select which CPU to use when creating a new machine configuration.
 
-### Memory Architecture
-- [ ] **US-2.1**: As a developer, I want a `MemoryBus` interface that each CPU subclass can implement with its own addressing scheme.
-- [ ] **US-2.2**: As a developer, I want 6502's current memory implementation to work unchanged as `6502MemoryBus`.
+### Memory Architecture [Phase 2 ✓]
+- [x] **US-2.1**: As a developer, I want a `MemoryBus` interface that each CPU subclass can implement with its own addressing scheme.
+- [x] **US-2.2**: As a developer, I want 6502's current memory implementation to work unchanged as `6502MemoryBus`.
 - [ ] **US-2.3**: As a developer, I want memory-mapped I/O to work per-CPU (different addresses for different CPUs).
 
 ### Cartridge System
@@ -123,7 +123,7 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 
 ## Priority Order (Suggested)
 
-1. **Phase 1**: US-1.1, US-1.2, US-2.1, US-2.2 (CPU + Memory base)
+1. **Phase 1 ✓**: US-1.1, US-1.2, US-2.1, US-2.2 (CPU + Memory base)
 2. **Phase 2**: US-3.1, US-3.2, US-3.3 (Cartridge manifest)
 3. **Phase 3**: US-4.1, US-4.2 (I/O abstraction)
 4. **Phase 4**: US-6.1, US-6.2, US-6.3 (Debugging tools)

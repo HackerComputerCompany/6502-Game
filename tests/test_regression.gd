@@ -1,6 +1,7 @@
 extends SceneTree
 
 const _SoftFloatScript := preload("res://scripts/native_basic_softfloat.gd")
+const _MemoryBus6502 := preload("res://scripts/memory_bus_6502.gd")
 var _reg_sf: RefCounted
 
 var _tests_passed: int = 0
@@ -102,7 +103,7 @@ func _fresh_cpu() -> CPU6502:
 	return cpu
 
 func _fresh_mem() -> MemoryBus:
-	return MemoryBus.new()
+	return _MemoryBus6502.new()
 
 
 func _dispose_computer(comp: Computer) -> void:
@@ -575,7 +576,7 @@ func test_assembler6502_hello_snippet() -> void:
 
 func test_assembler_hello_demo_run_single_A() -> void:
 	_begin_test("hello-style object run prints one A then halts")
-	var mem = _fresh_mem()
+	var mem = _MemoryBus6502.new()
 	var asm = Assembler6502.new()
 	var src: Array = [
 		[10, "LDA #$41"],

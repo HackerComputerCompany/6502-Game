@@ -2,8 +2,9 @@ class_name Computer
 extends RefCounted
 
 const _CartNativeGd := preload("res://scripts/cart_native.gd")
+const _MemoryBus6502 := preload("res://scripts/memory_bus_6502.gd")
 
-var memory: MemoryBus
+var memory
 var cpu
 var basic: BasicInterpreter
 var rom: ROM
@@ -27,7 +28,7 @@ func emit_richtext(text: String) -> void:
 	output_richtext.emit(text)
 
 func _init() -> void:
-	memory = MemoryBus.new()
+	memory = _MemoryBus6502.new()
 	cpu = CPU6502.new(memory)
 	basic = BasicInterpreter.new(memory, _on_output, _on_input)
 	cart_manager = CartManager.new(self)
