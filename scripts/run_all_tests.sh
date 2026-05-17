@@ -22,6 +22,9 @@ run() {
 run "$GODOT --path \"$ROOT\" --headless -s tests/test_regression.gd"
 "$GODOT" --path "$ROOT" --headless -s tests/test_regression.gd
 
+run "$GODOT --path \"$ROOT\" --headless -s tests/test_overworld.gd"
+"$GODOT" --path "$ROOT" --headless -s tests/test_overworld.gd
+
 run "$GODOT --path \"$ROOT\" --headless -s tests/test_processor_step_tests.gd"
 "$GODOT" --path "$ROOT" --headless -s tests/test_processor_step_tests.gd
 

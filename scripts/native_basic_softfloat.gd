@@ -158,11 +158,9 @@ func mul_bits(ai: int, bi: int) -> int:
 	if (a_inf and is_zero(b)) or (b_inf and is_zero(a)):
 		return QUIET_NAN
 	if a_inf or b_inf:
-		var sr := _sign(a) ^ _sign(b)
-		return _combine(sr, 255, 0)
+		return _combine(_sign(a) ^ _sign(b), 255, 0)
 	if is_zero(a) or is_zero(b):
-		var sx := _sign(a) ^ _sign(b)
-		return _combine(sx, 0, 0)
+		return _combine(_sign(a) ^ _sign(b), 0, 0)
 
 	var sa := _sign(a)
 	var sb := _sign(b)

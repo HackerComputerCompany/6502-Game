@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://bbaupmd1wqcu4"
+path="res://.godot/imported/Nocturnal Mysteries.mp3-c14de87c679782f3f2e62facac1777aa.mp3str"
+
+[deps]
+
+source_file="res://overworld/art/tilesets/generic-rpg/generic-rpg-pack_v0.4_(alpha-release)_vacaroxa/rpg-pack/soundtrack/Nocturnal Mysteries.mp3"
+dest_files=["res://.godot/imported/Nocturnal Mysteries.mp3-c14de87c679782f3f2e62facac1777aa.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -40,6 +40,11 @@ var _clock_visible: bool = true
 var _fonts_loaded: bool = false
 var _base_font_size: int = 18
 
+var _mode: String = "terminal"
+var _overworld_container: SubViewportContainer
+var _overworld_viewport: SubViewport
+var _overworld_scene: Node
+
 var _available_fonts: Array = [
 	{"name": "Press Start 2P", "path": "res://fonts/pressstart2p.ttf", "type": "terminal"},
 	{"name": "VT323", "path": "res://fonts/vt323.ttf", "type": "terminal"},
@@ -157,6 +162,7 @@ func _ready() -> void:
 
 	call_deferred("_apply_font_deferred")
 	call_deferred("_load_state_silent")
+	call_deferred("_setup_overworld")
 	call_deferred("_start_cold_boot")
 
 func _start_cold_boot() -> void:
@@ -390,6 +396,16 @@ func _gui_input(event: InputEvent) -> void:
 		_mouse_hide_timer = 3.0
 
 func _input(event: InputEvent) -> void:
+	if _mode == "overworld":
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F1:
+			enter_terminal()
+			get_viewport().set_input_as_handled()
+			return
+		if _overworld_scene and _overworld_scene.has_method("forward_input"):
+			if event is InputEventKey:
+				_overworld_scene.forward_input(event)
+				get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseMotion:
 		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
@@ -413,6 +429,9 @@ func _input(event: InputEvent) -> void:
 				_break_running_program()
 				return
 		var handled = false
+		if event.keycode == KEY_F1 and _has_overworld() and _overworld_container and not _overworld_container.visible:
+			_enter_overworld()
+			return
 		match event.keycode:
 			KEY_F2:
 				_show_register_summary()
@@ -765,6 +784,10 @@ func _handle_command(text: String) -> void:
 		_toggle_gpu()
 	elif upper == "CPU":
 		_show_cpu_state()
+	elif upper == "QUIT" or upper == "EXIT":
+		if _has_overworld():
+			_enter_overworld()
+		return
 	elif upper.begins_with("PEEK("):
 		_peek_command(text)
 	elif upper.begins_with("SYS"):
@@ -2384,3 +2407,93 @@ func _apply_saved_state(data: Dictionary) -> void:
 	if data.has("computer"):
 		computer.deserialize(data["computer"])
 		_update_status()
+
+func _has_overworld() -> bool:
+	return _overworld_scene != null
+
+func _setup_overworld() -> void:
+	if not ResourceLoader.exists("res://overworld/overworld.tscn"):
+		$VBoxContainer.show()
+		return
+	_overworld_container = SubViewportContainer.new()
+	_overworld_container.name = "OverworldContainer"
+	_overworld_container.stretch = true
+	_overworld_container.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_overworld_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overworld_container.visible = false
+	add_child(_overworld_container)
+	move_child(_overworld_container, 1)
+
+	_overworld_viewport = SubViewport.new()
+	_overworld_viewport.name = "OverworldViewport"
+	_overworld_viewport.size = Vector2i(640, 480)
+	_overworld_viewport.handle_input_locally = true
+	_overworld_viewport.gui_disable_input = true
+	_overworld_viewport.transparent_bg = false
+	_overworld_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_overworld_container.add_child(_overworld_viewport)
+
+	_center_overworld()
+
+	var overworld_tscn = load("res://overworld/overworld.tscn")
+	var instance = overworld_tscn.instantiate()
+	_overworld_viewport.add_child(instance)
+	_overworld_scene = instance
+	if instance.has_signal("terminal_requested"):
+		instance.terminal_requested.connect(_on_terminal_requested_from_overworld)
+
+func _enter_overworld() -> void:
+	if not _has_overworld():
+		return
+	_mode = "overworld"
+	$VBoxContainer.hide()
+	$SettingsPanel.hide()
+	$CRTOverlay.hide()
+	$BezelPanel.hide()
+	$OuterBackground.color = Color(0.0, 0.0, 0.0)
+	if _overworld_container:
+		_overworld_container.visible = true
+		_overworld_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _overworld_viewport:
+		_overworld_viewport.gui_disable_input = true
+
+func enter_terminal() -> void:
+	if not _has_overworld():
+		return
+	_mode = "terminal"
+	$BezelPanel.show()
+	$VBoxContainer.show()
+	$CRTOverlay.show()
+	$OuterBackground.color = Color(0.08, 0.08, 0.1)
+	if _overworld_container:
+		_overworld_container.visible = false
+		_overworld_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _overworld_viewport:
+		_overworld_viewport.gui_disable_input = true
+	$VBoxContainer/Screen.clear()
+	computer.reset()
+	_update_status()
+	call_deferred("_print_banner")
+
+func _on_terminal_requested_from_overworld() -> void:
+	enter_terminal()
+
+func _center_overworld() -> void:
+	if not _overworld_container:
+		return
+	var parent_size = get_viewport().get_visible_rect().size
+	var aspect = 4.0 / 3.0
+	var container_w: float
+	var container_h: float
+	if parent_size.x / parent_size.y > aspect:
+		container_h = parent_size.y
+		container_w = container_h * aspect
+	else:
+		container_w = parent_size.x
+		container_h = container_w / aspect
+	_overworld_container.size = Vector2(container_w, container_h)
+	_overworld_container.position = Vector2((parent_size.x - container_w) * 0.5, (parent_size.y - container_h) * 0.5)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_center_overworld()

@@ -10,6 +10,16 @@ where versioning applies.
 
 ### Added
 
+- **`tests/test_overworld.gd`**: 111 unit tests covering `town_map.gd` (layout, passability, collision, tile values), `procgen_assets.gd` (all texture generators, dimensions), `player_state.gd` (inventory, quest flags, time), `resistor_puzzle.gd` (question generation, solution checking), and `npc.gd` (dialogue filtering via `require_flag`/`require_no_flag`, quest flag and item rewards).
+
+### Fixed
+
+- **`overworld.gd`**: 7 `:=` type inference errors (untyped `textures[i]`, `tex.get_image()`, `_map_data.get_ground/decoration`, `def.get("position")`, `_player.interact_front_tile()`, `puzzle.get_question()`) — changed `:=` to `=`. Enum member access prefixed with `Tile.` (`BLANK` → `Tile.BLANK`, `DOOR` → `Tile.DOOR`).
+- **`town_map.gd`**: Renamed `_set(x,y,tile)` → `_set_tile(x,y,tile)` to avoid conflict with Godot's built-in `_set(property, value)` virtual method.
+- **`procgen_assets.gd`**: Fixed `var c := colors[...]` type inference error — changed to `var c =`.
+- **`npc.gd`**: `PlayerState` autoload rewritten to use `Engine.has_singleton`/`get_singleton` with fallback instance for headless test compatibility. Two `:=` inference errors in dialogue filtering fixed.
+- **`dialogue_box.gd`**: 5 Godot 3→4 theme override syntax errors — `theme_override_styles/panel`, `theme_override_colors/font_color`, `theme_override_font_sizes/font_size`, `theme_override_colors/default_color`, `theme_override_font_sizes/normal_font_size` changed to `add_theme_stylebox_override()` / `add_theme_color_override()` / `add_theme_font_size_override()` method calls.
+
 - **`GDD.md` — Game Design Document for "signal.zero"**: full 300-line GDD for an open-world hacking simulator RPG with three gameplay modes (Keyboard Time = existing teaching lab; Hands On Hardware = circuit puzzle mode; Overworld = Earth Bound–style top-down adventure). Covers vision, narrative, progression loop, inventory, art/audio direction, dev phases, and monetization.
 
 - **GPU Phase 9a — Initial GPU device** (pluggable `gpu_base.gd` abstract class + `gpu_device.gd`): memory-mapped at $E000-$EFFF, 40×25 text mode + 160×120 bitmap mode, 16-color CGA palette, 5×7 pixel font, pixel-plot via control registers. Draw commands via command register at $EFFF: PLOT(1), LINE(2), RECT(3), RECT_OUT(4), HLINE(5), VLINE(6), CIRCLE(7), CIRCLE_FILL(8), CLS(9). Bresenham line/circle algorithms. GPU panel (TextureRect, 640×480, nearest-neighbor scaling) toggled via F12 or `GRAPHICS` command. 17 GPU-specific regression tests.

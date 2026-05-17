@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dwu84dfl2whbp" path="res://scripts/terminal.gd" id="1"]
 [ext_resource type="Shader" uid="uid://dusf7rrflv3c7" path="res://shaders/crt_overlay.gdshader" id="2"]
-[ext_resource type="Script" path="res://scripts/segment_clock.gd" id="3"]
+[ext_resource type="Script" uid="uid://dto31jcb0g2x6" path="res://scripts/segment_clock.gd" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
 bg_color = Color(0.12, 0.12, 0.14, 1)

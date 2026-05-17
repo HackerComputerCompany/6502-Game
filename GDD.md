@@ -66,7 +66,9 @@ Top-down or first-person puzzle scenes rendered in Earth Bound pixel art. You ma
 
 ### 2.3 Overworld (Adventure Mode)
 
-Earth Bound–style top-down 16-bit RPG. You move your character through a small city and surrounding areas — your bedroom, school, library, electronics shop, phone company building, junkyard, arcade, BBS meetup spots, the "rich kid" neighborhood with better equipment.
+Earth Bound–style top-down 16-bit RPG. The game opens in your bedroom — a cramped, lived-in space. A bed against one wall, a window overlooking the street, a desk cluttered with computer gear. Clothes scattered on the floor. It's summer 1985 and you just returned from a garage sale where you bought a used Vector 64 computer for $15. The previous owner left a box of floppy disks in the bottom of the box.
+
+From here you move through a small city and surrounding areas — your school, library, ChipMart electronics shop, phone company building, junkyard, the lazer tag arcade, BBS meetup spots, the "rich kid" neighborhood with better equipment, and the church on the square where not everything is as pious as it seems.
 
 **Art style:** Direct Earth Bound homage:
 - Chibi 16×24 NPC sprites with expressive idle animations
@@ -88,12 +90,55 @@ Earth Bound–style top-down 16-bit RPG. You move your character through a small
 - Social-engineer your way into the water reclamation department by posing as a contractor from the control system vendor
 - Break into OmniStor Technologies' sales order system using a phone number found in a dumpstered sales manual and a default password you guessed
 - Find hidden "easter egg" locations: the phone company switching office, the university computer room, a pirate radio station
+- Get a part-time job repairing lazer tag equipment at the arcade — honest work until the owner shows you the back room and asks if you "know anything about cell phones"
+
+**Town layout ("IntRural," population ~4,000):**
+
+| Quadrant | Location | Tile Position | Notes |
+|----------|----------|--------------|-------|
+| NW | Library | (3,3) | Gray walls, gray roof |
+| NW | School | (16,3) | Brown walls, red roof — large building |
+| NW | Church | (16,15) | Gray walls, gray roof |
+| NE | ChipMart | (31,3) | Brown walls, red roof — electronics parts store |
+| NE | Lazer Arcade | (45,3) | Gray walls, gray roof |
+| NE | Phone Co. Central Office | (45,10) | Gray walls, gray roof |
+| NE | Radio Station | (45,17) | Brown walls, red roof |
+| W Main St | Thrift Store | (3,10) | Brown walls, red roof |
+| W Main St | Post Office | (16,10) | Gray walls, gray roof |
+| W Main St | Bank | (3,15) | Beige walls, red roof |
+| W Subdivision | Miller House | (1,27) | Beige walls, red roof |
+| W Subdivision | Player's House | (10,27) | Beige walls, red roof — double door, garage + workshop |
+| W Subdivision | Garcia House | (20,27) | Brown walls, red roof |
+| W Subdivision | Johnson House | (1,34) | Gray walls, gray roof |
+| W Subdivision | Patel House | (10,34) | Brown walls, red roof |
+| W Subdivision | Williams House | (20,34) | Beige walls, red roof |
+| W Far | Rich Kid House | (2,41) | Beige walls, red roof — fenced |
+| E Main St | Grocery Store | (31,15) | Brown walls, red roof |
+| E Main St | Diner | (45,15) | Brown walls, red roof |
+| E Main St | Auto Repair | (31,23) | Gray walls, gray roof |
+| E Main St | Barber Shop | (45,23) | Beige walls, red roof |
+| E | Burger Barn | (45,29) | Brown walls, red roof — fast food |
+| SE | OmniStor Technologies | (35,37) | Gray walls, gray roof — large building |
+| SE | Office Building 2 | (44,37) | Beige walls, red roof |
+| SE | Water Reclamation Dept | (30,42) | Gray walls, gray roof — SCADA target, next to lake |
+| SW | Power Substation | (4,45) | Fenced, brown walls, gray roof |
+| S | Junkyard | (14,46) | Fenced area, south edge of town |
+| Far SE | Lake | (42,46) | Water tiles, not passable |
+
+**House interior layout (48×21 tiles):**
+- Garage/Workshop (left) with bench, tools
+- 4 bedrooms in a row (Your Room is bedroom 1, bed + desk with computer)
+- Hallway connecting all rooms
+- Bathroom, Living Room, and Kitchen in southern half
+- Desk and bed are interactive furniture (yellow flash, Space to use)
 
 **Target systems (the "gems"):**
 Each target is a real-world system you research, locate, and penetrate using a mix of social engineering, dumpster diving, and technical skill:
 
 - **Water Reclamation Department** — The city's wastewater treatment plant runs on a SCADA system accessible via dial-up. Getting in means: finding the plant's phone number (dumpster diving for an old invoice or emergency contact list), calling the control room modem, and navigating a menu-driven terminal interface that assumes you're an operator. Once inside, you can read tank levels, valve status, and error logs — and maybe change a setpoint. No hack is complete without leaving a "FLUSHED" message on the operator console.
 - **OmniStor Technologies Sales System** — OmniStor is a mid-90s storage peripheral manufacturer (Zip drives, tape backups). Their sales order system is a text-based ERP portal accessible via a dial-up number that changes quarterly. Getting the current number requires: making friends with a sales rep on a BBS, finding a discarded sales manual in the dumpster behind their office park, or calling the main switchboard and bluffing your way past the receptionist ("Hi, this is Bob from IT — we're updating the remote access list and I need to verify the modem pool numbers"). Once in, you can browse order histories, check inventory, and maybe reroute a shipment.
+- **Lazer Tag Arcade (back room)** — What starts as an honest job repairing phaser packs and servo motors turns into something darker. The arcade owner runs a side business pre-programming cloned cell phones for local dealers and criminals. You're brought in because you understand ESN/MIN programming from first principles, not just a script from a zine. This is where the game gets dangerous: the people you're programming for are violent, the FBI is already watching the payphone outside, and every phone you flash could be traced back to the workbench. One wrong number and you're not just grounded — you're evidence.
+- **Church** — The First IntRural Church sits on the town square. The congregation is respectable, the potlucks are legendary, and the basement houses a PBX that the deacon doesn't know is reachable from the utility closet phone jack. The pastor's study has a computer — a Vector 64, same as yours — and the youth group leader keeps a BBS node running off the church's second phone line. Story-critical location: the church is where you learn that information wants to be free, even when someone tries to lock it up.
 - *More targets discovered through exploration, BBS rumors, and NPC dialogue.*
 
 **Social systems (inspired by Earth Bound's phone calls):**
@@ -318,7 +363,43 @@ The existing teaching lab is v1.0. Finish remaining features:
 
 ---
 
-## 10. Monetization & Distribution
+## 10. Fictional Brands & Product Lines
+
+All in-world brands are fictional alternatives to real companies, avoiding trademark issues while keeping the period-authentic feel.
+
+### Home Computers & Terminals
+- **Vector 64** — Bedroom computer, acquired at a garage sale in 1985. Your first machine.
+- **Scholar II** — School computer lab machine. White-on-blue monochrome monitor.
+- **Lab-80** — Library public terminal. Green phosphor display.
+- **Omni PC** — Workbench computer at the electronics shop. Amber monitor. Used for serious work.
+
+### Workstations (Unix Era)
+- **Sol Microsystems** — Unix workstation manufacturer (Sun alternative). Models: Sol SLC, Sol IPC. Runs **Solix OS** (System V derivative).
+- **Digital Research Corp (DRC)** — Workstation manufacturer (DEC alternative). Models: DRC V3X, DRC AlphaForce. Runs **DRC/UX**.
+- **Crystal Engine** — Graphics workstation manufacturer (SGI alternative). Models: Crystal Iris, Crystal Onyx. Runs **CrystalIX**.
+
+### PC Brands
+- **Continental Business Machines (CBM)** — PC/AT clone maker (IBM alternative). Model: CBM Personal System.
+- **CompactPro** — Portable PC maker (Compaq alternative). Models: CompactPro 386, CompactPro 486.
+- **DirectWay** — Mail-order PC maker (Dell/Gateway alternative). Models: DirectWay 486, DirectWay Pentium.
+
+### Apple / Macintosh Alternative
+- **Apricot Computers** — Graphical personal computer maker (Apple alternative). Models: Apricot Prima, Apricot PowerBook. Runs **Prima OS**.
+
+### Operating Systems
+- **CommandOS** — Command-line OS for CBM and CompactPro PCs (DOS alternative).
+- **Panels** — Graphical OS for CBM and DirectWay PCs (Windows alternative). Versions: Panels 1.0 (1990), Panels 3.0 (1992), Panels 95 (1995).
+- **Solix OS** — Unix from Sol Microsystems.
+- **DRC/UX** — Unix from Digital Research Corp.
+- **CrystalIX** — Unix from Crystal Engine.
+
+### Retail & Manufacturing
+- **ChipMart** — Electronics parts store. Dumpster out back is a key early-game resource.
+- **OmniStor Technologies** — Storage peripheral manufacturer. Mid-game target.
+
+---
+
+## 11. Monetization & Distribution
 
 - **v1.0 (Keyboard Time only):** Free / open-source (MIT). The teaching lab is a standalone educational tool.
 - **Full game (all three modes):** Paid ($15-20) on Steam / Itch.io. Open-source codebase; art assets are proprietary.
@@ -326,5 +407,6 @@ The existing teaching lab is v1.0. Finish remaining features:
 
 ---
 
-*Document version: 0.1 — GDD first draft*  
+*Document version: 0.4 — Town layout restructured with subdivision, Burger Barn, all doors accessible*
 *Created: 2026-05-16*
+*Updated: 2026-05-17*
