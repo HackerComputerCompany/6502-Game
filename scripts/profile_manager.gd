@@ -81,6 +81,9 @@ func get_preset_names() -> PackedStringArray:
 func get_preset(name: String) -> Dictionary:
 	if PRESETS.has(name):
 		return PRESETS[name].duplicate(true)
+	for key in PRESETS:
+		if PRESETS[key].get("name", "") == name:
+			return PRESETS[key].duplicate(true)
 	return {}
 
 func save_profile(name: String) -> bool:
@@ -96,6 +99,9 @@ func save_profile(name: String) -> bool:
 func load_profile(name_or_path: String) -> Dictionary:
 	if PRESETS.has(name_or_path):
 		return PRESETS[name_or_path].duplicate(true)
+	for key in PRESETS:
+		if PRESETS[key].get("name", "") == name_or_path:
+			return PRESETS[key].duplicate(true)
 	var sanitized = _sanitize_filename(name_or_path)
 	var path = PROFILE_DIR.path_join(sanitized + PROFILE_EXT)
 	if not FileAccess.file_exists(path):

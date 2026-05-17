@@ -82,6 +82,21 @@ func _init() -> void:
 	test_profile_save_load_roundtrip()
 	test_profile_apply()
 	test_profile_delete()
+	test_format_deletes_files()
+	test_format_extensions()
+	test_gpu_text_buffer()
+	test_gpu_attr_buffer()
+	test_gpu_mode_register()
+	test_gpu_color_registers()
+	test_gpu_pixel_plot()
+	test_gpu_framebuffer_image()
+	test_gpu_reset()
+	test_gpu_overlay_mode()
+	test_gpu_overlay_rendering()
+	test_gpu_blit_command()
+	test_gpu_cursor_no_clamp()
+	test_trainer_cart_basics()
+	test_trainer_cart_serialize()
 	print("\n========== TEST RESULTS ==========")
 	print("  PASSED: %d" % _tests_passed)
 	print("  FAILED: %d" % _tests_failed)
@@ -117,7 +132,7 @@ func _fresh_mem() -> MemoryBus:
 func _dispose_computer(comp: Computer) -> void:
 	if comp == null:
 		return
-	for sig_name in [&"output", &"output_richtext", &"ready_for_input", &"program_finished", &"full_reboot_requested"]:
+	for sig_name in [&"output", &"output_richtext", &"ready_for_input", &"program_finished", &"full_reboot_requested", &"graphics_requested", &"command_requested"]:
 		for conn in comp.get_signal_connection_list(sig_name):
 			var cb: Callable = conn["callable"]
 			if cb.is_valid():
@@ -1243,3 +1258,258 @@ func test_profile_delete() -> void:
 	var preset_delete = pm.delete_profile("6502_trainer")
 	_assert(not preset_delete, "Preset profile cannot be deleted")
 	_dispose_computer(comp)
+
+func test_format_deletes_files() -> void:
+	_begin_test("FORMAT deletes files")
+	var f := FileAccess.open("user://regtest_format.bas", FileAccess.WRITE)
+	f.store_string("DELETE ME")
+	f.close()
+	var f2 := FileAccess.open("user://regtest_format.asm", FileAccess.WRITE)
+	f2.store_string("DELETE ME")
+	f2.close()
+	_assert(FileAccess.file_exists("user://regtest_format.bas"), "Test .bas file exists before format")
+	_assert(FileAccess.file_exists("user://regtest_format.asm"), "Test .asm file exists before format")
+	var dir := DirAccess.open("user://")
+	var found := 0
+	dir.list_dir_begin()
+	var n := dir.get_next()
+	while n != "":
+		var ext := n.get_extension().to_lower()
+		if ext in ["bas", "asm"] and n.begins_with("regtest_format"):
+			if dir.remove(n) == OK:
+				found += 1
+		n = dir.get_next()
+	dir.list_dir_end()
+	_assert(found == 2, "FORMAT deleted both test files: found %d" % found)
+	_assert(not FileAccess.file_exists("user://regtest_format.bas"), "Test .bas file gone after format")
+	_assert(not FileAccess.file_exists("user://regtest_format.asm"), "Test .asm file gone after format")
+
+func test_format_extensions() -> void:
+	_begin_test("FORMAT extension filter")
+	var exts := ["bas", "txt", "asm", "c", "bin", "obj"]
+	var created := 0
+	for ext in exts:
+		var path: String = "user://regtest_ext." + ext
+		var ff := FileAccess.open(path, FileAccess.WRITE)
+		if ff:
+			ff.store_string("test")
+			ff.close()
+			created += 1
+	_assert(created == exts.size(), "Created %d test files" % created)
+	for ext in exts:
+		var path: String = "user://regtest_ext." + ext
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+		_assert(not FileAccess.file_exists(path), "Cleaned up regtest_ext." + ext)
+
+func test_gpu_text_buffer() -> void:
+	_begin_test("GPU Text Buffer")
+	var mem = _fresh_mem()
+	mem.poke(0xE000, ord("A"))
+	var v = mem.peek(0xE000)
+	_assert(v == ord("A"), "GPU text buffer write/read: expected %d got %d" % [ord("A"), v])
+	var v2 = mem.peek(0xE001)
+	_assert(v2 == ord(" "), "GPU text buffer default space")
+
+func test_gpu_attr_buffer() -> void:
+	_begin_test("GPU Attribute Buffer")
+	var mem = _fresh_mem()
+	mem.poke(0xE400, 0x41)
+	var v = mem.peek(0xE400)
+	_assert(v == 0x41, "GPU attr buffer write/read: expected $41 got $%02X" % v)
+
+func test_gpu_mode_register() -> void:
+	_begin_test("GPU Mode Register")
+	var mem = _fresh_mem()
+	var default_mode = mem.peek(0xEFF0)
+	_assert(default_mode == 0, "GPU default mode is text (0)")
+	mem.poke(0xEFF0, 1)
+	var mode = mem.peek(0xEFF0)
+	_assert(mode == 1, "GPU mode set to bitmap (1)")
+	mem.poke(0xEFF0, 3)
+	var overlay = mem.peek(0xEFF0)
+	_assert(overlay == 3, "GPU mode set to overlay (3): expected 3 got %d" % overlay)
+
+func test_gpu_color_registers() -> void:
+	_begin_test("GPU Color Registers")
+	var mem = _fresh_mem()
+	mem.poke(0xEFF1, 7)
+	var fg = mem.peek(0xEFF1)
+	_assert(fg == 7, "GPU fg color set to 7: expected 7 got %d" % fg)
+	mem.poke(0xEFF2, 1)
+	var bg = mem.peek(0xEFF2)
+	_assert(bg == 1, "GPU bg color set to 1: expected 1 got %d" % bg)
+
+func test_gpu_pixel_plot() -> void:
+	_begin_test("GPU Pixel Plot")
+	var mem = _fresh_mem()
+	mem.poke(0xEFF5, 10)
+	mem.poke(0xEFF6, 0)
+	var xl = mem.peek(0xEFF5)
+	var xh = mem.peek(0xEFF6)
+	_assert(xl == 10 and xh == 0, "GPU pixel X set to 10: lo=%d hi=%d" % [xl, xh])
+	mem.poke(0xEFF9, 3)
+	mem.poke(0xEFFF, 1)
+	var rd = mem.peek(0xEFFA)
+	_assert(rd == 3, "GPU pixel readback at (10,0): expected 3 got %d" % rd)
+
+func test_gpu_framebuffer_image() -> void:
+	_begin_test("GPU Framebuffer Image")
+	var mem = _fresh_mem()
+	var gpu = mem._gpu
+	var img = gpu.render_to_image()
+	_assert(img != null, "GPU render_to_image() returned non-null")
+	_assert(img.get_width() == 160, "GPU framebuffer width 160: got %d" % img.get_width())
+	_assert(img.get_height() == 120, "GPU framebuffer height 120: got %d" % img.get_height())
+	gpu.poke(0xE000, ord("H"))
+	var img2 = gpu.render_to_image()
+	_assert(img2 != null, "GPU render_to_image() after write returned non-null")
+
+func test_gpu_reset() -> void:
+	_begin_test("GPU Reset")
+	var mem = _fresh_mem()
+	mem.poke(0xE000, ord("X"))
+	mem.poke(0xEFF0, 1)
+	mem.poke(0xEFF1, 3)
+	mem._gpu.reset()
+	var ch = mem.peek(0xE000)
+	var mode = mem.peek(0xEFF0)
+	var fg = mem.peek(0xEFF1)
+	_assert(ch == ord(" "), "GPU reset clears text buffer: expected space got %d" % ch)
+	_assert(mode == 0, "GPU reset sets mode to text: expected 0 got %d" % mode)
+	_assert(fg == 15, "GPU reset sets fg to 15: expected 15 got %d" % fg)
+
+func test_gpu_overlay_mode() -> void:
+	_begin_test("GPU Overlay Mode")
+	var mem = _fresh_mem()
+	var gpu = mem._gpu
+	_assert(gpu._text_layer_enabled(), "Default text layer enabled")
+	_assert(not gpu._bitmap_layer_enabled(), "Default bitmap layer disabled")
+	gpu.poke(0xEFF0, 1)
+	_assert(not gpu._text_layer_enabled(), "Bitmap mode text layer disabled")
+	_assert(gpu._bitmap_layer_enabled(), "Bitmap mode bitmap layer enabled")
+	gpu.poke(0xEFF0, 3)
+	_assert(gpu._text_layer_enabled(), "Overlay text layer enabled")
+	_assert(gpu._bitmap_layer_enabled(), "Overlay bitmap layer enabled")
+
+func test_gpu_overlay_rendering() -> void:
+	_begin_test("GPU Overlay Rendering")
+	var mem = _fresh_mem()
+	var gpu = mem._gpu
+	gpu.poke(0xEFF0, 3)
+	gpu.poke(0xEFF5, 10)
+	gpu.poke(0xEFF6, 0)
+	gpu.poke(0xEFF7, 5)
+	gpu.poke(0xEFF8, 0)
+	gpu.poke(0xEFF9, 4)
+	gpu.poke(0xEFFF, 1)
+	gpu.poke(0xE000, ord("T"))
+	var img = gpu.render_to_image()
+	var px_bmp = img.get_pixel(10, 5)
+	_assert(px_bmp.r > 0.6, "Overlay bitmap pixel visible at (10,5): r=%.2f" % px_bmp.r)
+
+func test_gpu_blit_command() -> void:
+	_begin_test("GPU Blit Command")
+	var mem = _fresh_mem()
+	var gpu = mem._gpu
+	gpu.poke(0xEFF0, 1)
+	gpu.poke(0xEFF5, 10)
+	gpu.poke(0xEFF6, 0)
+	gpu.poke(0xEFF7, 10)
+	gpu.poke(0xEFF8, 0)
+	gpu.poke(0xEFF9, 6)
+	gpu.poke(0xEFFF, 1)
+	var pixel_before: int = gpu.peek(0xEFFA)
+	_assert(pixel_before == 6, "GPU pixel at (10,10) set to 6: got %d" % pixel_before)
+	gpu.poke(0xEFFB, 5)
+	gpu.poke(0xEFFC, 0)
+	gpu.poke(0xEFFD, 5)
+	gpu.poke(0xEFFE, 0)
+	gpu.poke(0xEFF3, 40)
+	gpu.poke(0xEFF4, 30)
+	gpu.poke(0xEFFF, 10)
+	gpu.poke(0xEFF5, 40)
+	gpu.poke(0xEFF6, 0)
+	gpu.poke(0xEFF7, 30)
+	gpu.poke(0xEFF8, 0)
+	var pixel_after: int = gpu.peek(0xEFFA)
+	_assert(pixel_after == 6, "GPU blit copied pixel to (40,30): expected 6 got %d" % pixel_after)
+
+func test_gpu_cursor_no_clamp() -> void:
+	_begin_test("GPU Cursor No Clamp")
+	var mem = _fresh_mem()
+	var gpu = mem._gpu
+	gpu.poke(0xEFF4, 100)
+	var cy = gpu.peek(0xEFF4)
+	_assert(cy == 100, "GPU cursor_y stores raw value 100: got %d" % cy)
+
+func test_basic_exec_command() -> void:
+	_begin_test("BASIC EXEC Command")
+	var comp = Computer.new()
+	var received: String = ""
+	comp.command_requested.connect(func(t): received = t)
+	comp.execute_basic_line("EXEC \"HELLO\"")
+	_assert(received == "HELLO", "EXEC emitted command_requested with 'HELLO': got '%s'" % received)
+	_dispose_computer(comp)
+
+func test_basic_exec_no_string() -> void:
+	_begin_test("BASIC EXEC no string arg errors")
+	var comp = Computer.new()
+	_output = ""
+	comp.output.connect(_on_output)
+	comp.execute_basic_line("EXEC 123")
+	_assert(_output.contains("ERROR"), "EXEC with number triggers error: got '%s'" % _output)
+	_dispose_computer(comp)
+
+func test_trainer_cart_basics() -> void:
+	_begin_test("TRAINER Cart Basics")
+	var comp = Computer.new()
+	_output = ""
+	comp.output_richtext.connect(_on_output)
+	comp.emit_richtext("test_direct\n")
+	_assert(_output.contains("test_direct"), "Direct emit_richtext works: got '%s'" % _output)
+
+	_output = ""
+	comp.cart_manager.switch_to("TRAINER", true)
+	_assert(comp.cart_manager.current.name == "TRAINER", "Switched to TRAINER cart")
+	var cart = comp.cart_manager.current
+	_assert(cart.has_method("handle_command"), "TRAINER cart has handle_command")
+
+	comp.cart_manager.handle_command("HELP")
+	_assert(_output.contains("TRAINER"), "HELP shows Trainer overview: got '%s'" % _output)
+
+	_output = ""
+	comp.cart_manager.handle_command("MENU")
+	_assert(_output.contains("Lesson Menu"), "MENU shows menu: got '%s'" % _output)
+
+	_output = ""
+	comp.cart_manager.handle_command("OPEN 1")
+	_assert(_output.contains("Lesson 1"), "OPEN 1 shows lesson 1: got '%s'" % _output)
+
+	_output = ""
+	comp.cart_manager.handle_command("QUIZ")
+	_assert(_output.contains("Question 1"), "QUIZ shows first question: got '%s'" % _output)
+
+	_output = ""
+	comp.cart_manager.handle_command("ANSWER A")
+	_assert(_output.contains("Correct"), "ANSWER A accepted: got '%s'" % _output)
+
+	_dispose_computer(comp)
+
+func test_trainer_cart_serialize() -> void:
+	_begin_test("TRAINER Cart Serialize")
+	var comp = Computer.new()
+	comp.cart_manager.switch_to("TRAINER", true)
+	var cart = comp.cart_manager.current
+	cart._completed = [1, 2]
+	cart._scores = {1: 100, 2: 100}
+	var data = cart.serialize()
+	_assert(data.has("completed"), "serialize has completed array")
+	_assert(data.get("completed").size() == 2, "completed has 2 entries")
+	var comp2 = Computer.new()
+	comp2.cart_manager.switch_to("TRAINER", true)
+	comp2.cart_manager.current.deserialize(data)
+	var restored = comp2.cart_manager.current
+	_assert(restored._completed.size() == 2, "deserialize restores completed")
+	_dispose_computer(comp)
+	_dispose_computer(comp2)

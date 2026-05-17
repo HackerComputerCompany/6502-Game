@@ -42,8 +42,8 @@ func _sign(bits: int) -> int:
 	return (bits >> 31) & 1
 
 
-func _combine(sign: int, exp: int, frac23: int) -> int:
-	var u := ((sign & 1) << 31) | ((exp & 0xFF) << 23) | (frac23 & MASK_FRAC)
+func _combine(s: int, exp: int, frac23: int) -> int:
+	var u := ((s & 1) << 31) | ((exp & 0xFF) << 23) | (frac23 & MASK_FRAC)
 	return int(u & 0xFFFFFFFF)
 
 
@@ -222,8 +222,8 @@ func div_bits(ai: int, bi: int) -> int:
 	var er := ea - eb + EXP_BIAS
 
 	var num: int = ma << 23
-	var q := int(num / mb)
-	var rem := int(num % mb)
+	var q: int = int(float(num) / mb)
+	var rem: int = num % mb
 
 	while q >= 0x01000000:
 		q >>= 1

@@ -1,0 +1,247 @@
+{
+	"version": 2,
+	"style": "PUNK",
+	"modules": [
+		{
+			"id": "basics",
+			"title": "BASIC Fundamentals",
+			"description": "Learn the fundamentals of BASIC6502 programming — from your first PRINT statement to loops, subroutines, and user input.",
+			"lessons": [
+				{
+					"id": 1,
+					"title": "Hello, BASIC!",
+					"prereq": [],
+					"body": "[color=yellow]Hello, world.[/color]\n\nEvery programmer starts somewhere. For Brian Kernighan in 1974 it was \"hello, world\" in C. For you, it's right here.\n\nThe machine doesn't care who you are. It will obey any numbered line you type, without judgment, forever. That's either empowering or terrifying, depending on your personality type.\n\n[color=cyan]Example:[/color]\n\n  10 PRINT \"HELLO, BASIC!\"\n  20 PRINT \"I'M ALIVE!\"\n  30 END\n\nType [color=white]RUN[/color] and watch. The computer follows instructions exactly — no interpretation, no attitude. Unlike most things in life.\n\n[color=lime]The secret:[/color]\n  [color=white]Line number[/color]  — Numbers 1-65535 that tell the CPU which order to run things. They don't have to be consecutive. 10, 20, 30 leaves room to insert 15 later. This was deliberate. The designers thought of everything.\n  [color=white]Statement[/color]   — One instruction per line (PRINT, END, etc.).\n  [color=white]String[/color]       — Text in double quotes: \"HELLO, BASIC!\"\n\n[color=yellow]Fun fact:[/color] The \"hello, world\" program first appeared in 1974 in Brian Kernighan's \"A Tutorial Introduction to the Language B.\" Before that, programmers just typed random things until something worked. We've since standardized on saying hello.\n\n[color=cyan]Your mission, should you choose to accept it:[/color] Type the example, type RUN, then change the message to something you'd want to see on a tombstone."
+				},
+				{
+					"id": 2,
+					"title": "Variables — Storing Numbers",
+					"prereq": [1],
+					"body": "[color=yellow]Variables: named boxes[/color]\n\nA variable is a named storage location. Think of it as a box with a label. You put a number in with [color=white]LET[/color] (or just `name = `), and get it back by using the name.\n\n[color=cyan]Example:[/color]\n\n  10 LET X = 42\n  20 PRINT X\n  30 LET Y = X + 10\n  40 PRINT Y\n\nPrints 42, then 52. The computer remembered. Not magic — it just has no better way to spend its billions of cycles per second.\n\n[color=lime]Terms:[/color]\n  [color=white]Variable[/color]   — A named box (A-Z, or longer names like SCORE).\n  [color=white]Assignment[/color]  — Putting a value into a variable with =.\n  [color=white]Expression[/color]  — A formula like X + 10. The computer evaluates it instantly while you blink.\n\n[color=yellow]Inside joke:[/color] Why 42? Douglas Adams put it in \"The Hitchhiker's Guide to the Galaxy\" as \"the answer to life, the universe, and everything.\" Programmers have been using it as a default value ever since. You're now in on the joke. Welcome to the club; the dress code is nerd chic.\n\n[color=cyan]Rules:[/color]\n  • Names can be A-Z or longer names starting with a letter.\n  • You don't need LET — \"X = 5\" works fine.\n  • Variables hold numbers. Strings come later with their own syntax."
+				},
+				{
+					"id": 3,
+					"title": "Decisions with IF",
+					"prereq": [1, 2],
+					"body": "[color=yellow]Branching[/color]\n\nSo far your program runs forward in a straight line like it's being chased. Time to give it judgement.\n\nUse [color=white]IF[/color] to check a condition and do different things based on the result. This is how programs make decisions. (Spoiler: they don't \"decide\" anything — they just compare two numbers and pick a path. But it looks like thinking if you squint.)\n\n[color=cyan]Example:[/color]\n\n  10 INPUT \"ENTER AGE \"; A\n  20 IF A >= 18 THEN PRINT \"ADULT\"\n  30 IF A < 18 THEN PRINT \"MINOR\"\n  40 END\n\n[color=lime]Parts:[/color]\n  [color=white]Condition[/color]  — A comparison like A >= 18. Evaluates to true or false. No maybe. No \"it depends.\"\n  [color=white]THEN[/color]        — What happens when the condition is true.\n  [color=white]ELSE[/color]        — What happens when it's false (optional, elegant).\n\n[color=yellow]Operators (the real ones, not the phone company):[/color]\n  =    equal to\n  <    less than\n  >    greater than\n  <=   less than or equal\n  >=   greater than or equal\n  <>   not equal\n\n[color=cyan]Fancier:[/color]\n\n  10 X = 7\n  20 IF X > 10 THEN PRINT \"BIG\" ELSE PRINT \"SMALL\"\n\n[color=yellow]Hacker lore:[/color] In 1947, Grace Hopper found an actual moth trapped in a relay of the Harvard Mark II computer. She taped it into the logbook with the note \"First actual case of bug being found.\" That moth is now in the Smithsonian. Every time you write a buggy IF statement, you're continuing a proud tradition. The moth would be proud.\n\n[color=cyan]Rules:[/color]\n  • Conditions are always true or false. No quantum uncertainty.\n  • ELSE is optional but elegant — don't write two IF statements when one IF-ELSE does the job.\n  • String comparison works too: IF N$ = \"ADMIN\" THEN PRINT \"ACCESS GRANTED\""
+				},
+				{
+					"id": 4,
+					"title": "Loops with FOR/NEXT",
+					"prereq": [1, 2],
+					"body": "[color=yellow]Repetition[/color]\n\nHumans get bored doing the same thing 100 times. Computers never get bored. They've never experienced variety. FOR/NEXT exploits this.\n\n[color=cyan]Example:[/color]\n\n  10 FOR I = 1 TO 5\n  20 PRINT \"HELLO \"; I\n  30 NEXT I\n\nPrints HELLO 1 through HELLO 5. The computer doesn't complain about the repetition. It doesn't know any better.\n\n[color=lime]Parts:[/color]\n  [color=white]FOR var = start TO end[/color]  — Initialize and begin the loop.\n  [color=white]NEXT[/color]       — End of loop body. Increment the variable, check if we're past the end, repeat if not.\n  [color=white]STEP[/color]       — (optional) How much to change each iteration. Default is 1.\n\n[color=cyan]Countdown:[/color]\n\n  10 FOR I = 10 TO 1 STEP -1\n  20 PRINT I\n  30 NEXT I\n  40 PRINT \"BLAST OFF!\"\n\n[color=yellow]The secret:[/color] Every loop is just syntactic sugar for a GOTO with a counter check. But GOTO is frowned upon in polite society. Think of it like swearing in Latin: technically effective, but you look like you're trying too hard.\n\n[color=cyan]Rules:[/color]\n  • FOR and NEXT are a matched pair. One without the other is a syntax error with attitude.\n  • Loops nest. One inside another is how you make 2D grids.\n  • STEP can be negative. Count backwards. Violate chronology.\n  • Jumping INTO a loop body with GOTO breaks the universe. Don't."
+				},
+				{
+					"id": 5,
+					"title": "Subroutines with GOSUB",
+					"prereq": [1, 2, 4],
+					"body": "[color=yellow]Subroutines: don't repeat yourself[/color]\n\nThe first rule of coding: if you type the same thing twice, you're doing it wrong. Subroutines let you write code once and call it from anywhere. It's like having a clone that you can summon and dismiss at will.\n\n[color=cyan]Example:[/color]\n\n  10 PRINT \"START\"\n  20 GOSUB 100\n  30 PRINT \"BACK\"\n  40 END\n  100 REM SUBROUTINE\n  110 PRINT \"IN SUB\"\n  120 RETURN\n\nOutput:\n  START\n  IN SUB\n  BACK\n\n[color=lime]The mechanism:[/color]\n  [color=white]GOSUB line[/color]  — Jump to a subroutine. The computer remembers where it came from by pushing the return address onto a stack.\n  [color=white]RETURN[/color]       — Pop the return address off the stack and teleport back.\n  [color=white]END[/color]          — Stop. Do not pass RETURN. Do not collect $200.\n\n[color=yellow]Deep lore:[/color] That \"stack\" is the same stack every buffer overflow exploit targets. When you GOSUB, the return address lands on the stack. When you RETURN, it pops off. If you corrupt the stack — say, by POKEing random values into it — RETURN will jump to some random address. That's not a bug; it's a feature if you're writing an exploit. Half the hacks from the 80s and 90s relied on this exact mechanism. You now know the secret ingredient.\n\n[color=cyan]Why they matter:[/color]\n  • Zero copy-paste. Laziness is a virtue.\n  • Code organization: break big problems into small, named chunks.\n  • GOSUB can be called 100 times; RETURN always works.\n  • You can nest GOSUBs. It's subroutines all the way down."
+				},
+				{
+					"id": 6,
+					"title": "Input and Interaction",
+					"prereq": [1, 2, 3],
+					"body": "[color=yellow]Talking back[/color]\n\nSo far the program talks and you listen. INPUT flips the script.\n\n[color=cyan]Example:[/color]\n\n  10 INPUT \"WHAT IS YOUR NAME? \"; N$\n  20 PRINT \"HELLO, \"; N$\n  30 INPUT \"HOW OLD ARE YOU? \"; A\n  40 IF A >= 18 THEN PRINT \"ADULT\" ELSE PRINT \"MINOR\"\n\n[color=lime]New notions:[/color]\n  [color=white]INPUT \"prompt\"; var[/color]  — Print a prompt, wait, store the user's typing.\n  [color=white]GET var[/color]  — Read one keypress, no ENTER needed. Instant gratification.\n  [color=white]String var[/color] — Name ending with $ holds text. The $ is not decoration.\n\n[color=yellow]Hacker lore:[/color] In the 1970s, John Draper discovered that a toy whistle from Cap'n Crunch cereal boxes produced a perfect 2600 Hz tone — the same frequency AT&T used to switch long-distance calls. He built \"blue boxes\" that played this tone to hack the phone network and call anywhere free. This was the original social engineering hack: someone found a detail the system designers overlooked and exploited it. The lesson? Never trust user input. Validate everything. The guy with the cereal box whistle is still out there.\n\n[color=cyan]Rules:[/color]\n  • String variables MUST end with $. Forgetting the $ is the most common mistake.\n  • INPUT for numbers: type the number, press ENTER.\n  • INPUT for strings: type text, press ENTER. No quotes needed (unlike PRINT).\n  • GET is instant. Great for games, menus, and menu-driven games."
+				}
+			]
+		},
+		{
+			"id": "gpu",
+			"title": "GPU Graphics",
+			"description": "Program the memory-mapped GPU — draw pixels, shapes, lines, animations, and overlay text with bitmap graphics. Picture books, comics, novels, bitmap graphics — every mode is its own art form. This one happens to involve 160 × 120 pixels.",
+			"lessons": [
+				{
+					"id": 7,
+					"title": "GPU Basics — Modes & Pixels",
+					"prereq": [1, 2],
+					"body": "[color=yellow]The GPU[/color]\n\nA memory-mapped graphics device at $E000-$EFFF. Press F12 or type GRAPHICS to see the display panel. Text mode has its own aesthetic — like a novel or a comic strip drawn with typewriter characters. Bitmap mode is a different canvas entirely, like moving from a typewriter to a sketchpad. Different tools for different expressions.\n\n[color=lime]Specs:[/color]\n  • TEXT mode (0): 40 × 25 character grid, 16 colors per cell\n  • BITMAP mode (1): 160 × 120 pixel framebuffer, 16-color indexed palette\n  • Control via POKE. No abstraction layer. Just you and the registers.\n\n[color=cyan]Enter bitmap mode:[/color]\n  10 POKE 61424, 1  :REM 61424 = $EFF0 (mode register)\n\n[color=yellow]The palette:[/color]\n   0=black   1=navy   2=green   3=teal\n   4=red     5=purple 6=orange  7=gray\n   8=dark    9=blue   10=lime   11=cyan\n  12=pink   13=mag   14=yellow 15=white\n\n[color=cyan]Plot a pixel (the unit of digital art):[/color]\n  $EFF5-6 = X (0-159)\n  $EFF7-8 = Y (0-119)\n  $EFF9   = Color (0-15)\n  $EFFF   = Write 1 (CMD=PLOT)\n\n  Example:  10 POKE 61424, 1\n            20 POKE 61429, 50\n            30 POKE 61431, 40\n            40 POKE 61433, 10  :REM lime\n            50 POKE 61439, 1   :REM CMD=PLOT\n\n[color=yellow]Hacker lore:[/color] The demoscene started in the 1980s when programmers discovered they could push home computers far beyond what manufacturers intended. 4KB intros with 3D rotating cubes, real-time synthesized music, plasma effects — all in the space of a short email. The GPU in this system is your entry point to that tradition. Type [color=white]DEMO GPU_PIXELS[/color] and see what pixels can do."
+				},
+				{
+					"id": 8,
+					"title": "Drawing Shapes",
+					"prereq": [7],
+					"body": "[color=yellow]From pixels to shapes[/color]\n\nA single pixel is an atom. Lines, rectangles, and circles are molecules. You're about to become a digital chemist.\n\n[color=lime]Commands ($EFFF):[/color]\n   1=Plot   2=Line   3=Rect fill   4=Rect outline\n   5=HLine  6=VLine  7=Circle      8=Circle fill\n   9=Clear  10=Blit (copy rect)\n\n[color=lime]Parameters:[/color]\n  $EFF5-6  Draw X\n  $EFF7-8  Draw Y\n  $EFF9    Color\n  $EFFB-C  Aux X (X2, right, or radius)\n  $EFFD-E  Aux Y (Y2 or bottom)\n\n[color=cyan]Line:[/color]\n  10 POKE 61424, 1\n  20 POKE 61429, 0  :REM X1=0\n  30 POKE 61431, 10 :REM Y1=10\n  40 POKE 61433, 14 :REM yellow\n  50 POKE 61435,159 :REM X2=159\n  60 POKE 61437, 10 :REM Y2=10\n  70 POKE 61439, 2\n\n[color=cyan]Filled rectangle:[/color]\n  10 POKE 61424, 1\n  20 POKE 61429, 20 :REM left\n  30 POKE 61431, 30 :REM top\n  40 POKE 61433, 10 :REM lime\n  50 POKE 61435, 60 :REM right\n  60 POKE 61437, 60 :REM bottom\n  70 POKE 61439, 3\n\n[color=yellow]The secret algorithm:[/color] The line drawing uses Bresenham's algorithm (1962). It draws lines using only integer addition and subtraction — no multiplication, no division, no floating point. It's so elegant that every graphics card since has included it. You're running the same math that drew the first wireframe 3D graphics. When you draw a diagonal line, you're executing a 60-year-old algorithm that was designed to run on hardware with less power than a modern pocket calculator. That's beautiful.\n\nType [color=white]DEMO GPU_DRAW[/color] to see shapes in action."
+				},
+				{
+					"id": 9,
+					"title": "Simple Animation",
+					"prereq": [7, 8],
+					"body": "[color=yellow]Animation[/color]\n\nStill images are static. Animation exploits a quirk in human vision called persistence of vision: your brain holds an image for ~1/30 of a second. If you show slightly different images fast enough, your brain fills in the motion. We're hacking your visual cortex.\n\n[color=cyan]Moving ball:[/color]\n\n  10 POKE 61424, 1\n  20 FOR X = 0 TO 140 STEP 2\n  30   POKE 61429, X\n  40   POKE 61431, 50\n  50   POKE 61433, 13\n  60   POKE 61435, 10\n  70   POKE 61439, 8  :REM CIRCLE FILL\n  80   POKE 61439, 9  :REM CLS\n  90 NEXT X\n\n[color=lime]Key insights:[/color]\n  • Draw frame → CLS → draw next frame. Your eyes do the rest.\n  • STEP controls speed. Bigger STEP = faster but choppier.\n  • Change X/Y for movement, radius for pulsing effects.\n\n[color=cyan]Bouncing (back and forth):[/color]\n\n  10 POKE 61424, 1\n  20 FOR I = 1 TO 3\n  30   FOR X = 10 TO 140 STEP 3\n  40     GOSUB 200\n  50   NEXT X\n  60   FOR X = 140 TO 10 STEP -3\n  70     GOSUB 200\n  80   NEXT X\n  90 NEXT I\n  100 END\n  200 REM DRAW BALL AT X\n  210 POKE 61429, X:POKE 61431, 60\n  220 POKE 61433, 10:POKE 61435, 8\n  230 POKE 61439, 8:POKE 61439, 9\n  240 RETURN\n\n[color=yellow]Lore:[/color] The first computer animation was Ivan Sutherland's \"Bouncing Ball\" on the TX-0 at MIT in 1963. The TX-0 had 64K of 18-bit words and a CRT display that filled a room. Your GPU has more pixel-pushing power in its tiny framebuffer than that entire machine had. You can bounce a ball with 1/1000th the power and 1/100000th the electricity. Use the surplus wisely. (Or don't. Bouncing balls are a valid use of computational resources.)\n\n[color=cyan]Your challenge:[/color] Make a ball bounce diagonally. Bonus: change color when it hits a wall."
+				}
+			]
+		}
+	],
+	"quizzes": {
+		"1": [
+			{
+				"type": "MC",
+				"question": "What does a line number do in BASIC?",
+				"options": [
+					"It tells the computer what order to run lines",
+					"It prints a number on screen",
+					"It stores a value in a variable",
+					"It ends the program"
+				],
+				"correct": 0,
+				"hint": "Why do programs have numbered lines instead of just writing them in a list? The computer needs a map."
+			},
+			{
+				"type": "FILL",
+				"question": "What BASIC keyword stops a program? Type the keyword:",
+				"answer": "END",
+				"hint": "Three letters. Means 'stop.' Not 'pause' or 'nap time.'",
+				"alternatives": ["STOP", "BREAK"]
+			}
+		],
+		"2": [
+			{
+				"type": "MC",
+				"question": "What would this program print?\n\n  10 X = 5\n  20 X = X + 3\n  30 PRINT X",
+				"options": ["5", "8", "53", "X"],
+				"correct": 1,
+				"hint": "Walk through: X starts at 5, then you add 3. What's 5 + 3? (This is not a trick question. Yet.)"
+			}
+		],
+		"3": [
+			{
+				"type": "MC",
+				"question": "What prints?\n\n  10 AGE = 15\n  20 IF AGE >= 18 THEN PRINT \"VOTE\" ELSE PRINT \"WAIT\"",
+				"options": ["VOTE", "WAIT", "Nothing — error", "15"],
+				"correct": 1,
+				"hint": "AGE is 15. Is 15 >= 18 true? No. So ELSE runs. Cause and effect."
+			}
+		],
+		"4": [
+			{
+				"type": "MC",
+				"question": "How many times does \"HELLO\" print?\n\n  10 FOR I = 1 TO 4\n  20 PRINT \"HELLO\"\n  30 NEXT I",
+				"options": ["1", "3", "4", "5"],
+				"correct": 2,
+				"hint": "FOR I = 1 TO 4 means I takes values 1, 2, 3, 4. Count them."
+			},
+			{
+				"type": "MC",
+				"question": "What does this program print LAST?\n\n  10 FOR I = 10 TO 1 STEP -2\n  20 PRINT I\n  30 NEXT I",
+				"options": ["10", "2", "0", "1"],
+				"correct": 1,
+				"hint": "Trace: I=10, 8, 6, 4, 2. Then I=0 — is 0 >= 1? No, loop stops. Last thing printed was 2."
+			}
+		],
+		"5": [
+			{
+				"type": "MC",
+				"question": "What does RETURN do in BASIC?",
+				"options": [
+					"Ends the program",
+					"Jumps back to after the last GOSUB",
+					"Restarts the program",
+					"Prints a return character"
+				],
+				"correct": 1,
+				"hint": "GOSUB jumps somewhere. Something has to come back. RETURN is that something."
+			},
+			{
+				"type": "MC",
+				"question": "What prints?\n\n  10 PRINT \"A\"\n  20 GOSUB 50\n  30 PRINT \"C\"\n  40 END\n  50 PRINT \"B\"\n  60 RETURN",
+				"options": ["A", "AB", "ABC", "AC"],
+				"correct": 2,
+				"hint": "A → jump to 50 → B → return to 30 → C. ABC in that order."
+			}
+		],
+		"6": [
+			{
+				"type": "MC",
+				"question": "Which variable name is a STRING variable?",
+				"options": ["SCORE", "N$", "X", "TOTAL"],
+				"correct": 1,
+				"hint": "String variables have a special character at the end. Something that looks like money."
+			},
+			{
+				"type": "MC",
+				"question": "What does INPUT do?",
+				"options": [
+					"Prints output to the screen",
+					"Reads a number from memory",
+					"Waits for the user to type a value",
+					"Loads a program from disk"
+				],
+				"correct": 2,
+				"hint": "INPUT is the opposite of PRINT. PRINT talks. INPUT listens."
+			}
+		],
+		"7": [
+			{
+				"type": "MC",
+				"question": "What address sets the GPU to bitmap mode?",
+				"options": [
+					"$EFF0 — write 1 for bitmap, 0 for text",
+					"$EFF9 — write the color",
+					"$EFFF — command register",
+					"$E000 — text buffer"
+				],
+				"correct": 0,
+				"hint": "The mode register at $EFF0 tells the GPU which personality to wear today."
+			},
+			{
+				"type": "MC",
+				"question": "What is the resolution of the GPU bitmap mode?",
+				"options": [
+					"320 × 200",
+					"160 × 120",
+					"40 × 25",
+					"640 × 480"
+				],
+				"correct": 1,
+				"hint": "The bitmap framebuffer is 160 pixels wide. Small but mighty."
+			}
+		],
+		"8": [
+			{
+				"type": "MC",
+				"question": "What command number writes to $EFFF to draw a line?",
+				"options": ["1", "2", "3", "5"],
+				"correct": 1,
+				"hint": "1=Plot (the atom), 2=Line (the connection), 3=Rect fill (the area)"
+			},
+			{
+				"type": "MC",
+				"question": "Which register holds the radius when drawing a circle?",
+				"options": [
+					"$EFF5 — Draw X low",
+					"$EFF9 — Draw color",
+					"$EFFB — Aux X",
+					"$EFFD — Aux Y"
+				],
+				"correct": 2,
+				"hint": "The auxiliary X register ($EFFB). The 'how big' register."
+			},
+			{
+				"type": "FILL",
+				"question": "What command number draws a horizontal line? (0-9)",
+				"answer": "5",
+				"hint": "HLINE = Horizontal LINE. Command 5. The H in HLINE is silent. (It's not actually silent.)"
+			}
+		],
+		"9": [
+			{
+				"type": "MC",
+				"question": "What command clears the GPU bitmap?",
+				"options": [
+					"POKE 61439, 1",
+					"POKE 61439, 9",
+					"POKE 61424, 0",
+					"POKE 61433, 0"
+				],
+				"correct": 1,
+				"hint": "Command 9 at $EFFF. The 'undo button' for the entire framebuffer."
+			},
+			{
+				"type": "FILL",
+				"question": "What keyword do you type to see the GPU display panel?",
+				"answer": "GRAPHICS",
+				"hint": "Same as F12. Type it. You'll know it worked when you see pixels.",
+				"alternatives": ["F12"]
+			}
+		]
+	}
+}

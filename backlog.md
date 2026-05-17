@@ -94,13 +94,13 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 - [ ] **US-10.3**: As a user, I want to choose between 8, 16, 32, and 64-bit word size variants of the same ISA to see how word width affects memory, registers, and ALU.
 - [ ] **US-10.4**: As a user, I want a step-by-step visual of each instruction's execution (register changes, memory access).
 
-### Graphics / GPU
-- [ ] **US-11.1**: As a system, I want a framebuffer device that can be mapped into any CPU's memory space.
-- [ ] **US-11.2**: As a user, I want text mode (80x25 character grid) for terminal-like output.
-- [ ] **US-11.3**: As a user, I want bitmap graphics mode for pixel-level drawing (turtle graphics).
-- [ ] **US-11.4**: As a developer, I want a pluggable GPU interface so different graphics cards can be swapped.
-- [ ] **US-11.5**: As a user, I want to draw lines, shapes, and sprites via memory-mapped GPU registers.
-- [ ] **US-11.6**: As a user, I want multiple display layers (text + graphics overlay).
+### GPU / Graphics [Phase 9 ✓]
+- [x] **US-11.1**: As a system, I want a framebuffer device that can be mapped into any CPU's memory space.
+- [x] **US-11.2**: As a user, I want text mode (40×25 character grid) for terminal-like output.
+- [x] **US-11.3**: As a user, I want bitmap graphics mode for pixel-level drawing.
+- [x] **US-11.4**: As a developer, I want a pluggable GPU interface so different graphics cards can be swapped.
+- [x] **US-11.5**: As a user, I want to draw lines, shapes, and sprites via memory-mapped GPU registers.
+- [x] **US-11.6**: As a user, I want multiple display layers (text + graphics overlay).
 
 ### FPGA / Hardware Target
 - [ ] **US-12.1**: As a developer, I want each CPU core to have a documented hardware interface (signals, bus width, timings) so it can be implemented as an FPGA soft-core.
@@ -110,6 +110,22 @@ Architect the entire Learning Lab so it can eventually run on custom FPGA hardwa
 - [ ] **US-12.5**: As a developer, I want to run the same ROM/cartridge images in both the software emulator and on MiSTer to validate correctness.
 - [ ] **US-12.6**: As a user, I want a MiSTer core that can load and run the Learning Lab's cartridge format.
 
+### Trainer Cart
+- [x] **US-T.1**: As a user, I want interactive lessons teaching BASIC6502 fundamentals (PRINT, variables, IF).
+- [x] **US-T.2**: As a user, I want MC quizzes with hints for wrong answers.
+- [x] **US-T.3**: As a user, I want progress tracking across lessons.
+- [x] **US-T.4**: As a user, I want lessons on FOR/NEXT loops, GOSUB/RETURN subroutines, and INPUT.
+- [x] **US-T.5**: As a user, I want a GPU Graphics module teaching bitmap mode, pixel plotting, and shape drawing.
+- [x] **US-T.6**: As a user, I want FILL (fill-in-the-blank) quiz type in addition to multiple choice.
+- [ ] **US-T.7**: As a user, I want ASM lessons covering 6502 registers, loads/stores, and branches.
+- [ ] **US-T.8**: As a user, I want CODE TRACE quiz type (predict output of a short program).
+- [ ] **US-T.9**: As a user, I want lessons covering PEEK/POKE/SYS, BSAVE/BLOAD, and memory map.
+- [ ] **US-T.10**: As a user, I want a capstone project combining BASIC and ASM.
+
+### LOAD command (terminal)
+- [ ] **US-L.1**: As a user, I want LOAD to load a program into memory without automatically running it (fixed).
+- [x] **US-L.2**: As a user, I want LOAD to support both JSON-format `.bas` files and plain-text line-numbered files.
+
 ---
 
 ## Definition of Done
@@ -118,7 +134,7 @@ For every phase and user story:
 
 1. **Code** — Implementation complete, follows established patterns (base → subclass, preload not class_name, typed where practical)
 2. **Inline comments** — Every new/modified file has a header comment explaining its role in the architecture; non-obvious logic has inline explanations
-3. **Tests pass** — All 3849 checks (310 regression + 1510 step + 29 CLI + 2000 fuzz) pass cleanly
+3. **Tests pass** — All ~3877 checks (338 regression + 1510 step + 29 CLI + 2000 fuzz) pass cleanly
 4. **Backlog updated** — User stories marked ✓, phase priority updated
 5. **Committed** — Changes committed on `exp/teaching-lab` with descriptive message
 
@@ -183,13 +199,86 @@ Each new CPU gets a `test_processor_step_tests_<cpu>.gd` following the existing 
 4. **Phase 4 ✓**: US-4.1, US-4.2 (I/O abstraction)
 5. **Phase 5 ✓**: US-6.1, US-6.2, US-6.3 (Debugging tools)
 6. **Phase 6 ✓**: US-7.1, US-7.2 (Computer Profiles)
-7. **Phase 7**: US-5.1, US-5.2, US-5.3 (Cross-CPU)
-8. **Phase 8**: US-10.1, US-10.2, US-10.3, US-10.4 (Synthetic CPU)
-9. **Phase 9**: US-11.1, US-11.2, US-11.3, US-11.4, US-11.5, US-11.6 (Graphics/GPU)
-10. **Phase 10**: US-8.1, US-8.2, US-8.3, US-8.4 (New CPUs 4004/8080/Z80/8086)
-11. **Phase 11**: US-12.1, US-12.2, US-12.3, US-12.4, US-12.5, US-12.6 (FPGA/Hardware target)
+7. **Phase 9a ✓**: US-11.1✓, US-11.2✓, US-11.3✓, US-11.5✓ (GPU — text mode, bitmap, pixel-plot, draw commands)
+8. **Phase 9b ✓**: US-11.4✓, US-11.6✓ (GPU — pluggable interface, text+bitmap overlay, blit)
+9. **Phase 7 — next**: US-5.1, US-5.2, US-5.3 (Cross-CPU)
+10. **Phase 8**: US-10.1, US-10.2, US-10.3, US-10.4 (Synthetic CPU)
+11. **Phase 10**: US-8.1, US-8.2, US-8.3, US-8.4 (New CPUs 4004/8080/Z80/8086)
+12. **Phase 11**: US-12.1, US-12.2, US-12.3, US-12.4, US-12.5, US-12.6 (FPGA/Hardware target)
+13. **Trainer P0–P1+**: US-T.1–US-T.6, US-T.7–US-T.10 (Trainer cart expansion)
+14. **Terminal UX polish**: LOAD no-auto-run, pixel-perfect GPU display, save/load fixes
+
+---
+
+## Phase 9a — GPU Device (Done)
+
+### Phase 9a (initial)
+- Memory-mapped I/O device at $E000-$EFFF extending IODevice
+- Text mode: 40×25 character buffer ($E000-$E3E7) + attribute buffer ($E400-$E7FF)
+- 5×7 pixel font (ASCII 32-126) hardcoded in _FONT_DATA
+- Bitmap mode: 160×120 pixel framebuffer, 16-color CGA-inspired palette
+- Pixel-plot via control registers ($EFF5-$EFFA): set X/Y, write color triggers pixel draw
+- UI panel (TextureRect, 640×480, 4× scaled) toggled via F12 or GRAPHICS command
+- GPU resets correctly via MemoryBus6502.reset() chain
+- 17 GPU-specific regression tests added
+
+### Phase 9a — Draw Commands (done May 2026)
+- Command register at $EFFF with 9 draw commands: PLOT(1), LINE(2), RECT(3), RECT_OUT(4), HLINE(5), VLINE(6), CIRCLE(7), CIRCLE_FILL(8), CLS(9)
+- Auxiliary registers at $EFFB-E for X2/Y2/radius
+- Bresenham line drawing algorithm
+- Filled/outline rectangle drawing
+- Optimized HLINE/VLINE (writes directly to framebuffer array)
+- Bresenham circle outline + scanline-filled circle
+- Clear bitmap to background color
+- `REG_PIX_COLOR` changed to set color only (no auto-plot); CMD_PLOT replaces auto-plot
+- Existing GPU demos (gpu_pixels, gpu_sine) updated to use CMD_PLOT
+- New demo: GPU_DRAW — color bars, shapes, lines
+- UI: `texture_filter = NEAREST` for pixel-perfect scaling
+
+### Phase 9b — GPU expansion (done May 2026)
+- Pluggable GPU interface (US-11.4) — abstract `gpu_base.gd` extending `io_device.gd` with
+  `render_to_image()`, `_dirty` flag, and `framebuffer_updated` signal; `gpu_device.gd`
+  refactored to extend `gpu_base.gd` instead of `io_device.gd`
+- Tile/map graphics layer (US-11.6) — `MODE_TEXT_BITMAP` (3) enables both text and bitmap
+  layers simultaneously; text renders with transparent background so bitmap shows through;
+  `_text_layer_enabled()` and `_bitmap_layer_enabled()` helpers
+- Blit command (`CMD_BLIT` = 10) — copies a rectangular region within the bitmap framebuffer;
+  source rect from draw_x/y with width/height from aux_x/y, destination from cursor_x/y
+  (cursor registers no longer clamped to text dimensions)
+- New demos: `GPU_OVERLAY` (text + bitmap overlay demo), `GPU_BLIT` (blit/copy rectangle demo)
+- 4 new regression tests: overlay mode, overlay rendering, blit command, cursor no-clamp
+- Cursor registers (`$EFF3-4`) changed from modulo-clamped to 8-bit raw storage
+  (needed for blit destination in bitmap mode; text mode doesn't rely on clamping)
+
+---
+
+---
+
+## Phase P0–P1 — Trainer Cart (Done May 2026)
+
+### P0 Spike (initial)
+- Trainer cart (id=5) registered in CartManager
+- HELP, MENU, OPEN, NEXT, BACK, QUIZ, ANSWER, PROGRESS commands
+- 3 lessons: Hello BASIC, Variables, IF/THEN/ELSE
+- MC quiz type with hint feedback
+- Curriculum loaded from `trainer/curriculum.json` via FileAccess
+- Progress tracked in serialized cart state
+
+### P1 Expansion (done May 2026)
+- 3 new BASIC lessons: FOR/NEXT (4), GOSUB/RETURN (5), INPUT/GET (6)
+- New GPU Graphics module with 3 lessons: GPU Basics (7), Drawing Shapes (8), Animation (9)
+- FILL quiz type added — text-based answer with alternatives
+- 10+ new MC quizzes, 3 FILL quizzes
+- Curriculum version bumped to 2
+
+### P2+ (planned)
+- ASM module: registers, LDA/STA, branches, subroutines
+- CODE TRACE quiz type (predict program output)
+- PEEK/POKE/SYS, BSAVE/BLOAD, memory map lessons
+- Capstone project combining BASIC + ASM
 
 ---
 
 *Created: 2026-05-10*  
+*Updated: 2026-05-12*  
 *Branch: exp/teaching-lab*

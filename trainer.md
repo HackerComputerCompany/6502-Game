@@ -1,6 +1,6 @@
 # Trainer cart — design plan
 
-This document describes the **design**, **approach**, and **requirements** for a future **in-game ROM cartridge** (“Trainer” cart) that teaches **BASIC6502 BASIC** and **assembly language** used by the existing **ASM cart**, using **plain-language explanations**, **short examples**, and **interactive checks** suitable for a motivated **~10th-grade** reader (roughly ages 15–16: comfortable with variables, order of operations, light logic; no prior assembly required).
+This document describes the **design**, **approach**, and **requirements** for an **in-game ROM cartridge** (“Trainer” cart) that teaches **BASIC6502 BASIC** and **assembly language** used by the existing **ASM cart**, using **plain-language explanations**, **short examples**, and **interactive checks** suitable for a motivated **~10th-grade** reader (roughly ages 15–16: comfortable with variables, order of operations, light logic; no prior assembly required).
 
 Implementation is **out of scope** for this file; this is the **product + curriculum + engineering plan** to build against.
 
@@ -12,11 +12,10 @@ Implementation is **out of scope** for this file; this is the **product + curric
 |------|-------------|
 | **G1 — Coverage** | Every **BASIC keyword** and **operator** supported by `BasicInterpreter` gets at least one **lesson slice**: explanation + minimal example + **interactive** check. Same for every **assembler-accepted 6502 mnemonic** and **assembler directive** documented for the ASM cart. |
 | **G2 — Progression** | Content is **ordered** from first programs (“Hello”) through control flow, data, files, memory, then **ASM** (registers → loads/stores → branches → subroutines → I/O map). |
-| **G3 — In-world** | The learner stays **inside the terminal**: the Trainer cart is selected with `CART TRAINER` (name TBD), same CRT/keyboard metaphors as today. |
+| **G3 — In-world** | The learner stays **inside the terminal**: the Trainer cart is selected with `CART TRAINER`, same CRT/keyboard metaphors as today. |
 | **G4 — Accessibility** | Reading level targets **grades 9–10**; jargon is introduced **with definitions**; examples are **short** (ideally ≤ 8 lines of BASIC or ≤ 12 lines of ASM source). |
 | **G5 — Honesty** | Teach the **actual dialect** of this project (keywords from `basic_interpreter.gd`, asm rules from `assembler6502.gd` / `cart_asm.gd`), not a generic “6502/BASIC” superset. |
-
----
+| **G6 — Voice** | Clever, inclusive, conspiratorial tone. Assume the learner is sharp and let them in on the joke. Hacker culture references (GOSUB stack, the 2600 Hz whistle, demoscene history, Grace Hopper's moth) woven throughout. Not loud — clever. The machine is confiding in you. |
 
 ## 2. Non-goals (initial releases)
 
@@ -49,17 +48,17 @@ Each **unit** should follow a fixed rhythm (reduces cognitive load):
 
 ### 3.3 Interactive test types (requirements)
 
-| Type | ID | Behavior |
-|------|-----|----------|
-| **Multiple choice** | `MC` | 3–4 options; one correct. |
-| **Predict output** | `OUT` | Show program; user picks exact line of output (or types a number/string). |
-| **Complete the line** | `FILL` | Partial line with `___`; user fills; normalize spaces/case before compare. |
-| **Find the bug** | `BUG` | Intentionally wrong line; user selects which line or types correction. |
-| **Assembler truth** | `ASM` | Given listing, user predicts byte size or branch target (advanced). |
+| Type | ID | Behavior | Status |
+|------|-----|----------|--------|
+| **Multiple choice** | `MC` | 3–4 options; one correct. | ✓ P0 |
+| **Fill in the blank** | `FILL` | Partial line with `___`; user fills; normalize spaces/case before compare. | ✓ P1 |
+| **Predict output** | `OUT` | Show program; user picks exact line of output (or types a number/string). | Planned P2 |
+| **Find the bug** | `BUG` | Intentionally wrong line; user selects which line or types correction. | Planned P2 |
+| **Assembler truth** | `ASM` | Given listing, user predicts byte size or branch target (advanced). | Planned P3 |
 
-**R7 — Feedback:** Every wrong answer gets a **short** hint, not only “incorrect.”  
-**R8 — Retry:** User can retry without losing progress; optional “show solution.”  
-**R9 — No blocking:** Tests should run in **O(1)** time; no arbitrary `SYS` in autograder unless sandboxed.
+**R7 — Feedback:** Every wrong answer gets a **short** hint, not only “incorrect.” ✓  
+**R8 — Retry:** User can retry without losing progress; optional “show solution.” ✓  
+**R9 — No blocking:** Tests should run in **O(1)** time; no arbitrary `SYS` in autograder unless sandboxed. ✓
 
 ---
 
@@ -67,50 +66,39 @@ Each **unit** should follow a fixed rhythm (reduces cognitive load):
 
 ### 4.1 Cart identity
 
-- **New class:** e.g. `CartTrainer` extends `ROMCart` (same pattern as `CartAsm`, `CartText`).  
-- **Id / name:** reserve an id (e.g. `3`) and name **`TRAINER`** for `CART TRAINER`.  
-- **Prompt:** e.g. `LEARN>` or `TRAIN>`.
+- **Class:** `CartTrainer` extends `ROMCart` (same pattern as `CartAsm`, `CartText`).  
+- **Id / name:** `id=5`, name `TRAINER`, prompt `LEARN>`.  
+- **Registered in:** `Computer._init()` alongside BASIC(0), TEXT(1), ASM(2), C(3), NATIVE(4).
 
-### 4.2 Command surface (draft)
+### 4.2 Command surface
 
 | Command | Purpose |
 |---------|---------|
 | `HELP` | Overview + command list. |
 | `MENU` / `TOPICS` | List modules (BASIC / ASM / Bridge). |
-| `OPEN n` / `LESSON n` | Open lesson `n` (numeric id or slug string). |
+| `OPEN n` / `LESSON n` | Open lesson `n` (numeric id). |
 | `NEXT` / `BACK` | Navigate within module. |
 | `QUIZ` | Start/re-run interactive block for current lesson. |
-| `ANSWER ...` | Submit answer for last shown question (or use lettered prompts `A`/`B`/`C`). |
-| `PROGRESS` | Show % complete, badges (stored in cart state). |
-| `BASIC` | Paste-friendly **reference card** for one keyword (optional shortcut). |
-| `ASM` | Same for one mnemonic. |
-| `CART BASIC` / `CART ASM` | Exit to practice for real (per existing pattern). |
+| `ANSWER ...` | Submit answer for last shown question (or use lettered prompts `A`/`B`/`C`, or type answer for FILL). |
+| `PROGRESS` / `STATUS` | Show % complete (stored in cart state). |
+| `CART BASIC` | Exit to practice. |
 
 ### 4.3 Where content lives
 
-**Option 1 (preferred for v1):** `res://trainer/` directory:
-
-- `trainer/curriculum.json` (or `.tres` Resource) — machine-readable outline: units, dependencies, quiz specs.  
-- `trainer/basic/*.md` or `.txt` — long-form text (import at build time into Dictionary, or load with `FileAccess`).  
-- `trainer/asm/*.md` — same.
-
-**Option 2:** Single large `trainer_data.gd` const Dictionary — fast to ship, harder to edit.
-
-**Recommendation:** **JSON + Markdown** for authorability; Godot loads JSON at runtime; Markdown rendered as plain text or BBCode subset matching `computer.emit_richtext`.
+`res://trainer/curriculum.json` — curriculum outline with inline BBCode lesson bodies and quiz definitions. Loaded at runtime via `FileAccess` in `install()`.
 
 ### 4.4 State and persistence
 
-- Use `ROMCart.serialize()` / `deserialize()` to save: `completed_units: Array`, `scores: Dictionary`, `last_lesson_id`.  
-- F3 **save state** already round-trips cart state — Trainer must participate so learners don’t lose progress.
+`ROMCart.serialize()` / `deserialize()` — saves `completed` array, `scores` dict, `module_idx`, `lesson_idx`. F3 save state round-trips cart state.
 
 ### 4.5 Integration points
 
 | System | Use |
 |--------|-----|
-| `CartManager` | Register Trainer; `switch_to` clears `$E000-$EFFF` like other carts — **do not** wipe lesson content in ROM; only **workspace** if used for scratch. |
+| `CartManager` | Registered as id=5; `switch_to` clears $E000-$EFFF workspace. |
 | `Computer.emit_richtext` | All lesson text uses same BBCode pipeline as ASM HELP. |
-| `BasicInterpreter` | Optional: run **isolated** snippets for `OUT`-style quizzes in a **disposable** interpreter instance with a **captured** output callback (do not corrupt user’s main program). |
-| `Assembler6502` | Optional: assemble quiz snippets to verify branch offsets / `.EQU` without writing full cart ASM buffer (use throwaway `MemoryBus` or dedicated low RAM). |
+| `BasicInterpreter` | Optional: future OUT-style quizzes via disposable interpreter. |
+| `Assembler6502` | Optional: future ASM quizzes via throwaway MemoryBus. |
 
 ---
 
@@ -198,13 +186,30 @@ Separate narrative units + quizzes:
 30 NEXT I
 ```
 
-- **Quiz (`OUT`):** “What three numbers print, in order?”
+- **Quiz (`MC`):** “How many times does HELLO print? 10 FOR I=1 TO 4 ...” → correct: 4
 
 ### 6.2 ASM example — `BNE` + label
 
 - **Idea:** Jump backward while a counter is not zero.  
 - **Example:** (reuse **stars** demo structure from `cart_asm.gd`, 6–8 lines.)  
-- **Quiz (`FILL`):** “What immediate value loads 10 into X?” → `LDX #$0A` blank form.
+- **Quiz (`FILL`):** “What immediate value loads 10 into X?” → `#10` or `#$0A`
+
+### 6.3 GPU example — drawing a line
+
+- **Idea:** Use POKE to set registers and draw shapes.  
+- **Example:**
+
+```text
+10 POKE 61424, 1    :REM bitmap mode
+20 POKE 61429, 10   :REM X1
+30 POKE 61431, 20   :REM Y1
+40 POKE 61435, 150  :REM X2
+50 POKE 61437, 100  :REM Y2
+60 POKE 61433, 15   :REM white
+70 POKE 61439, 2    :REM LINE command
+```
+
+- **Quiz (`FILL`):** “What command number draws a horizontal line?” → 5
 
 ---
 
@@ -227,21 +232,21 @@ Separate narrative units + quizzes:
 
 ## 8. Phased delivery roadmap
 
-| Phase | Scope | Exit criteria |
-|-------|--------|----------------|
-| **P0 — Spike** | Static `HELP` + 3 hand-written lessons + 1 quiz type (`MC`) | Proof of BBCode + input parsing |
-| **P1 — BASIC core** | Variables through `GOSUB`/`RETURN`, all operators | 40% of BASIC checklist |
-| **P2 — BASIC full** | Files, `PEEK`/`POKE`, `SYS`, `LOADOBJ` | §5.1–§5.4 complete |
-| **P3 — ASM core** | LDA/STA/branches/subroutines + map | §5.5 subset |
-| **P4 — ASM full** | All mnemonics + directives | §5.5–§5.6 complete |
-| **P5 — Capstone** | One multi-part project + certificate text | Player can explain BASIC vs ASM tradeoffs |
+| Phase | Scope | Exit criteria | Status |
+|-------|--------|----------------|--------|
+| **P0 — Spike** | Static `HELP` + 3 hand-written lessons + `MC` quiz type | Proof of BBCode + input parsing | ✓ Done |
+| **P1 — BASIC core** | Variables through `GOSUB`/`RETURN`, all operators. GPU module. `FILL` quiz type. | 6 BASIC + 3 GPU lessons | ✓ Done |
+| **P2 — BASIC full** | Files, `PEEK`/`POKE`, `SYS`, `LOADOBJ`. `OUT` quiz type. | §5.1–§5.4 complete | Planned |
+| **P3 — ASM core** | LDA/STA/branches/subroutines + map. `BUG` quiz type. | §5.5 subset | Planned |
+| **P4 — ASM full** | All mnemonics + directives. `ASM` quiz type. | §5.5–§5.6 complete | Planned |
+| **P5 — Capstone** | One multi-part project + certificate text | Player can explain BASIC vs ASM tradeoffs | Planned |
 
 ---
 
 ## 9. Authoring workflow
 
-1. Add unit to `curriculum.json` with `id`, `title`, `prereq`, `body_path`, `quizzes[]`.  
-2. Write `body.md` (Markdown); run **lint script** (future) checking line length & banned words.  
+1. Add unit to `curriculum.json` with `id`, `title`, `prereq`, `body`, `quizzes[]`.  
+2. Write `body` inline as BBCode (in `curriculum.json`).  
 3. Peer review for **accuracy** against interpreter.  
 4. Add **automated** test: load JSON, assert every `id` is unique, every `prereq` exists, every quiz has answer key.
 
@@ -267,8 +272,9 @@ Separate narrative units + quizzes:
 
 - When **`basic_interpreter.gd`** `_keywords` or expression grammar changes, update **§5** and bump curriculum **version** field.  
 - When **`assembler6502.gd`** opcode table changes, update ASM checklist and re-run capstone labs.  
-- Keep **`trainer.md`** as the **vision doc**; detailed lesson text lives under `res://trainer/` once implementation starts.
+- Keep **`trainer.md`** as the **vision doc**; detailed lesson text lives under `res://trainer/curriculum.json` once implementation starts.
 
 ---
 
-*Document version: 1.0 — created for BASIC6502 / 6502-Game project.*
+*Document version: 1.2 — P1 expansion with GPU module, FILL quiz type, hacker-culture tone (G6)*  
+*Updated: 2026-05-12*

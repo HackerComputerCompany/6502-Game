@@ -16,6 +16,8 @@ var _awaiting_input: bool = false
 var _input_vars: Array = []
 var _output_callback: Callable
 var _input_callback: Callable
+var _graphics_callback: Callable
+var _exec_callback: Callable
 var _returned: bool = false
 ## Uppercase name -> { "entry_addr": int, "syntax": String, "desc": String, "examples": Array }
 var _native_extensions: Dictionary = {}
@@ -33,10 +35,12 @@ enum TT {
 
 var _keywords: Dictionary = {}
 
-func _init(sram: MemoryBus, output_cb: Callable, input_cb: Callable) -> void:
+func _init(sram: MemoryBus, output_cb: Callable, input_cb: Callable, graphics_cb: Callable = Callable(), exec_cb: Callable = Callable()) -> void:
 	_memory = sram
 	_output_callback = output_cb
 	_input_callback = input_cb
+	_graphics_callback = graphics_cb
+	_exec_callback = exec_cb
 	_native_sf = _SoftFloatScript.new()
 	_setup_keywords()
 
@@ -58,6 +62,8 @@ func _setup_keywords() -> void:
 		"CONT": true, "LOAD": true, "SAVE": true, "MEM": true,
 		"BSAVE": true, "BLOAD": true, "LOADOBJ": true, "DEF": true, "FN": true,
 		"STOP": true, "BREAK": true, "WRITE": true, "READFILE": true,
+		"GRAPHICS": true, "GPU": true,
+		"EXEC": true,
 	}
 
 func load_program(text: String) -> void:
@@ -199,6 +205,15 @@ func _execute_single(stmt: String) -> void:
 			"NEW": _program.clear(); _variables.clear(); _arrays.clear(); _native_extensions.clear(); _running = false
 			"LIST": _exec_list()
 			"RUN": _current_line = 0; _data_pointer = 0
+			"GRAPHICS", "GPU":
+				if _graphics_callback.is_valid():
+					_graphics_callback.call()
+			"EXEC":
+				if _exec_callback.is_valid() and toks.size() >= 2 and toks[1][0] == TT.STRING:
+					_exec_callback.call(toks[1][1])
+				else:
+					_output_callback.call("ERROR: EXEC requires a string argument\n")
+					_running = false
 			_:
 				_output_callback.call("ERROR: UNKNOWN COMMAND '%s'\n" % t[1])
 				_running = false

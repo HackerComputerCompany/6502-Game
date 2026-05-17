@@ -10,6 +10,46 @@ where versioning applies.
 
 ### Added
 
+- **`GDD.md` — Game Design Document for "signal.zero"**: full 300-line GDD for an open-world hacking simulator RPG with three gameplay modes (Keyboard Time = existing teaching lab; Hands On Hardware = circuit puzzle mode; Overworld = Earth Bound–style top-down adventure). Covers vision, narrative, progression loop, inventory, art/audio direction, dev phases, and monetization.
+
+- **GPU Phase 9a — Initial GPU device** (pluggable `gpu_base.gd` abstract class + `gpu_device.gd`): memory-mapped at $E000-$EFFF, 40×25 text mode + 160×120 bitmap mode, 16-color CGA palette, 5×7 pixel font, pixel-plot via control registers. Draw commands via command register at $EFFF: PLOT(1), LINE(2), RECT(3), RECT_OUT(4), HLINE(5), VLINE(6), CIRCLE(7), CIRCLE_FILL(8), CLS(9). Bresenham line/circle algorithms. GPU panel (TextureRect, 640×480, nearest-neighbor scaling) toggled via F12 or `GRAPHICS` command. 17 GPU-specific regression tests.
+
+- **GPU Phase 9b — GPU expansion**: tile/map overlay mode (MODE_TEXT_BITMAP=3) with both layers, transparent text background so bitmap shows through. Blit command (CMD_BLIT=10) framebuffer copy. New demos GPU_OVERLAY and GPU_BLIT. Cursor registers changed to 8-bit raw storage for blit destination. 4 new regression tests.
+
+- **Trainer Cart P0 — Spike** (`cart_trainer.gd`, id=5): HELP, MENU, OPEN, NEXT, BACK, QUIZ, ANSWER, PROGRESS commands. 3 lessons (Hello BASIC, Variables, IF/THEN/ELSE). MC quiz type with hint feedback. Curriculum loaded from `trainer/curriculum.json`. Progress in serialized cart state.
+
+- **Trainer Cart P1 — Expansion**: 3 new BASIC lessons (FOR/NEXT, GOSUB/RETURN, INPUT/GET). GPU Graphics module with 3 lessons (GPU Basics, Drawing Shapes, Animation). FILL quiz type (text-based answer with alternatives). 10+ new MC quizzes, 3 FILL quizzes. Curriculum version 2.
+
+- **Segment clock** (`segment_clock.gd`): 7-segment LED-style clock display replacing BaudLabel/FontLabel in the top bar. Three modes: green, red, off.
+
+- **Page/more system**: output pauses after 25 lines with `-- MORE --` prompt; any keypress resumes the stream.
+
+- **BASIC `GRAPHICS`/`GPU` and `EXEC` commands**: `GRAPHICS` toggles GPU panel; `EXEC "command"` routes string to terminal via signals.
+
+- **Higher baud rates**: 57600 and 115200 added (default changed to 115200).
+
+### Changed
+
+- **terminal.gd major refactor**: debug panel moved from inline to DebugManager (widgets stored as terminal members, not panel children). GPU panel added as TextureRect. Segment clock replaces top-bar baud/font labels. Page-pause system integrated into `_stream_char_by_char`. GPU framebuffer polled in `_process()` via `_dirty` flag. `_page_lines`/`_page_paused`/`_page_saved_text` for MORE paging.
+
+- **computer.gd**: GPU instance wired from `memory_bus_6502._gpu`. `graphics_requested` and `command_requested` signals added. Trainer cart registered in `CartManager`. Serialization order fixed: cart switch before memory/cpu restore.
+
+- **memory_bus_6502.gd**: GPU device registered as I/O device at $E000-$EFFF in peek/poke/reset chain. GPU serialized/deserialized in save state.
+
+- **backlog.md**: GPU phases 9a/9b and Trainer P0/P1 marked done. Priority order updated. Phase 9a/9b and P0/P1 detailed done sections added. Trainer user stories (US-T.1–T.10) and LOAD stories added. All ~3877 checks referenced.
+
+- **trainer.md**: Updated to reflect P1 done (BASIC+GPU lessons, FILL quiz type). Added G6 (voice/tone — hacker-culture, conspiratorial). GPU lesson examples added. Implementation sections updated from speculative to completed. Version bumped to 1.2.
+
+### Fixed
+
+- **native_basic_softfloat.gd**: `div_bits` integer division changed from `int(num / mb)` to `int(float(num) / mb)` to avoid 64-bit integer edge cases. `_combine` parameter renamed from `sign`→`s` to avoid shadowing built-in.
+
+- **GPU cursor clamping removed**: cursor registers ($EFF3-4) changed from modulo-clamped (to 40/25) to 8-bit raw storage, needed for blit destination in bitmap mode.
+
+- **Serialization order**: `computer.gd` deserialize now switches cart *before* restoring memory/cpu state, preventing stale state mismatches.
+
+### Added
+
 - **`cart_native.gd`** (**`NATIVE`** cart, id **4**): **`HYBRID`** / **`NATIVE`** / **`STATUS`** toggles **`BasicInterpreter.basic_runtime_mode`**; **`native_basic_softfloat.gd`** implements IEEE754 binary32 **`+ − × ÷`** (and comparisons via decode) for **NATIVE** mode — groundwork for a future **6502** soft-float pack callable from the emulator.
 - **`TESTING.md`**: single reference for **all headless suites** (regression blocks, CLI battery, **65x02** step tests, fuzz rounds, CLI flags, `run_all_tests.sh`).
 - **`scripts/run_all_tests.sh`**: runs regression → **`test_processor_step_tests.gd`** → CLI → fuzz (optional **`GODOT`**, **`FUZZ_ITERS`**, **`FUZZ_SEED`**).

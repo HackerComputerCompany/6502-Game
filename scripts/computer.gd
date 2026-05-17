@@ -2,6 +2,7 @@ class_name Computer
 extends RefCounted
 
 const _CartNativeGd := preload("res://scripts/cart_native.gd")
+const _CartTrainer := preload("res://scripts/cart_trainer.gd")
 const _MemoryBus6502 := preload("res://scripts/memory_bus_6502.gd")
 const _ProfileManager := preload("res://scripts/profile_manager.gd")
 
@@ -15,6 +16,7 @@ var _output_buffer: String = ""
 var _ready: bool = false
 
 var profile_manager
+var gpu
 
 var _program_running: bool = false
 var _awaiting_input: bool = false
@@ -26,20 +28,26 @@ signal ready_for_input()
 signal program_finished()
 ## Terminal replays BIOS POST and CRT boot; clears all cart editor buffers first.
 signal full_reboot_requested()
+## Emitted when BASIC runs GRAPHICS/GPU statement.
+signal graphics_requested()
+## Emitted when BASIC runs EXEC statement (string arg = command to execute).
+signal command_requested(text: String)
 
 func emit_richtext(text: String) -> void:
 	output_richtext.emit(text)
 
 func _init(profile: Dictionary = {}) -> void:
 	memory = _MemoryBus6502.new()
+	gpu = memory._gpu
 	cpu = CPU6502.new(memory)
-	basic = BasicInterpreter.new(memory, _on_output, _on_input)
+	basic = BasicInterpreter.new(memory, _on_output, _on_input, _on_graphics, _on_command)
 	cart_manager = CartManager.new(self)
 	cart_manager.register(CartBasic.new())
 	cart_manager.register(CartText.new())
 	cart_manager.register(CartAsm.new())
 	cart_manager.register(CartC.new())
 	cart_manager.register(_CartNativeGd.new())
+	cart_manager.register(_CartTrainer.new())
 	memory.cart_switch_requested.connect(cart_manager._on_cart_switch_requested)
 	cart_manager.switch_to(0, true)
 	memory.char_output.connect(_on_char_output)
@@ -70,6 +78,12 @@ func _on_output_ready(text: String) -> void:
 
 func _on_output(text: String) -> void:
 	output.emit(text)
+
+func _on_graphics() -> void:
+	graphics_requested.emit()
+
+func _on_command(text: String) -> void:
+	command_requested.emit(text)
 
 func _on_input(prompt: String) -> Variant:
 	output.emit(prompt)
@@ -165,7 +179,8 @@ func reset() -> void:
 	_program_running = false
 	_awaiting_input = false
 	memory.reset()
-	basic = BasicInterpreter.new(memory, _on_output, _on_input)
+	gpu = memory._gpu
+	basic = BasicInterpreter.new(memory, _on_output, _on_input, _on_graphics, _on_command)
 	cart_manager.switch_to(0, true)
 	_output_buffer = ""
 	_ready = true
@@ -185,14 +200,16 @@ func serialize() -> Dictionary:
 	}
 
 func deserialize(data: Dictionary) -> void:
+	var cid := int(data.get("cart_id", 0))
+	## Switch to the saved cart first — this installs ROM, clears workspace,
+	## and resets CPU/BASIC. Then we restore state on top of the clean base.
+	cart_manager.switch_to(cid, true)
 	if data.has("memory"):
 		memory.deserialize(data["memory"])
 	if data.has("cpu"):
 		cpu.deserialize(data["cpu"])
 	if data.has("basic"):
 		basic.deserialize(data["basic"])
-	var cid := int(data.get("cart_id", 0))
-	cart_manager.set_active_without_swap(cid)
 	cart_manager.deserialize_cart_state(data.get("cart_state", {}))
 
 func load_demo(name: String) -> String:

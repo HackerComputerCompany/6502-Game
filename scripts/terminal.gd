@@ -9,8 +9,8 @@ var _cmd_display: RichTextLabel
 var input_line: LineEdit
 @onready var status_bar: Label = $VBoxContainer/StatusBar
 @onready var title_bar: Label = $VBoxContainer/TopBar/TitleBar
-@onready var baud_label: Label = $VBoxContainer/TopBar/BaudLabel
-@onready var font_label: Label = $VBoxContainer/TopBar/FontLabel
+@onready var segment_clock = $VBoxContainer/TopBar/SegmentClock
+
 @onready var settings_panel: PanelContainer = $SettingsPanel
 @onready var curvature_slider: HSlider = $SettingsPanel/VBoxContainer/CurvatureSlider
 @onready var curvature_label: Label = $SettingsPanel/VBoxContainer/CurvatureLabel
@@ -29,19 +29,15 @@ var input_line: LineEdit
 
 var computer: Computer
 var sound: SoundManager
+var debug: DebugManager
 var command_history: Array = []
 var history_pos: int = -1
-var _debug_panel: PanelContainer
-var _debug_cpu_label: Label
-var _debug_reg_container: VBoxContainer
-var _debug_flag_container: VBoxContainer
-var _debug_disasm_label: RichTextLabel
-var _debug_help_label: RichTextLabel
-var _debug_info_cache: Array = []
-var _debug_reg_labels: Dictionary = {}
-var _debug_flag_labels: Dictionary = {}
-var _debug_desc_labels: Dictionary = {}
+var _settings_visible: bool = false
+var _gpu_visible: bool = false
+var _gpu_panel: TextureRect
+var _clock_visible: bool = true
 
+var _fonts_loaded: bool = false
 var _base_font_size: int = 18
 
 var _available_fonts: Array = [
@@ -53,8 +49,8 @@ var _available_fonts: Array = [
 var _current_font_idx: int = 0
 
 var _demos_with_param: Array = ["primenums", "pi"]
-var _baud_rates: Array = [300, 1200, 2400, 9600, 14400]
-var _current_baud_idx: int = 2
+var _baud_rates: Array = [300, 1200, 2400, 9600, 14400, 57600, 115200]
+var _current_baud_idx: int = 6
 
 var _clock_speeds: Array = [0.5, 1.0, 10.0]
 var _clock_labels: Array = ["0.5 MHz", "1 MHz", "10 MHz"]
@@ -66,10 +62,11 @@ var _output_queue: String = ""
 var _is_streaming: bool = false
 
 var _instant_output: bool = false
-var debug: DebugManager
-var _debug_visible: bool = false
 
-var _fonts_loaded: bool = false
+var _page_lines: int = 0
+var _page_lines_max: int = 25
+var _page_paused: bool = false
+var _page_saved_text: String = ""
 
 var _monitor_mode: bool = false
 var _monitor_addr: int = 0x0000
@@ -102,13 +99,12 @@ func _ready() -> void:
 	computer.program_finished.connect(_on_program_finished)
 	computer.cart_manager.cart_changed.connect(_on_cart_changed)
 	computer.full_reboot_requested.connect(_on_full_reboot_requested)
+	computer.graphics_requested.connect(_toggle_gpu)
+	computer.command_requested.connect(_on_command_requested)
 	sound = SoundManager.new()
 	add_child(sound)
 	debug = DebugManager.new()
 	add_child(debug)
-	_debug_panel = _build_debug_panel()
-	add_child(_debug_panel)
-	_debug_panel.visible = false
 	input_line = $VBoxContainer/InputLine
 	input_line.visible = false
 	input_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -137,6 +133,17 @@ func _ready() -> void:
 	_vbox.add_child(_cmd_display)
 	_vbox.move_child(_cmd_display, _screen_idx + 1)
 	_update_cmd_display()
+	_gpu_panel = TextureRect.new()
+	_gpu_panel.name = "GPUDisplay"
+	_gpu_panel.custom_minimum_size = Vector2(640, 480)
+	_gpu_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_gpu_panel.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	## Nearest-neighbour filtering for pixel-perfect GPU framebuffer scaling.
+	_gpu_panel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_gpu_panel.expand = true
+	_gpu_panel.visible = false
+	_vbox.add_child(_gpu_panel)
+	_vbox.move_child(_gpu_panel, _cmd_display.get_index() + 1)
 	curvature_slider.value_changed.connect(_on_curvature_changed)
 	scanline_slider.value_changed.connect(_on_scanline_changed)
 	vignette_slider.value_changed.connect(_on_vignette_changed)
@@ -146,8 +153,8 @@ func _ready() -> void:
 	save_btn.pressed.connect(_on_save_state)
 	load_btn.pressed.connect(_on_load_state)
 	_update_status()
-	_update_baud_label()
-	_update_font_label()
+	_clock_visible = segment_clock.get_display_mode() == 0
+
 	call_deferred("_apply_font_deferred")
 	call_deferred("_load_state_silent")
 	call_deferred("_start_cold_boot")
@@ -177,6 +184,8 @@ func _apply_font_deferred() -> void:
 	_apply_font()
 	_fonts_loaded = true
 
+var _clock_elapsed: float = 0.0
+
 func _process(delta: float) -> void:
 	_mouse_hide_timer -= delta
 	if _mouse_hide_timer <= 0 and Input.mouse_mode != Input.MouseMode.MOUSE_MODE_HIDDEN:
@@ -193,7 +202,9 @@ func _process(delta: float) -> void:
 		var fc = debug.get_frame_count()
 		if fc % 30 == 0:
 			_update_status()
-	if _is_streaming and _output_queue.length() > 0:
+	if _page_paused:
+		pass
+	elif _is_streaming and _output_queue.length() > 0:
 		var chars_per_second = float(_baud_rates[_current_baud_idx]) / 10.0
 		var chars_this_frame = max(1, int(chars_per_second * delta))
 		var num_chars = mini(chars_this_frame, _output_queue.length())
@@ -208,7 +219,15 @@ func _process(delta: float) -> void:
 	if _cursor_timer >= 0.5:
 		_cursor_timer -= 0.5
 		_cursor_visible = not _cursor_visible
+	_clock_elapsed += delta
+	if _clock_elapsed >= 1.0:
+		_clock_elapsed -= 1.0
+		_update_clock()
 		_update_cmd_display()
+	if _gpu_visible and computer != null and computer.gpu != null and computer.gpu._dirty:
+		var img = computer.gpu.render_to_image()
+		var tex = ImageTexture.create_from_image(img)
+		_gpu_panel.texture = tex
 
 func _process_warmup(delta: float) -> void:
 	_warmup_elapsed += delta
@@ -282,9 +301,19 @@ func _flush_input_buffer() -> void:
 
 func _stream_char_by_char(text: String) -> void:
 	for ch in text:
+		if _page_paused:
+			_restore_paused_text(text)
+			return
 		match ch:
 			"\n":
 				sound.play_line_feed()
+				_page_lines += 1
+				if _page_lines >= _page_lines_max:
+					_page_paused = true
+					_page_saved_text = text.substr(text.find(ch) + 1)
+					screen.append_text("\n[color=cyan]-- MORE --[/color]")
+					screen.scroll_to_line(screen.get_line_count() - 1)
+					return
 			"\a":
 				sound.play_bell()
 				continue
@@ -299,6 +328,19 @@ func _escape_bbcode(text: String) -> String:
 	text = text.replace("[", "&lsqb;")
 	text = text.replace("]", "&rsqb;")
 	return text
+
+func _resume_from_page_pause() -> void:
+	_page_paused = false
+	_page_lines = 0
+	var saved := _page_saved_text
+	_page_saved_text = ""
+	if saved.length() > 0:
+		_output_queue = saved + _output_queue
+		_is_streaming = true
+
+func _restore_paused_text(text: String) -> void:
+	_page_saved_text = text + _page_saved_text
+	_is_streaming = true
 
 func _update_cmd_display() -> void:
 	if not _cmd_display:
@@ -355,6 +397,10 @@ func _input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE
 		_mouse_hide_timer = 3.0
 	if event is InputEventKey and event.pressed and not event.echo:
+		if _page_paused:
+			_resume_from_page_pause()
+			accept_event()
+			return
 		if event.keycode == KEY_ESCAPE:
 			if _monitor_mode:
 				_exit_monitor()
@@ -369,12 +415,11 @@ func _input(event: InputEvent) -> void:
 		var handled = false
 		match event.keycode:
 			KEY_F2:
-				_debug_panel.visible = not _debug_panel.visible
-				_refresh_debug_panel()
+				_show_register_summary()
 				handled = true
 			KEY_F3:
-				_debug_visible = not _debug_visible
-				settings_panel.visible = _debug_visible
+				_settings_visible = not _settings_visible
+				settings_panel.visible = _settings_visible
 				handled = true
 			KEY_F4:
 				_current_clock_idx = (_current_clock_idx + 1) % _clock_speeds.size()
@@ -394,12 +439,17 @@ func _input(event: InputEvent) -> void:
 				handled = true
 			KEY_F7:
 				_current_baud_idx = (_current_baud_idx + 1) % _baud_rates.size()
-				_update_baud_label()
+				_instant_output = true
+				screen.append_text("\n[color=yellow]Baud: %d[/color]\n" % _baud_rates[_current_baud_idx])
+				_instant_output = false
+				sound.play_bell()
 				handled = true
 			KEY_F8:
 				_current_font_idx = (_current_font_idx + 1) % _available_fonts.size()
 				_apply_font()
-				_update_font_label()
+				_instant_output = true
+				screen.append_text("\n[color=yellow]Font: %s[/color]\n" % _available_fonts[_current_font_idx]["name"])
+				_instant_output = false
 				handled = true
 			KEY_F9:
 				var path = debug.take_screenshot()
@@ -409,10 +459,12 @@ func _input(event: InputEvent) -> void:
 			KEY_F11:
 				_toggle_fullscreen()
 				handled = true
+			KEY_F12:
+				_toggle_gpu()
+				handled = true
 			KEY_F10:
+				_clear_terminal_state()
 				computer.reset()
-				_cmd_line = ""
-				_cmd_cursor = 0
 				screen.clear()
 				_print_banner()
 				_update_status()
@@ -498,7 +550,7 @@ func _print_banner() -> void:
 	screen.append_text("[color=green]BASIC6502 - 6502-Powered BASIC Environment[/color]\n")
 	screen.append_text("[color=green] 64KB RAM | 6502 CPU @ 1MHz | ROM Active[/color]\n\n")
 	screen.append_text("------------------------------------------------\n")
-	screen.append_text("[color=blue]F2=Debug F3=Settings F4=Clock F5=Run \nF6=Rec F7=Baud F8=Font F9=SS F10=Reset[/color]\n")
+	screen.append_text("[color=blue]F2=Registers F3=Settings F4=Clock F5=Run F6=Rec F9=SS F10=Reset F12=GPU[/color]\n")
 	screen.append_text("------------------------------------------------\n\n")
 
 	if computer.cart_manager.get_current_id() == 2:
@@ -535,12 +587,15 @@ func _emit_prompt() -> void:
 	var p: String = computer.cart_manager.get_prompt()
 	computer.output.emit("\n" + p + "\n")
 
-func _on_full_reboot_requested() -> void:
-	computer.memory.clear_input()
+func _clear_terminal_state() -> void:
 	_monitor_mode = false
-	_debug_panel.visible = false
-	_monitor_addr = computer.cpu.PC & 0xFFFF
-	screen.clear()
+	_monitor_addr = 0x0000
+	_gpu_visible = false
+	if _gpu_panel:
+		_gpu_panel.visible = false
+	_settings_visible = false
+	if settings_panel:
+		settings_panel.visible = false
 	command_history.clear()
 	history_pos = -1
 	_cmd_line = ""
@@ -551,6 +606,17 @@ func _on_full_reboot_requested() -> void:
 	_boot_done = false
 	_boot_phase = 0
 	_boot_elapsed = 0.0
+	_warmup_done = false
+	_warmup_elapsed = 0.0
+	_clock_visible = true
+	_clock_elapsed = 0.0
+	segment_clock.set_display_mode(0)
+
+func _on_full_reboot_requested() -> void:
+	computer.memory.clear_input()
+	_clear_terminal_state()
+	_monitor_addr = computer.cpu.PC & 0xFFFF
+	screen.clear()
 	crt_overlay.material.set_shader_parameter("brightness", 0.0)
 	crt_overlay.material.set_shader_parameter("static_intensity", 1.0)
 	sound.play_crackle()
@@ -580,14 +646,12 @@ func _format_title_ram_usage(used: int) -> String:
 
 func _update_status() -> void:
 	_update_title_bar()
-	if _debug_panel and _debug_panel.visible:
-		_refresh_debug_panel()
 	var state = computer.cpu.get_state()
 	var rec: String = " [REC]" if debug.is_recording() else ""
 	var run: String = " [RUN]" if computer._program_running else ""
 	var clk: String = _clock_labels[_current_clock_idx]
 	var cart_tag := "[%s] " % computer.cart_manager.current.name if computer.cart_manager.current != null else ""
-	status_bar.text = "%sA:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | %s%s%s | F4=Clock F7=Baud" % [
+	status_bar.text = "%sA:%02X X:%02X Y:%02X SP:%02X PC:%04X %s%s-%s%s%s%s%s%s | %s%s%s | F4=Clock" % [
 		cart_tag,
 		state.A, state.X, state.Y, state.SP, state.PC,
 		"C" if state.C else ".", "Z" if state.Z else ".",
@@ -601,17 +665,6 @@ func _update_clock_label() -> void:
 	screen.append_text("\n[color=green]CPU Clock: " + _clock_labels[_current_clock_idx] + "[/color]\n")
 	_instant_output = false
 	sound.play_bell()
-
-func _update_baud_label() -> void:
-	var rate = _baud_rates[_current_baud_idx]
-	if rate >= 14400:
-		baud_label.text = "%d BAUD" % rate
-	else:
-		baud_label.text = "%d BAUD" % rate
-	sound.play_bell()
-
-func _update_font_label() -> void:
-	font_label.text = "FONT: " + _available_fonts[_current_font_idx]["name"]
 
 func _apply_font() -> void:
 	var font_info = _available_fonts[_current_font_idx]
@@ -647,14 +700,15 @@ func _handle_command(text: String) -> void:
 	elif upper == "CLEAR" or upper == "CLS":
 		screen.clear()
 	elif upper == "RESET":
+		_clear_terminal_state()
 		computer.reset()
-		_cmd_line = ""
-		_cmd_cursor = 0
 		screen.clear()
 		_print_banner()
 		_update_status()
 	elif upper == "NEW":
+		_clear_terminal_state()
 		computer.reset()
+		screen.clear()
 		_update_status()
 	elif upper == "STOP" or upper == "BREAK":
 		_cmd_stop()
@@ -697,19 +751,18 @@ func _handle_command(text: String) -> void:
 		else:
 			demo_name = demo_arg.to_lower()
 		_load_demo(demo_name, demo_param)
+	elif upper == "FORMAT" or upper.begins_with("FORMAT "):
+		_cmd_format(upper)
 	elif upper == "PROFILES":
 		_list_profiles()
 	elif upper.begins_with("PROFILE "):
 		_handle_profile_command(text.substr(8).strip_edges())
 	elif upper == "DEBUG" or upper == "PANEL":
-		_debug_panel.visible = not _debug_panel.visible
-		if _debug_panel.visible:
-			_refresh_debug_panel()
-			_show_register_summary()
-		else:
-			screen.append_text("\n[color=yellow]Debug panel closed[/color]\n")
+		_show_register_summary()
 	elif upper == "REGISTERS" or upper == "REGS":
 		_show_register_summary()
+	elif upper == "GRAPHICS" or upper == "GPU":
+		_toggle_gpu()
 	elif upper == "CPU":
 		_show_cpu_state()
 	elif upper.begins_with("PEEK("):
@@ -725,16 +778,16 @@ func _handle_command(text: String) -> void:
 
 func _help_keyboard_shortcuts_block() -> String:
 	var b := "\n[color=cyan]Keyboard Shortcuts:[/color]\n"
-	b += "[color=yellow]  F2  [/color]- Toggle Debug Panel (register viewer)\n"
+	b += "[color=yellow]  F2  [/color]- Show CPU registers in terminal\n"
 	b += "[color=yellow]  F3  [/color]- Toggle System Settings panel\n"
 	b += "[color=yellow]  F4  [/color]- Cycle CPU clock (0.5/1/10 MHz)\n"
 	b += "[color=yellow]  F5  [/color]- Run program (from start)\n"
 	b += "[color=yellow]  F6  [/color]- Start/stop video recording\n"
-	b += "[color=yellow]  F7  [/color]- Cycle baud rate (300/1200/2400/9600/14400)\n"
 	b += "[color=yellow]  F8  [/color]- Cycle font\n"
 	b += "[color=yellow]  F9  [/color]- Take screenshot\n"
 	b += "[color=yellow]  F10 [/color]- Reset system\n"
 	b += "[color=yellow]  F11 [/color]- Toggle fullscreen\n"
+	b += "[color=yellow]  F12 [/color]- Toggle GPU display\n"
 	return b
 
 
@@ -750,8 +803,8 @@ func _show_help() -> void:
 				screen.append_text("\n[color=lime]Type HELP <topic> for BASIC details. Examples: HELP PRINT, HELP FOR[/color]\n")
 			_instant_output = false
 			return
-	var help_text = "\n[color=cyan]Debug Panel (F2):[/color]\n"
-	help_text += "[color=yellow]  F2         [/color]- Toggle register viewer with live values, disassembly,\n"
+	var help_text = "\n[color=cyan]Register Viewer (F2 or REGISTERS):[/color]\n"
+	help_text += "[color=yellow]  F2         [/color]- Show registers in terminal (same as REGISTERS)\n"
 	help_text += "               Step/Continue/Reset, and register descriptions for\n"
 	help_text += "               self-paced learning. Works with any CPU.\n\n"
 	help_text += "\n[color=cyan]BASIC6502 Commands:[/color]\n"
@@ -781,8 +834,10 @@ func _show_help() -> void:
 	help_text += "[color=yellow]  LOADOBJ   [/color]- Load HC65 .obj from user://; optional , NAME registers native call\n"
 	help_text += "[color=yellow]  WRITE     [/color]- Write text to file (filename, text)\n"
 	help_text += "[color=yellow]  READFILE  [/color]- Read file into var or display\n"
-	help_text += "[color=yellow]  DEBUG/PANEL[/color]- Toggle debug panel (register viewer)\n"
-	help_text += "[color=yellow]  REGISTERS [/color]- Show CPU registers in terminal\n"
+	help_text += "[color=yellow]  DEBUG/PANEL[/color]- Show CPU registers in terminal\n"
+	help_text += "[color=yellow]  REGISTERS [/color]- Same as DEBUG/PANEL\n"
+	help_text += "[color=yellow]  GRAPHICS  [/color]- Toggle GPU display panel (F12)\n"
+	help_text += "[color=yellow]  FORMAT    [/color]- Delete all saved files (add /Y to skip confirmation)\n"
 	help_text += "[color=yellow]  PROFILES  [/color]- List available computer profiles\n"
 	help_text += "[color=yellow]  PROFILE   [/color]- Save/load/delete profiles (SAVE name, LOAD name, DELETE name)\n"
 	help_text += _help_keyboard_shortcuts_block()
@@ -1073,10 +1128,10 @@ func _init_help_topics() -> void:
 		},
 		"CPU": {
 			"syntax": "CPU",
-			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X and Y (index), SP (stack pointer), PC (program counter), and status flags (NVDIZC). Press F2 for the live register viewer panel with step-by-step controls and in-register descriptions.",
+			"desc": "Display the current state of the 6502 CPU registers: A (accumulator), X and Y (index), SP (stack pointer), PC (program counter), and status flags (NVDIZC).",
 			"examples": [
 				'CPU                               -> show all CPU registers',
-				'-> Press F2 for live debug panel with Step/Continue controls',
+				'-> Press F2 or type REGISTERS for register display',
 				'10 SYS 61488: CPU                  -> run 6502 code then show regs',
 			]
 		},
@@ -1143,6 +1198,15 @@ func _init_help_topics() -> void:
 				'-> Use DIR to verify the new name appears',
 			]
 		},
+		"FORMAT": {
+			"syntax": "FORMAT  |  FORMAT /Y",
+			"desc": "Format the virtual disk — deletes ALL saved files on disk including BASIC programs, source files, binary saves, profiles, and saved state. Use FORMAT /Y to skip the confirmation prompt. Also performs a system reset after deletion.",
+			"examples": [
+				'FORMAT                              -> show warning and prompt',
+				'FORMAT /Y                          -> format without confirmation',
+				'-> This is permanent. There is no undo. DIR will show (none) afterwards.',
+			]
+		},
 		"DEMO": {
 			"syntax": "DEMO  |  DEMO name  |  DEMO name N",
 			"desc": "With no argument, lists available demo programs. With a name, loads that demo into memory (does not auto-run). Some demos accept a number N as a parameter (e.g. PRIMENUMS and PI). Type RUN afterwards to execute.",
@@ -1164,20 +1228,20 @@ func _init_help_topics() -> void:
 		},
 		"STEP": {
 			"syntax": "STEP",
-			"desc": "Execute a single 6502 CPU instruction at the current program counter, then display the instruction and registers. Useful for debugging machine code. Only works when CPU is halted. Also available in the debug panel (F2).",
+			"desc": "Execute a single 6502 CPU instruction at the current program counter, then display the instruction and registers. Useful for debugging machine code. Only works when CPU is halted.",
 			"examples": [
 				'STEP                               -> execute one CPU instruction',
 				'-> Use after HALT or in MONITOR mode',
-				'-> Press F2 for the live register viewer with Step button',
+				'-> Type REGISTERS to see register state after each step',
 			]
 		},
 		"MONITOR": {
 			"syntax": "MONITOR  |  MON",
-			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list. For a graphical register viewer, press F2.",
+			"desc": "Enter the system monitor mode (Apple II style). Inspect memory, disassemble code, step through instructions, and modify memory. Type H inside the monitor for a full command list.",
 			"examples": [
 				'MONITOR                            -> enter monitor mode',
 				'MON                                -> same shortcut',
-				'-> Type H inside monitor for help, ESC to exit. F2 for debug panel.',
+				'-> Type H inside monitor for help, ESC to exit. REGISTERS for register view.',
 			]
 		},
 		"POWEROFF": {
@@ -1388,21 +1452,14 @@ func _init_help_topics() -> void:
 			]
 		},
 		"DEBUG": {
-			"syntax": "DEBUG  |  PANEL",
-			"desc": "Toggle the debug panel on the right side of the screen. Shows live CPU registers (A, X, Y, SP, PC, P), status flags (C, Z, I, D, V, N), disassembly of the next 8 instructions at the current program counter, and Step/Continue/Reset buttons. Press F2 or type PANEL as an alias. Type REGISTERS for a terminal-based view.",
+			"syntax": "DEBUG  |  PANEL  |  REGISTERS  |  REGS",
+			"desc": "Display the current CPU registers and disassembly directly in the terminal. Shows A, X, Y, SP, PC, all flags, and the next 3 instructions at PC. All four commands are aliases of each other. Press F2 as a keyboard shortcut.",
 			"examples": [
-				'DEBUG                             -> toggle debug panel open',
-				'PANEL                             -> same as DEBUG',
-				'F2                                -> keyboard shortcut for same',
-			]
-		},
-		"REGISTERS": {
-			"syntax": "REGISTERS  |  REGS",
-			"desc": "Display the current CPU registers and disassembly directly in the terminal. Shows A, X, Y, SP, PC, all flags, and the next 3 instructions at PC. Falls back to F2/PANEL for the graphical debug panel. Also available as REGS for short.",
-			"examples": [
-				'REGISTERS                         -> show registers in terminal',
+				'DEBUG                             -> show registers in terminal',
+				'PANEL                             -> same',
+				'REGISTERS                         -> same',
 				'REGS                              -> same, shorter',
-				'-> Type DEBUG or press F2 for the graphical panel',
+				'F2                                -> keyboard shortcut',
 			]
 		},
 	}
@@ -1584,8 +1641,9 @@ func _load_program(filename: String) -> void:
 			if data.has("program") and data["program"] is Array:
 				var prog_text = ""
 				for entry in data["program"]:
-					prog_text += str(entry["line"]) + " " + str(entry["code"]) + "\n"
-				computer.run_basic(prog_text)
+					prog_text += str(int(entry["line"])) + " " + str(entry["code"]) + "\n"
+				computer.basic.load_program(prog_text)
+				computer._program_running = false
 				screen.append_text("[color=lime]LOADED: " + filename + "\n[/color]")
 			else:
 				sound.play_error()
@@ -1594,7 +1652,8 @@ func _load_program(filename: String) -> void:
 			## Plain-text BASIC (legacy or hand-edited .bas): line-numbered source only.
 			var plain := json_str.strip_edges()
 			if plain != "":
-				computer.run_basic(plain)
+				computer.basic.load_program(plain)
+				computer._program_running = false
 				if computer.basic._program.size() > 0:
 					screen.append_text("[color=lime]LOADED: " + filename + " (plain text)\n[/color]")
 				else:
@@ -1642,6 +1701,53 @@ func _format_size(bytes: int) -> String:
 		return str(bytes / 1024.0) + " KB"
 	else:
 		return str(bytes / 1048576.0) + " MB"
+
+func _cmd_format(upper: String) -> void:
+	if upper == "FORMAT /Y" or upper == "FORMAT /FORCE" or upper == "FORMAT /F":
+		_do_format()
+		return
+	screen.append_text("[color=red]WARNING: FORMAT WILL DELETE ALL SAVED FILES[/color]\n")
+	screen.append_text("[color=yellow]  • BASIC programs (.bas)[/color]\n")
+	screen.append_text("[color=yellow]  • TEXT/ASM/C source files (.txt/.asm/.c)[/color]\n")
+	screen.append_text("[color=yellow]  • Binary saves (.bin, .obj)[/color]\n")
+	screen.append_text("[color=yellow]  • Profiles (user://profiles/)[/color]\n")
+	screen.append_text("[color=yellow]  • Saved state (savestate.json)[/color]\n")
+	screen.append_text("[color=red]Type FORMAT /Y to confirm or anything else to cancel.\n[/color]")
+
+func _do_format() -> void:
+	var dir = DirAccess.open("user://")
+	if not dir:
+		sound.play_error()
+		screen.append_text("[color=red]ERROR: CANNOT OPEN USER DIRECTORY\n[/color]")
+		return
+	var deleted := 0
+	dir.list_dir_begin()
+	var fname = dir.get_next()
+	while fname != "":
+		var ext = fname.get_extension().to_lower()
+		if ext in ["bas", "txt", "asm", "c", "bin", "obj"]:
+			if dir.remove(fname) == OK:
+				deleted += 1
+		elif fname == "savestate.json":
+			if dir.remove(fname) == OK:
+				deleted += 1
+		fname = dir.get_next()
+	dir.list_dir_end()
+	var prof_dir = DirAccess.open("user://profiles")
+	if prof_dir:
+		prof_dir.list_dir_begin()
+		var pf = prof_dir.get_next()
+		while pf != "":
+			if pf.ends_with(".json"):
+				if prof_dir.remove(pf) == OK:
+					deleted += 1
+			pf = prof_dir.get_next()
+		prof_dir.list_dir_end()
+	segment_clock.set_display_mode(0)
+	_clear_terminal_state()
+	computer.reset()
+	screen.clear()
+	screen.append_text("[color=lime]FORMAT COMPLETE: %d file(s) deleted. System reset.\n[/color]" % deleted)
 
 func _scratch_program(filename: String) -> void:
 	filename = _normalize_program_basename(filename)
@@ -1710,11 +1816,11 @@ func _show_cpu_state() -> void:
 
 func _show_register_summary() -> void:
 	_instant_output = true
-	var s = computer.cpu.get_state()
-	var text = "\n[color=cyan]6502 Registers (F2 or PANEL for GUI):[/color]\n"
-	text += "[color=white]  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X  PC=$%04X\n[/color]" % [s.A, s.X, s.Y, s.SP, s.PC]
-	text += "[color=white]  Flags: C=%d Z=%d I=%d D=%d V=%d N=%d[/color]\n" % [s.C, s.Z, s.I, s.D, s.V, s.N]
-	var lines = computer.cpu.disassemble(s.PC, 3)
+	var state = computer.cpu.get_state()
+	var text = "\n[color=cyan]6502 Registers:[/color]\n"
+	text += "[color=white]  A=$%02X  X=$%02X  Y=$%02X  SP=$%02X  PC=$%04X\n[/color]" % [int(state.A), int(state.X), int(state.Y), int(state.SP), int(state.PC)]
+	text += "[color=white]  Flags: C=%d Z=%d I=%d D=%d V=%d N=%d[/color]\n" % [int(state.C), int(state.Z), int(state.I), int(state.D), int(state.V), int(state.N)]
+	var lines = computer.cpu.disassemble(int(state.PC), 3)
 	text += "[color=cyan]  At PC:[/color]\n"
 	for entry in lines:
 		var bytes_str = ""
@@ -1727,307 +1833,6 @@ func _show_register_summary() -> void:
 	text += "\n"
 	screen.append_text(text)
 	_instant_output = false
-
-func _debug_panel_bg() -> StyleBoxFlat:
-	var s = StyleBoxFlat.new()
-	s.bg_color = Color(0.06, 0.06, 0.15, 0.97)
-	s.border_width_left = 2
-	s.border_width_top = 2
-	s.border_width_right = 2
-	s.border_width_bottom = 2
-	s.border_color = Color(0.2, 0.3, 0.2, 1)
-	s.corner_radius_top_left = 6
-	s.corner_radius_top_right = 6
-	s.corner_radius_bottom_right = 6
-	s.corner_radius_bottom_left = 6
-	return s
-
-func _debug_sep() -> HSeparator:
-	var s = HSeparator.new()
-	s.add_theme_color_override("default_color", Color(0.2, 0.25, 0.2, 0.5))
-	return s
-
-func _build_debug_panel() -> PanelContainer:
-	var panel = PanelContainer.new()
-	panel.z_index = 101
-	panel.anchors_preset = Control.PRESET_RIGHT_WIDE
-	panel.offset_left = -330
-	panel.offset_top = 30
-	panel.offset_right = -10
-	panel.offset_bottom = -10
-	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	panel.add_theme_stylebox_override("panel", _debug_panel_bg())
-	panel.custom_minimum_size = Vector2(320, 0)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 3)
-	panel.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "  Debug Panel (F2)"
-	title.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
-	title.add_theme_font_size_override("font_size", 15)
-	vbox.add_child(title)
-
-	_debug_cpu_label = Label.new()
-	_debug_cpu_label.add_theme_font_size_override("font_size", 10)
-	_debug_cpu_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	vbox.add_child(_debug_cpu_label)
-
-	vbox.add_child(_debug_sep())
-
-	var rh = Label.new()
-	rh.text = "  Registers"
-	rh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
-	rh.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(rh)
-
-	_debug_reg_container = VBoxContainer.new()
-	_debug_reg_container.add_theme_constant_override("separation", 1)
-	vbox.add_child(_debug_reg_container)
-
-	vbox.add_child(_debug_sep())
-
-	var fh = Label.new()
-	fh.text = "  Status Flags"
-	fh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
-	fh.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(fh)
-
-	_debug_flag_container = VBoxContainer.new()
-	_debug_flag_container.add_theme_constant_override("separation", 1)
-	vbox.add_child(_debug_flag_container)
-
-	vbox.add_child(_debug_sep())
-
-	var ch = Label.new()
-	ch.text = "  Controls"
-	ch.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
-	ch.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(ch)
-
-	var ctrl_box = HBoxContainer.new()
-	ctrl_box.add_theme_constant_override("separation", 5)
-	vbox.add_child(ctrl_box)
-
-	var step_btn = Button.new()
-	step_btn.text = "Step"
-	step_btn.pressed.connect(_on_debug_step)
-	ctrl_box.add_child(step_btn)
-
-	var cont_btn = Button.new()
-	cont_btn.text = "Continue"
-	cont_btn.pressed.connect(_on_debug_continue)
-	ctrl_box.add_child(cont_btn)
-
-	var reset_btn = Button.new()
-	reset_btn.text = "Reset CPU"
-	reset_btn.pressed.connect(_on_debug_reset)
-	ctrl_box.add_child(reset_btn)
-
-	vbox.add_child(_debug_sep())
-
-	var dh = Label.new()
-	dh.text = "  Disassembly"
-	dh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
-	dh.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(dh)
-
-	_debug_disasm_label = RichTextLabel.new()
-	_debug_disasm_label.bbcode_enabled = true
-	_debug_disasm_label.fit_content = false
-	_debug_disasm_label.custom_minimum_size = Vector2(0, 100)
-	_debug_disasm_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_debug_disasm_label.add_theme_font_size_override("normal_font_size", 11)
-	_debug_disasm_label.add_theme_color_override("default_color", Color(0.6, 0.6, 0.6))
-	vbox.add_child(_debug_disasm_label)
-
-	vbox.add_child(_debug_sep())
-
-	var hh = Label.new()
-	hh.text = "  Register Help"
-	hh.add_theme_color_override("font_color", Color(0.4, 0.8, 0.4))
-	hh.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(hh)
-
-	_debug_help_label = RichTextLabel.new()
-	_debug_help_label.bbcode_enabled = true
-	_debug_help_label.fit_content = true
-	_debug_help_label.custom_minimum_size = Vector2(0, 50)
-	_debug_help_label.add_theme_font_size_override("normal_font_size", 10)
-	_debug_help_label.add_theme_color_override("default_color", Color(0.65, 0.65, 0.65))
-	vbox.add_child(_debug_help_label)
-
-	_debug_info_cache = []
-	_debug_reg_labels = {}
-	_debug_flag_labels = {}
-	_debug_desc_labels = {}
-
-	_populate_debug_info()
-	_refresh_debug_panel()
-	return panel
-
-func _populate_debug_info() -> void:
-	if not computer or not computer.cpu:
-		return
-	if not computer.cpu.has_method("get_register_info"):
-		return
-	var info = computer.cpu.get_register_info()
-	_debug_info_cache = info
-	for entry in info:
-		var key = entry.get("key", "")
-		var group = entry.get("group", "")
-		if group == "register":
-			_add_debug_reg_row(key, entry.get("name", key), entry.get("desc", ""))
-		elif group == "flag":
-			_add_debug_flag_row(key, entry.get("name", key), entry.get("desc", ""))
-
-func _add_debug_reg_row(key: String, name: String, desc: String) -> void:
-	var hbox = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 3)
-
-	var nl = Label.new()
-	nl.text = "  " + name + ":"
-	nl.add_theme_font_size_override("font_size", 11)
-	nl.add_theme_color_override("font_color", Color(0.6, 0.8, 1.0))
-	nl.custom_minimum_size = Vector2(30, 0)
-	hbox.add_child(nl)
-
-	var vl = Label.new()
-	vl.text = "$00"
-	vl.add_theme_font_size_override("font_size", 11)
-	vl.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
-	vl.custom_minimum_size = Vector2(75, 0)
-	_debug_reg_labels[key] = vl
-	hbox.add_child(vl)
-
-	var dl = Label.new()
-	dl.text = desc
-	dl.add_theme_font_size_override("font_size", 9)
-	dl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_debug_desc_labels[key] = dl
-	hbox.add_child(dl)
-
-	_debug_reg_container.add_child(hbox)
-
-func _add_debug_flag_row(key: String, name: String, desc: String) -> void:
-	var hbox = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 3)
-
-	var nl = Label.new()
-	nl.text = "  " + name + ":"
-	nl.add_theme_font_size_override("font_size", 10)
-	nl.add_theme_color_override("font_color", Color(0.8, 0.7, 0.4))
-	nl.custom_minimum_size = Vector2(70, 0)
-	hbox.add_child(nl)
-
-	var vl = Label.new()
-	vl.text = "0"
-	vl.add_theme_font_size_override("font_size", 11)
-	vl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vl.custom_minimum_size = Vector2(18, 0)
-	_debug_flag_labels[key] = vl
-	hbox.add_child(vl)
-
-	var dl = Label.new()
-	dl.text = desc
-	dl.add_theme_font_size_override("font_size", 9)
-	dl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_debug_desc_labels[key] = dl
-	hbox.add_child(dl)
-
-	_debug_flag_container.add_child(hbox)
-
-func _refresh_debug_panel() -> void:
-	if not computer or not computer.cpu:
-		return
-	var state = computer.cpu.get_state()
-	var cpu_type = computer.cpu.cpu_type if computer.cpu.cpu_type != "" else "?"
-	var halted = "Yes" if computer.cpu.halted else "No"
-	var run = "Yes" if computer._program_running else "No"
-	_debug_cpu_label.text = "CPU: %s | Halted: %s | Run: %s" % [cpu_type, halted, run]
-
-	for entry in _debug_info_cache:
-		var key = entry.get("key", "")
-		var group = entry.get("group", "")
-		if group == "register" and key in state and key in _debug_reg_labels:
-			var val = state[key]
-			if key == "PC":
-				_debug_reg_labels[key].text = "$%04X" % val
-			elif key == "P":
-				_debug_reg_labels[key].text = "$%02X" % val
-			elif key == "SP":
-				_debug_reg_labels[key].text = "$%02X (%d)" % [val, val]
-			else:
-				_debug_reg_labels[key].text = "$%02X (%d)" % [val, val]
-		elif group == "flag" and key in state and key in _debug_flag_labels:
-			var val = state[key]
-			_debug_flag_labels[key].text = "1" if val else "0"
-			if val:
-				_debug_flag_labels[key].add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
-			else:
-				_debug_flag_labels[key].add_theme_color_override("font_color", Color(0.5, 0.3, 0.3))
-
-	_update_debug_disasm()
-
-	_debug_help_label.clear()
-	_debug_help_label.append_text("[color=#888888]Registers show hex and decimal values.\nFlags: green=set, red=clear.\nUse Step to execute one instruction.[/color]")
-
-func _update_debug_disasm() -> void:
-	if not computer or not computer.cpu:
-		return
-	var pc = computer.cpu.PC if "PC" in computer.cpu else 0
-	var lines = computer.cpu.disassemble(pc, 8)
-	_debug_disasm_label.clear()
-	for entry in lines:
-		var addr = entry.get("addr", 0)
-		var instr = entry.get("disasm", "???")
-		var bytes_str = ""
-		if computer.memory:
-			var b0 = computer.memory.peek(addr)
-			var b1 = computer.memory.peek(addr + 1)
-			var b2 = computer.memory.peek(addr + 2)
-			bytes_str = "%02X %02X %02X" % [b0, b1, b2]
-		_debug_disasm_label.append_text("[color=#888888]$%04X  %s[/color]  [color=#cccccc]%s[/color]\n" % [addr, bytes_str, instr])
-
-func _on_debug_step() -> void:
-	if not computer or not computer.cpu:
-		return
-	if computer.cpu.halted:
-		computer.cpu.halted = false
-	computer.cpu.step()
-	var pc = computer.cpu.PC
-	var lines = computer.cpu.disassemble(pc, 1)
-	var instr = lines[0]["disasm"] if lines.size() > 0 else "???"
-	var state = computer.cpu.get_state()
-	var msg = "\n[color=cyan]** STEP **[/color] "
-	msg += "[color=white]PC=$%04X  %s  A=$%02X X=$%02X Y=$%02X[/color]\n" % [pc, instr, state.A, state.X, state.Y]
-	computer.output_richtext.emit(msg)
-	_refresh_debug_panel()
-
-func _on_debug_continue() -> void:
-	if not computer or not computer.cpu:
-		return
-	if computer.cpu.halted:
-		computer.cpu.halted = false
-		computer.output_richtext.emit("\n[color=green]CPU resumed.[/color]\n")
-		if not computer._program_running and computer.basic and computer.basic._program.size() > 0:
-			computer.run_basic("", -1)
-	else:
-		if not computer._program_running and computer.basic and computer.basic._program.size() > 0:
-			computer.run_basic("", -1)
-	_refresh_debug_panel()
-
-func _on_debug_reset() -> void:
-	if not computer or not computer.cpu:
-		return
-	computer.cpu.reset()
-	computer.output_richtext.emit("\n[color=yellow]CPU reset.[/color]\n")
-	_refresh_debug_panel()
 
 func _list_profiles() -> void:
 	_instant_output = true
@@ -2155,6 +1960,25 @@ func _toggle_fullscreen() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		_instant_output = true
 		screen.append_text("\n[color=green]Fullscreen mode[/color]\n")
+	_instant_output = false
+
+func _on_command_requested(text: String) -> void:
+	_handle_command(text)
+
+func _update_clock() -> void:
+	var t := Time.get_time_dict_from_system()
+	segment_clock.set_time("%02d:%02d" % [t.hour, t.minute])
+	_clock_visible = segment_clock.get_display_mode() != 2
+
+func _toggle_gpu() -> void:
+	_gpu_visible = not _gpu_visible
+	_gpu_panel.visible = _gpu_visible
+	_instant_output = true
+	if _gpu_visible:
+		screen.append_text("\n[color=green]GPU display ON (F12 or GRAPHICS to toggle)[/color]\n")
+		computer.gpu._dirty = true
+	else:
+		screen.append_text("\n[color=yellow]GPU display OFF[/color]\n")
 	_instant_output = false
 
 func _cmd_stop() -> void:
@@ -2550,10 +2374,8 @@ func _apply_saved_state(data: Dictionary) -> void:
 	if data.has("font_idx"):
 		_current_font_idx = int(data["font_idx"])
 		_apply_font()
-		_update_font_label()
 	if data.has("baud_idx"):
 		_current_baud_idx = int(data["baud_idx"])
-		_update_baud_label()
 	if data.has("clock_idx"):
 		_current_clock_idx = int(data["clock_idx"])
 	if data.has("command_history"):

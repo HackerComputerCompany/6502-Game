@@ -3,6 +3,7 @@ extends "res://scripts/memory_bus.gd"
 var _keyboard
 var _screen
 var _cart_select
+var _gpu
 
 const ADDR_CART_SELECT = 0xC030
 ## Poked for user routines that end in RTS without a prior JSR (ASM RUN, BASIC SYS, LOADOBJ native).
@@ -14,6 +15,7 @@ func _init() -> void:
 	_keyboard = preload("res://scripts/keyboard_device.gd").new()
 	_screen = preload("res://scripts/screen_device.gd").new()
 	_cart_select = preload("res://scripts/cart_select_device.gd").new()
+	_gpu = preload("res://scripts/gpu_device.gd").new()
 	_screen.char_output.connect(_on_screen_char)
 	_screen.output_ready.connect(_on_screen_output_ready)
 	_cart_select.cart_switch_requested.connect(_on_cart_switch)
@@ -64,6 +66,8 @@ func peek(addr: int) -> int:
 		return _keyboard.peek(addr)
 	if _cart_select.handles_address(addr):
 		return _cart_select.peek(addr)
+	if _gpu.handles_address(addr):
+		return _gpu.peek(addr)
 	return ram[addr]
 
 func poke(addr: int, val: int) -> void:
@@ -75,6 +79,9 @@ func poke(addr: int, val: int) -> void:
 	if _cart_select.handles_address(addr):
 		_cart_select.poke(addr, val)
 		return
+	if _gpu.handles_address(addr):
+		_gpu.poke(addr, val)
+		return
 	ram[addr] = val
 
 func reset() -> void:
@@ -82,7 +89,18 @@ func reset() -> void:
 	_keyboard.reset()
 	_screen.reset()
 	_cart_select.reset()
+	_gpu.reset()
 	_write_vectors()
+
+func serialize() -> Dictionary:
+	var data := super()
+	data["gpu"] = _gpu.serialize()
+	return data
+
+func deserialize(data: Dictionary) -> void:
+	super(data)
+	if data.has("gpu"):
+		_gpu.deserialize(data["gpu"] as Dictionary)
 
 func push_input(text: String) -> void:
 	_keyboard.push_input(text)
