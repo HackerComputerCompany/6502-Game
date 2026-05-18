@@ -9,7 +9,6 @@ var _cmd_display: RichTextLabel
 var input_line: LineEdit
 @onready var status_bar: Label = $VBoxContainer/StatusBar
 @onready var title_bar: Label = $VBoxContainer/TopBar/TitleBar
-@onready var segment_clock = $VBoxContainer/TopBar/SegmentClock
 
 @onready var settings_panel: PanelContainer = $SettingsPanel
 @onready var curvature_slider: HSlider = $SettingsPanel/VBoxContainer/CurvatureSlider
@@ -35,7 +34,6 @@ var history_pos: int = -1
 var _settings_visible: bool = false
 var _gpu_visible: bool = false
 var _gpu_panel: TextureRect
-var _clock_visible: bool = true
 
 var _fonts_loaded: bool = false
 var _base_font_size: int = 18
@@ -158,7 +156,6 @@ func _ready() -> void:
 	save_btn.pressed.connect(_on_save_state)
 	load_btn.pressed.connect(_on_load_state)
 	_update_status()
-	_clock_visible = segment_clock.get_display_mode() == 0
 
 	call_deferred("_apply_font_deferred")
 	call_deferred("_load_state_silent")
@@ -189,8 +186,6 @@ func _apply_font_deferred() -> void:
 		return
 	_apply_font()
 	_fonts_loaded = true
-
-var _clock_elapsed: float = 0.0
 
 func _process(delta: float) -> void:
 	_mouse_hide_timer -= delta
@@ -225,11 +220,7 @@ func _process(delta: float) -> void:
 	if _cursor_timer >= 0.5:
 		_cursor_timer -= 0.5
 		_cursor_visible = not _cursor_visible
-	_clock_elapsed += delta
-	if _clock_elapsed >= 1.0:
-		_clock_elapsed -= 1.0
-		_update_clock()
-		_update_cmd_display()
+	_update_cmd_display()
 	if _gpu_visible and computer != null and computer.gpu != null and computer.gpu._dirty:
 		var img = computer.gpu.render_to_image()
 		var tex = ImageTexture.create_from_image(img)
@@ -627,9 +618,6 @@ func _clear_terminal_state() -> void:
 	_boot_elapsed = 0.0
 	_warmup_done = false
 	_warmup_elapsed = 0.0
-	_clock_visible = true
-	_clock_elapsed = 0.0
-	segment_clock.set_display_mode(0)
 
 func _on_full_reboot_requested() -> void:
 	computer.memory.clear_input()
@@ -1766,7 +1754,6 @@ func _do_format() -> void:
 					deleted += 1
 			pf = prof_dir.get_next()
 		prof_dir.list_dir_end()
-	segment_clock.set_display_mode(0)
 	_clear_terminal_state()
 	computer.reset()
 	screen.clear()
@@ -1987,11 +1974,6 @@ func _toggle_fullscreen() -> void:
 
 func _on_command_requested(text: String) -> void:
 	_handle_command(text)
-
-func _update_clock() -> void:
-	var t := Time.get_time_dict_from_system()
-	segment_clock.set_time("%02d:%02d" % [t.hour, t.minute])
-	_clock_visible = segment_clock.get_display_mode() != 2
 
 func _toggle_gpu() -> void:
 	_gpu_visible = not _gpu_visible

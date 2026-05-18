@@ -41,6 +41,7 @@ const ENTRY_POINTS := {
 	"garage": Vector2(5, 8),
 	"desk": [Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3)],
 	"bed": [Vector2i(16, 7), Vector2i(16, 8)],
+	"garbage_can": Vector2i(35, 17),
 }
 
 const EXITS := {
@@ -233,6 +234,7 @@ func get_furniture() -> Array:
 	return [
 		["desk", 15, 1, 3, true, 3, 2],
 		["bed", 17, 7, 2, true, 2, 2],
+		["garbage_can", 35, 17, 0, false, 1, 1],
 	]
 
 func is_passable(x, y):
