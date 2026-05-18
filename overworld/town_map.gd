@@ -1,3 +1,5 @@
+extends Node
+
 enum Tile {
 	GRASS = 0,
 	PATH = 1,
@@ -12,34 +14,23 @@ enum Tile {
 	TREE = 10,
 	SIGN = 11,
 	BLANK = 12,
+	SIDEWALK = 13,
 }
 
-# Town layout (60 wide × 55 tall):
-#
-#   NW: Library, School, Rich Kid houses
-#   N:  Main Street — Thrift Store, Post Office, Bank
-#   NE: ChipMart, Lazer Arcade, Phone Co, Radio Station
-#   C:  Church
-#   W:  Subdivision — Elm St, Oak St, 6 houses including player's
-#   SW: Industrial Park — Power Substation, Junkyard
-#   S:  Main Street South — Grocery, Diner, Auto Repair, Barber, Burger Barn
-#   SE: Commercial Park — OmniStor, Office Buildings
-#   SE: Water Reclamation (next to lake), Lake
-
-const MAP_W := 60
-const MAP_H := 55
+const MAP_W := 100
+const MAP_H := 82
 
 var collision: Array = []
 var ground: Array = []
 var decorations: Array = []
 
 const ENTRY_POINTS := {
-	"house_door": Vector2(14, 32),
+	"house_door": Vector2(21, 38),
 }
 
 const EXITS := {
-	Vector2i(14, 31): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
-	Vector2i(15, 31): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
+	Vector2i(21, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
+	Vector2i(22, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
 }
 
 var labels: Array = []
@@ -63,233 +54,293 @@ func _init() -> void:
 
 func _build_town() -> void:
 	# ═══════════════════════════════════════════
-	# ROADS
+	# ROAD GRID
+	#
+	# North Road:      y=8-9 (2 wide, full width)
+	# East Mid Road:   y=19-20 (2 wide, east half)
+	# Main Street:     y=29-31 (3 wide, full width)
+	# Elm Street:       y=38-39 (2 wide, west half)
+	# Oak Street:       y=47-48 (2 wide, west half)
+	# East Cross:      y=39-40 (2 wide, east half)
+	# South Road:      y=59-60 (2 wide, both halves)
+	# Bottom Road:     y=74-75 (2 wide, full width)
+	# Boulevard:        x=44-46 (3 wide, full height)
+	# West Secondary:  x=14-15 (2 wide, N-S)
+	# East Secondary:  x=62-63 (2 wide, N-S)
+	# Spruce Lane:     x=10-11 (2 wide, subdivision)
+	# Cedar Lane:      x=30-31 (2 wide, subdivision)
 	# ═══════════════════════════════════════════
 
-	# Main Street (east-west through center)
-	_rect(3, 22, 54, 2, Tile.PATH)
-	# North-South Boulevard
-	_rect(28, 3, 2, 44, Tile.PATH)
-	# Secondary streets
-	_rect(14, 7, 2, 24, Tile.PATH)
-	_rect(43, 7, 2, 26, Tile.PATH)
-	# Top cross street
-	_rect(3, 7, 54, 2, Tile.PATH)
-	# South cross street
-	_rect(3, 35, 16, 2, Tile.PATH)
-	_rect(35, 35, 22, 2, Tile.PATH)
-	# Bottom road (to lake/industrial)
-	_rect(3, 45, 54, 2, Tile.PATH)
-	# Connector paths from building doors to streets
-	# Thrift Store door (3,12) → secondary street at x=14
-	_rect(3, 12, 12, 1, Tile.PATH)
-	# Post Office door (24,12) → secondary street at x=14
-	_rect(14, 12, 11, 1, Tile.PATH)
-	# Bank door (3,19) → secondary street at x=14
-	_rect(3, 19, 12, 1, Tile.PATH)
-	# Church door (19,19) → path to street
-	_rect(19, 19, 10, 1, Tile.PATH)
-	# Phone Co door (45,12) → boulevard at x=28
-	_rect(28, 12, 18, 1, Tile.PATH)
-	# Connector between Diner/Phone Co and Radio Station
-	_rect(49, 14, 1, 3, Tile.PATH)
-	# Grocery door (40,17) → secondary street at x=43
-	_rect(40, 17, 4, 1, Tile.PATH)
-	# Diner door (45,17) → boulevard
-	_rect(28, 17, 18, 1, Tile.PATH)
-	# Auto Repair door (40,25) → secondary street at x=43
-	_rect(40, 25, 4, 1, Tile.PATH)
-	# Barber Shop door (45,25) → boulevard
-	_rect(28, 25, 18, 1, Tile.PATH)
-	# Burger Barn door (49,33) → boulevard
-	_rect(49, 33, 1, 3, Tile.PATH)
-	# Water Recl door (39,45) → road
-	_rect(39, 45, 1, 1, Tile.PATH)
-	# Residential streets (subdivision grid)
-	# Elm Street (east-west)
-	_rect(1, 25, 26, 2, Tile.PATH)
-	# Oak Street (east-west)
-	_rect(1, 32, 26, 2, Tile.PATH)
-	# Spruce Lane (north-south)
-	_rect(8, 25, 2, 9, Tile.PATH)
-	# Cedar Lane (north-south)
-	_rect(18, 24, 2, 10, Tile.PATH)
+	# --- EAST-WEST ROADS ---
+	_rect(3, 8, 94, 2, Tile.PATH)         # North Road
+	_rect(49, 19, 48, 2, Tile.PATH)        # East Mid Road
+	_rect(3, 29, 94, 3, Tile.PATH)         # Main Street
+	_rect(3, 38, 41, 2, Tile.PATH)         # Elm Street
+	_rect(3, 47, 41, 2, Tile.PATH)         # Oak Street
+	_rect(49, 39, 48, 2, Tile.PATH)        # East Cross
+	_rect(3, 59, 41, 2, Tile.PATH)         # South Road (west)
+	_rect(49, 59, 48, 2, Tile.PATH)        # South Road (east)
+	_rect(3, 74, 94, 2, Tile.PATH)         # Bottom Road
+
+	# --- NORTH-SOUTH ROADS ---
+	_rect(44, 3, 3, 74, Tile.PATH)         # Boulevard
+	_rect(14, 8, 2, 51, Tile.PATH)          # West Secondary
+	_rect(62, 8, 2, 66, Tile.PATH)          # East Secondary
+	_rect(10, 29, 2, 20, Tile.PATH)         # Spruce Lane
+	_rect(30, 29, 2, 20, Tile.PATH)         # Cedar Lane
 
 	# ═══════════════════════════════════════════
-	# LAKE (southeast)
+	# SIDEWALKS (1-tile buffers along major roads)
 	# ═══════════════════════════════════════════
-	_rect(42, 46, 15, 7, Tile.WATER)
+
+	# Main Street sidewalks
+	_rect(3, 28, 41, 1, Tile.SIDEWALK)
+	_rect(3, 32, 41, 1, Tile.SIDEWALK)
+	_rect(48, 28, 49, 1, Tile.SIDEWALK)
+	_rect(48, 32, 49, 1, Tile.SIDEWALK)
+	# Boulevard sidewalks
+	_rect(43, 3, 1, 74, Tile.SIDEWALK)
+	_rect(47, 3, 1, 74, Tile.SIDEWALK)
+	# North Road sidewalks
+	_rect(3, 7, 41, 1, Tile.SIDEWALK)
+	_rect(3, 10, 41, 1, Tile.SIDEWALK)
+	_rect(48, 7, 49, 1, Tile.SIDEWALK)
+	_rect(48, 10, 49, 1, Tile.SIDEWALK)
+	# West Secondary sidewalks
+	_rect(13, 10, 1, 19, Tile.SIDEWALK)
+	_rect(16, 10, 1, 19, Tile.SIDEWALK)
+	# East Secondary sidewalks
+	_rect(61, 7, 1, 22, Tile.SIDEWALK)
+	_rect(64, 7, 1, 22, Tile.SIDEWALK)
+	# Spruce Lane sidewalks
+	_rect(9, 29, 1, 20, Tile.SIDEWALK)
+	_rect(12, 29, 1, 20, Tile.SIDEWALK)
+	# Cedar Lane sidewalks
+	_rect(29, 29, 1, 20, Tile.SIDEWALK)
+	_rect(32, 29, 1, 20, Tile.SIDEWALK)
+	# Elm Street sidewalks
+	_rect(3, 37, 41, 1, Tile.SIDEWALK)
+	_rect(3, 40, 41, 1, Tile.SIDEWALK)
+	# Oak Street sidewalks
+	_rect(3, 46, 41, 1, Tile.SIDEWALK)
+	_rect(3, 49, 41, 1, Tile.SIDEWALK)
+	# South Road sidewalks
+	_rect(3, 58, 41, 1, Tile.SIDEWALK)
+	_rect(3, 61, 41, 1, Tile.SIDEWALK)
+	_rect(48, 58, 49, 1, Tile.SIDEWALK)
+	_rect(48, 61, 49, 1, Tile.SIDEWALK)
+	# East Cross sidewalk (north side)
+	_rect(48, 38, 49, 1, Tile.SIDEWALK)
 
 	# ═══════════════════════════════════════════
-	# NW QUADRANT
+	# CONNECTOR PATHS from building doors to roads
 	# ═══════════════════════════════════════════
-	# Library (faces south toward top cross street)
-	_building(3, 3, 9, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(7, 7)
-	# School (faces south toward top cross street)
-	_building(16, 3, 10, 4, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(21, 6)
+
+	# NW row 1 doors → West Secondary or cross streets
+	_connect(9, 16, 1, 3)                    # Thrift Store → Main St area
+	_connect(21, 16, 1, 3)                   # Post Office → Main St area
+	_connect(38, 16, 1, 12)                   # Bank → Main St area
+	# NW row 2 doors
+	_connect(9, 25, 1, 4)                    # Fire Dept → Main St
+	_connect(22, 25, 1, 4)                   # Police Dept → Main St
+	# NE row 1 doors → North Road or East Mid
+	_connect(54, 16, 1, 3)                   # Grocery → Main St area
+	_connect(69, 16, 1, 3)                   # Diner → Main St area
+	_connect(85, 17, 1, 2)                   # Hospital → East Mid Road
+	# NE row 2 doors
+	_connect(53, 26, 1, 3)                   # Radio Station
+	_connect(70, 26, 1, 3)                   # Auto Repair
+	_connect(84, 26, 1, 3)                   # Barber Shop
+	# Subdivision house doors → Elm/Oak
+	_connect(6, 36, 1, 2)                    # Miller → Elm
+	_connect(21, 36, 1, 2)                   # Player → Elm
+	_connect(37, 36, 1, 2)                   # Garcia → Elm
+	_connect(6, 45, 1, 2)                    # Johnson → Oak
+	_connect(20, 45, 1, 2)                   # Patel → Oak
+	_connect(37, 45, 1, 2)                   # Williams → Oak
+	_connect(9, 55, 1, 4)                    # Rich Kid
+	# SE row 1 doors → East Cross
+	_connect(53, 37, 1, 2)                   # Burger Barn
+	_connect(70, 38, 1, 2)                   # OmniStor
+	_connect(85, 38, 1, 2)                   # Office Bldg 2
+	# SE row 2 doors
+	_connect(53, 45, 1, 2)                   # Pharmacy
+	_connect(69, 45, 1, 2)                   # Office Bldg
+	# Water Reclamation door → South Road
+	_connect(55, 55, 1, 4)                   # Water Recl
 
 	# ═══════════════════════════════════════════
-	# NE QUADRANT
+	# LAKE (south-east)
 	# ═══════════════════════════════════════════
-	# ChipMart (faces south toward top cross street)
-	_building(31, 3, 10, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(36, 7)
-	# Lazer Arcade (faces south toward top cross street)
-	_building(45, 3, 9, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(49, 7)
-	# Phone Company Central Office (faces west toward boulevard)
-	_building(45, 10, 9, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(45, 12)
-	# Radio Station (faces south, south of Phone Co with gap)
-	_building(45, 17, 7, 4, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(48, 20)
-
-	# Church (faces south toward connector path)
-	_building(16, 15, 7, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(19, 19)
+	_rect(75, 64, 22, 12, Tile.WATER)
 
 	# ═══════════════════════════════════════════
-	# WEST: MAIN STREET (left of boulevard)
+	# NORTH ROW (y=3-7, facing North Road)
 	# ═══════════════════════════════════════════
-	# Thrift Store (faces west toward secondary street)
-	_building(3, 10, 9, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(3, 12)
-	# Post Office (faces east toward secondary street)
-	_building(16, 10, 9, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(24, 12)
-	# Bank (faces west toward secondary street)
-	_building(3, 17, 9, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(3, 19)
+	_building(5, 3, 8, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(9, 7)
+	_building(18, 3, 12, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(24, 7)
+	_building(33, 3, 9, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(37, 7)
+	_building(49, 3, 12, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(55, 7)
+	_building(65, 3, 10, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(70, 7)
+	_building(80, 3, 10, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(85, 7)
 
 	# ═══════════════════════════════════════════
-	# WEST: SUBDIVISION (player's neighborhood)
+	# NW BLOCK (between North Rd and Main St)
+	# Row 1 (y=11-16)
 	# ═══════════════════════════════════════════
-	# --- North row (south of Elm St) ---
-	# Miller House
-	_building(1, 27, 7, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(4, 31)
-	# Player's House
-	_building(10, 27, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(14, 31)
-	_door(15, 31)
-	# Garcia House
-	_building(20, 27, 7, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(23, 31)
-	# --- South row (south of Oak St) ---
-	# Johnson House
-	_building(1, 34, 7, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(4, 38)
-	# Patel House
-	_building(10, 34, 7, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(13, 38)
-	# Williams House
-	_building(20, 34, 7, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(23, 38)
+	_building(5, 11, 8, 6, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(9, 16)
+	_building(17, 11, 9, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(21, 16)
+	_building(33, 11, 9, 6, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(37, 16)
+
+	# Row 2 (y=20-25)
+	_building(5, 20, 8, 6, Tile.WALL_GRAY, Tile.ROOF_RED)
+	_door(9, 25)
+	_building(17, 20, 9, 6, Tile.WALL_BEIGE, Tile.ROOF_GRAY)
+	_door(22, 25)
 
 	# ═══════════════════════════════════════════
-	# RICH KID NEIGHBORHOOD (far west, bigger lots)
+	# NE BLOCK (between North Rd and Main St, east)
+	# Row 1 (y=11-16)
 	# ═══════════════════════════════════════════
-	_rect(1, 40, 3, 8, Tile.FENCE)
-	_building(2, 41, 6, 4, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_building(49, 11, 11, 6, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(54, 16)
+	_building(65, 11, 9, 6, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(69, 16)
+	_building(78, 11, 14, 7, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(85, 17)
+
+	# Row 2 (y=21-26)
+	_building(49, 21, 9, 6, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(53, 26)
+	_building(65, 21, 10, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(70, 26)
+	_building(80, 21, 9, 6, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(84, 26)
 
 	# ═══════════════════════════════════════════
-	# EAST: MAIN STREET (right of boulevard)
+	# SUBDIVISION (west, below Main St)
+	# Row 1 (y=32-36, north of Elm St)
 	# ═══════════════════════════════════════════
-	# Grocery Store (faces east toward secondary street)
-	_building(31, 15, 10, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(40, 17)
-	# Diner (faces west toward boulevard)
-	_building(45, 15, 8, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(45, 17)
-	# Auto Repair (faces east toward secondary street)
-	_building(31, 23, 10, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(40, 25)
-	# Barber Shop (faces west toward boulevard)
-	_building(45, 23, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(45, 25)
+	_building(3, 32, 6, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(6, 36)
+	_building(17, 32, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(21, 36)
+	_door(22, 36)
+	_building(33, 32, 8, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(37, 36)
+
+	# Row 2 (y=41-45, north of Oak St)
+	_building(3, 41, 6, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(6, 45)
+	_building(17, 41, 7, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(20, 45)
+	_building(33, 41, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(37, 45)
+
+	# Rich Kid House (fenced, below Oak St)
+	_rect(3, 50, 12, 8, Tile.FENCE)
+	_building(5, 52, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(9, 56)
 
 	# ═══════════════════════════════════════════
-	# FAST FOOD (south of Main St, east side)
+	# SE BLOCK (east of Blvd, below Main St)
+	# Row 1 (y=33-37)
 	# ═══════════════════════════════════════════
-	# Burger Barn
-	_building(45, 29, 8, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
-	_door(49, 33)
+	_building(49, 33, 9, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
+	_door(53, 37)
+	_building(64, 33, 12, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(70, 38)
+	_building(80, 33, 10, 6, Tile.WALL_BEIGE, Tile.ROOF_RED)
+	_door(85, 38)
+
+	# Row 2 (y=41-45)
+	_building(49, 41, 8, 5, Tile.WALL_GRAY, Tile.ROOF_RED)
+	_door(53, 45)
+	_building(64, 41, 10, 5, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(69, 45)
+
+	# Water Reclamation (near lake)
+	_building(49, 50, 12, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
+	_door(55, 55)
 
 	# ═══════════════════════════════════════════
-	# SE: COMMERCIAL PARK (office buildings)
+	# INDUSTRIAL (SW, below South Rd)
 	# ═══════════════════════════════════════════
-	# OmniStor Technologies
-	_building(35, 37, 12, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(41, 42)
-	# Office Building 2
-	_building(44, 37, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
-	_door(48, 41)
-
-	# ═══════════════════════════════════════════
-	# SW: INDUSTRIAL PARK
-	# ═══════════════════════════════════════════
-	# Water Reclamation Department (next to lake, door faces east)
-	_building(30, 42, 10, 6, Tile.WALL_GRAY, Tile.ROOF_GRAY)
-	_door(39, 45)
-	# Power Substation (fenced)
-	_rect(3, 44, 7, 5, Tile.FENCE)
-	_building(4, 45, 5, 3, Tile.WALL_BROWN, Tile.ROOF_GRAY)
-	_door(6, 47)
-	# Junkyard (fenced area with scattered debris, south edge)
-	_rect(14, 46, 12, 7, Tile.FENCE)
+	_rect(4, 62, 8, 7, Tile.FENCE)
+	_building(5, 63, 6, 4, Tile.WALL_BROWN, Tile.ROOF_GRAY)
+	_door(8, 66)
+	_rect(18, 62, 18, 9, Tile.FENCE)
 
 	# ═══════════════════════════════════════════
 	# TREES
 	# ═══════════════════════════════════════════
-	_scatter(Tile.TREE, 0, 0, 3, 55)
-	_scatter(Tile.TREE, 57, 0, 3, 55)
-	_scatter(Tile.TREE, 0, 0, 60, 3)
-	_scatter(Tile.TREE, 0, 52, 60, 3)
-	_scatter(Tile.TREE, 25, 0, 6, 3)
+	_scatter(Tile.TREE, 0, 0, 3, 82)
+	_scatter(Tile.TREE, 97, 0, 3, 82)
+	_scatter(Tile.TREE, 0, 0, 100, 3)
+	_scatter(Tile.TREE, 0, 79, 100, 3)
 
 	# ═══════════════════════════════════════════
-	# SIGNS at intersections
+	# SIGNS
 	# ═══════════════════════════════════════════
-	_set_tile(29, 6, Tile.SIGN)
-	_set_tile(29, 21, Tile.SIGN)
-	_set_tile(29, 34, Tile.SIGN)
+	_set_tile(45, 28, Tile.SIGN)
+	_set_tile(45, 32, Tile.SIGN)
+	_set_tile(15, 28, Tile.SIGN)
+	_set_tile(15, 32, Tile.SIGN)
+	_set_tile(63, 28, Tile.SIGN)
+	_set_tile(63, 32, Tile.SIGN)
 
 	# ═══════════════════════════════════════════
 	# LABELS
 	# ═══════════════════════════════════════════
 	labels = [
-		["Main St", 18, 21],
-		["Elm St", 5, 24],
-		["Oak St", 6, 31],
-		["Your House", 12, 29],
-		["Miller", 3, 29],
-		["Garcia", 21, 29],
-		["Johnson", 3, 36],
-		["Patel", 11, 36],
-		["Williams", 21, 36],
-		["Library", 5, 5],
-		["School", 18, 4],
-		["ChipMart", 33, 5],
-		["Lazer Arcade", 46, 5],
-		["Phone Co.", 47, 12],
-		["Radio Station", 46, 18],
-		["Thrift Store", 5, 12],
-		["Post Office", 18, 12],
-		["Bank", 5, 17],
-		["Church", 17, 17],
-		["Grocery", 33, 17],
-		["Diner", 47, 17],
-		["Auto Repair", 33, 24],
-		["Barber Shop", 46, 24],
-		["Burger Barn", 46, 31],
-		["OmniStor", 38, 39],
-		["Office Bldg 2", 46, 39],
-		["Water Recl.", 33, 44],
-		["Substation", 5, 46],
-		["Junkyard", 17, 48],
-		["Lake", 47, 49],
+		["Main St", 22, 28],
+		["Main St", 70, 28],
+		["Elm St", 6, 37],
+		["Oak St", 6, 46],
+		["Spruce Ln", 9, 30],
+		["Cedar Ln", 28, 30],
+		["Your House", 18, 34],
+		["Miller", 4, 34],
+		["Garcia", 34, 34],
+		["Johnson", 4, 42],
+		["Patel", 18, 42],
+		["Williams", 34, 42],
+		["Library", 7, 5],
+		["School", 21, 5],
+		["Church", 35, 5],
+		["ChipMart", 51, 5],
+		["Phone Co", 67, 5],
+		["Lazer Arcade", 82, 5],
+		["Thrift Store", 6, 13],
+		["Post Office", 19, 13],
+		["Bank", 35, 13],
+		["Fire Dept", 6, 22],
+		["Police Dept", 19, 22],
+		["Grocery", 51, 13],
+		["Diner", 67, 13],
+		["Hospital", 83, 14],
+		["Radio Station", 51, 23],
+		["Auto Repair", 68, 23],
+		["Barber Shop", 82, 23],
+		["Burger Barn", 51, 35],
+		["OmniStor", 68, 36],
+		["Office Bldg 2", 82, 36],
+		["Pharmacy", 51, 43],
+		["Office Bldg", 67, 43],
+		["Water Recl.", 52, 52],
+		["Substation", 6, 64],
+		["Junkyard", 23, 65],
+		["Lake", 82, 69],
+		["Rich Kid", 6, 54],
 	]
 
 func _set_tile(x: int, y: int, tile: int) -> void:
@@ -320,6 +371,15 @@ func _door(x: int, y: int) -> void:
 		collision[y][x] = 0
 		ground[y][x] = Tile.PATH
 		decorations[y][x] = Tile.DOOR
+
+func _connect(x: int, y: int, w: int, h: int) -> void:
+	for dy in range(h):
+		for dx in range(w):
+			var px := x + dx
+			var py := y + dy
+			if px >= 0 and px < MAP_W and py >= 0 and py < MAP_H:
+				if ground[py][px] == Tile.GRASS and collision[py][px] == 0:
+					ground[py][px] = Tile.SIDEWALK
 
 func _scatter(tile: int, x: int, y: int, w: int, h: int) -> void:
 	for dy in range(h):

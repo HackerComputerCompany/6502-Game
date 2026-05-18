@@ -66,7 +66,9 @@ Top-down or first-person puzzle scenes rendered in Earth Bound pixel art. You ma
 
 ### 2.3 Overworld (Adventure Mode)
 
-Earth Bound–style top-down 16-bit RPG. The game opens in your bedroom — a cramped, lived-in space. A bed against one wall, a window overlooking the street, a desk cluttered with computer gear. Clothes scattered on the floor. It's summer 1985 and you just returned from a garage sale where you bought a used Vector 64 computer for $15. The previous owner left a box of floppy disks in the bottom of the box.
+Earth Bound–style top-down 16-bit RPG. The game opens in your bedroom — a cramped, lived-in space in the Mitchell family house. A bed against one wall, a window overlooking the street, a desk cluttered with computer gear. Clothes scattered on the floor. It's summer 1985. Your dad is Colonel Bob Mitchell, stationed at Fort Stirling — a war college on the edge of town. The family lives off-base in the subdivision. You just returned from a garage sale where you bought a used Vector 64 computer for $15. The previous owner left a box of floppy disks in the bottom of the box.
+
+Your sister Jessica thinks you're a nerd. Your mom Linda tolerates the computer because "it must be good for job skills." Your dad brings home surplus electronics occasionally and hopes you'll go to college. You've got $3.25 in your pocket and a $5 weekly allowance if you keep up with your chores.
 
 From here you move through a small city and surrounding areas — your school, library, ChipMart electronics shop, phone company building, junkyard, the lazer tag arcade, BBS meetup spots, the "rich kid" neighborhood with better equipment, and the church on the square where not everything is as pious as it seems.
 
@@ -94,36 +96,52 @@ From here you move through a small city and surrounding areas — your school, l
 
 **Town layout ("IntRural," population ~4,000):**
 
-| Quadrant | Location | Tile Position | Notes |
-|----------|----------|--------------|-------|
-| NW | Library | (3,3) | Gray walls, gray roof |
-| NW | School | (16,3) | Brown walls, red roof — large building |
-| NW | Church | (16,15) | Gray walls, gray roof |
-| NE | ChipMart | (31,3) | Brown walls, red roof — electronics parts store |
-| NE | Lazer Arcade | (45,3) | Gray walls, gray roof |
-| NE | Phone Co. Central Office | (45,10) | Gray walls, gray roof |
-| NE | Radio Station | (45,17) | Brown walls, red roof |
-| W Main St | Thrift Store | (3,10) | Brown walls, red roof |
-| W Main St | Post Office | (16,10) | Gray walls, gray roof |
-| W Main St | Bank | (3,15) | Beige walls, red roof |
-| W Subdivision | Miller House | (1,27) | Beige walls, red roof |
-| W Subdivision | Player's House | (10,27) | Beige walls, red roof — double door, garage + workshop |
-| W Subdivision | Garcia House | (20,27) | Brown walls, red roof |
-| W Subdivision | Johnson House | (1,34) | Gray walls, gray roof |
-| W Subdivision | Patel House | (10,34) | Brown walls, red roof |
-| W Subdivision | Williams House | (20,34) | Beige walls, red roof |
-| W Far | Rich Kid House | (2,41) | Beige walls, red roof — fenced |
-| E Main St | Grocery Store | (31,15) | Brown walls, red roof |
-| E Main St | Diner | (45,15) | Brown walls, red roof |
-| E Main St | Auto Repair | (31,23) | Gray walls, gray roof |
-| E Main St | Barber Shop | (45,23) | Beige walls, red roof |
-| E | Burger Barn | (45,29) | Brown walls, red roof — fast food |
-| SE | OmniStor Technologies | (35,37) | Gray walls, gray roof — large building |
-| SE | Office Building 2 | (44,37) | Beige walls, red roof |
-| SE | Water Reclamation Dept | (30,42) | Gray walls, gray roof — SCADA target, next to lake |
-| SW | Power Substation | (4,45) | Fenced, brown walls, gray roof |
-| S | Junkyard | (14,46) | Fenced area, south edge of town |
-| Far SE | Lake | (42,46) | Water tiles, not passable |
+| Quadrant | Location | Notes |
+|----------|----------|-------|
+| NW | Library | Gray walls, gray roof — librarian has SCADA manual |
+| NW | School | Brown walls, red roof — large building |
+| NW | Church | Gray walls, gray roof — PBX in basement |
+| W (NW block) | Thrift Store | Brown walls, red roof |
+| W (NW block) | Post Office | Gray walls, gray roof |
+| W (NW block) | Bank | Beige walls, red roof |
+| W (NW block) | Fire Department | Gray walls, red roof |
+| W (NW block) | Police Department | Beige walls, gray roof |
+| NE | ChipMart | Brown walls, red roof — electronics parts store, dumpster out back |
+| NE | Phone Co. Central Office | Gray walls, gray roof |
+| NE | Lazer Arcade | Gray walls, gray roof |
+| NE | Grocery Store | Brown walls, red roof |
+| NE | Diner | Brown walls, red roof |
+| NE | Hospital | Gray walls, gray roof — large building |
+| NE | Radio Station | Brown walls, red roof |
+| NE | Auto Repair | Gray walls, gray roof |
+| NE | Barber Shop | Beige walls, red roof |
+| W Subdivision | Miller House | Beige walls, red roof |
+| W Subdivision | Player's House | Beige walls, red roof — double door, garage + workshop, family home |
+| W Subdivision | Garcia House | Brown walls, red roof |
+| W Subdivision | Johnson House | Gray walls, gray roof |
+| W Subdivision | Patel House | Brown walls, red roof |
+| W Subdivision | Williams House | Beige walls, red roof |
+| W Far | Rich Kid House | Beige walls, red roof — fenced, bigger lot |
+| E | Burger Barn | Brown walls, red roof — fast food |
+| SE | OmniStor Technologies | Gray walls, gray roof — large building |
+| SE | Office Building 2 | Beige walls, red roof |
+| SE | Pharmacy | Gray walls, red roof |
+| SE | Water Reclamation Dept | Gray walls, gray roof — SCADA target, next to lake |
+| SW | Power Substation | Fenced, brown walls, gray roof |
+| S | Junkyard | Fenced area |
+| Far SE | Lake | Water tiles, not passable |
+| Out of town | **Fort Stirling (military base)** | Not yet mapped — war college, Dad's posting, off-base commuting family |
+
+**Map scale:** 100×82 tiles (expanded from 60×55). Sidewalk tiles line major roads. 3-wide Main Street and Boulevard, 2-wide secondary roads. All buildings have proper clearance from roads via sidewalks and green space.
+
+**House interior layout (48×21 tiles):**
+- Garage/Workshop (left) with bench, tools
+- 4 bedrooms in a row (Your Room is bedroom 1, bed + desk with computer)
+- Hallway connecting all rooms
+- Bathroom, Living Room, and Kitchen in southern half
+- Kitchen has trash can (interactive — take out garbage chore)
+- Desk and bed are interactive furniture (yellow flash, Space to use)
+- Mom, Dad, and Jessica spawn in living room / kitchen / hallway respectively
 
 **House interior layout (48×21 tiles):**
 - Garage/Workshop (left) with bench, tools
@@ -159,7 +177,24 @@ Each target is a real-world system you research, locate, and penetrate using a m
 
 ## 3. Player Progression
 
-Skills are not experience points. You progress by **doing real things** in Keyboard Time — learning commands, writing programs, passing trainer quizzes. The overworld and hardware puzzles gate access to new Keyboard Time content, and vice versa.
+### 3.1 Skill System (XP-based)
+
+Each skill is 0–100, earned through gameplay actions. Skills unlock abilities, dialogue options, and permit access to harder content.
+
+| Skill | Key | What it tracks | XP sources |
+|-------|-----|----------------|------------|
+| Code Fu | `basic_programming` | Writing BASIC, solving puzzles at terminals | +3 per program run, +10 per challenge completed, +15 per new language learned |
+| Hex Sense | `assembly` | Reading/writing machine code | +5 per disassembly, +10 per ROM hack, +20 per new CPU mastered |
+| Solder Finger | `electronics` | Building and fixing hardware | +3 per component identified, +5 per solder joint, +15 per circuit built |
+| Phone Phreak | `phreaking` | Phone system manipulation, war dialing | +5 per successful dial, +10 per PBX hack, +15 per blue box use |
+| Moxie | `social_engineering` | Talking your way in/out, reading people | +3 per new NPC conversation, +10 per successful bluff, +15 per con pulled off |
+
+**Derived stats:**
+- **Hacker Level** = weighted average of all skills, displayed as a rank name
+- Ranks: `Script Kiddie` (0–15) → `Novice` (16–30) → `Hacker` (31–50) → `Elite` (51–70) → `Guru` (71–90) → `Legend` (91–100)
+- **Rep** (reputation) — modifies NPC reactions, based on Moxie + quest flags
+
+Progression is still **doing real things**: the XP system is a thin layer on top of the existing keyboard/hardware/overworld loops. You don't grind — you just get better by actually performing.
 
 **Progression loop:**
 1. Overworld exploration → find a clue (phone number, address, floppy disk, discarded manual)
@@ -180,9 +215,84 @@ Skills are not experience points. You progress by **doing real things** in Keybo
 | 1989 | Cross-CPU development (6502→Z80) | Build a blue box | War dial the phone company |
 | 1990 | Write a terminal emulator | Tap a 66 block | Access the CO (central office) |
 | 1991 | Write a scanner control program in BASIC | Capture ESN/MIN pairs, clone a bag phone | Meet the phreaker crew at the electronics flea market |
-| 1992 | Write a war dialer in BASIC | Build a modem snooper (LED gaggle) | Social-engineer into water reclamation plant — find the SCADA dial-up number in a dumpstered invoice |
-| 1993 | Automate login scripts | Crack a default password on a legacy terminal server | Break into OmniStor Technologies sales system — reroute a shipment of Zip drives to a dead drop |
+| 1992 | Automate login scripts | Crack a default password on a legacy terminal server | Social-engineer into water reclamation plant |
+| 1993 | Write a war dialer in BASIC | Build a modem snooper (LED gaggle) | Social-engineer into the OmniStor sales system |
 | 1995 | Internet: TCP/IP basics | Build a dial-up modem from parts | Leave the city, go online |
+
+### 3.2 Money & Allowance
+
+- Start: **$3.25** in pocket
+- **Allowance:** $5/week from parents (paid Monday morning when you sleep)
+- Condition: garbage taken out + room clean (both tracked as daily chores)
+- If chores not done → no allowance that week + parent NPC gripes at you
+- Earn extra cash: odd jobs (ChipMart stock room, arcade repair), selling scavenged parts, BBS bounties later
+
+**Chore system:**
+| Chore | How to complete | Resets |
+|-------|----------------|--------|
+| Take out garbage | Interact with kitchen trash can (house_map) | Each morning |
+| Clean room | Interact with bed (separate from sleeping — "Tidy up" option) | Each morning |
+
+Both chores reset at midnight (game time). If both are `true` when you sleep through Sunday night, parents give you $5 on Monday morning. If either is incomplete, no allowance + parent dialogue.
+
+### 3.3 Family & NPCs
+
+You are **Alex**, a 13-year-old kid whose dad is **Colonel Robert "Bob" Mitchell**, an officer stationed at **Fort Stirling** — a war college and military installation on the edge of town. The family lives off-base in the subdivision (the player's house).
+
+**Dad (Colonel Bob Mitchell, age 42)**
+- Career military, currently at the Army War College for a 2-year posting
+- Proud of his service but rarely talks about specifics
+- Uneasy about computers — "they're good for job skills, right?" — but tolerates your interest because he thinks it means you'll get a "real job"
+- Periodically brings home "surplus" from the base: old printers, character terminals, one time a whole crate of 5.25" floppies
+- Key dialogue: encourages you, doesn't understand what you're doing, occasionally drops useful intel ("one of the sergeants says they're putting in a new computer system over at the base")
+- **Gives allowance** (enforces chore requirements)
+
+**Mom (Linda Mitchell, age 39)**
+- Works part-time at the school district office
+- The organized one — if your room isn't clean, she notices
+- Less comfortable with technology than Dad, but she's the one who drives you to ChipMart when you need parts
+- Key dialogue: warm but practical. "That's nice, honey" when you explain what you built, genuinely impressed when it works
+- Worries about you spending too much time in your room
+- **Checks chores** — if room isn't clean, you hear about it
+
+**Sister (Jessica, age 15)**
+- The opposite of you in every way — she's into cheerleading, makeup, and the phone (the social kind, not the phreaking kind)
+- Thinks computers are "nerd stuff" but is surprisingly good at remembering phone numbers
+- Key dialogue: dismissive one-liners, but occasionally useful — she overhears conversations at school you'd never catch, and she knows everyone's phone number
+- Will give you useful intel if you help her with something first (side quest hook)
+- Playful rivalry energy, not mean — she's protective of her little brother even if she won't admit it
+
+**Family dynamics drive the chores/allowance system:**
+- Dad gives allowance Monday morning (escapable chore loop)
+- Mom checks room cleanliness (you can fake it with a quick "Tidy up" before bed)
+- Jessica hogs the family phone line in the evening (why you need your own modem)
+- Dad occasionally brings home surplus hardware (quest reward / item source)
+
+**Military base (Fort Stirling) — story context:**
+- Located just outside town; the family lives off-base in the subdivision
+- The base is a major employer in town — many NPCs have connections to it
+- Dad's work means the family moves every few years; this posting is temporary
+- The base has its own phone system (PBX), computer networks, and restricted areas
+- **Not currently accessible** as a map location (Chapter 2+), but referenced in NPC dialogue
+- NPCs mention the base casually: the librarian's husband works there, the auto shop owner fixes military vehicles, the burger joint delivers to the gates
+- Future: the base becomes a major target for late-game phreaking and social engineering
+
+### 3.4 NPC Visibility & Quest Gating
+
+NPCs can be gated by quest flags:
+
+| NPC | Visibility | Gating |
+|-----|-----------|--------|
+| Dad | House (kitchen/living room) | Always present, schedule-based position |
+| Mom | House (kitchen/office) | Always present, schedule-based position |
+| Jessica | House (hallway/her room) or town | Always present, moves on schedule |
+| Mike | Town (near your house) | Always visible, sets `met_mike` |
+| Librarian | Town (Library) | Only appears after `met_mike` |
+| Clerk | Town (ChipMart) | Always visible, extra dialogue after `got_manual` |
+| Girl | Town (Phone Co area) | Always visible, extra dialogue after `met_mike` |
+| Old Man | Town (bench near Barber Shop) | Always visible |
+
+When an NPC has `quest_req` set and the flag isn't yet true, the NPC should not be placed on the map. Currently this is partially working — the dialogue filters lines by `require_flag`, but the NPC is still physically present with potentially empty dialogue. Needs fix: gate NPC spawn on `quest_req` OR show NPC with a "…" float icon when they have nothing to say yet.
 
 ---
 
@@ -280,20 +390,25 @@ The existing teaching lab (`scripts/`, `tests/`, `trainer/`) becomes **one subsy
 The three modes communicate through a shared **player state** system:
 
 ```gdscript
-# player_state.gd (future)
+# player_state.gd
 var skills: Dictionary = {
-    "basic_programming": 0.0,  # 0.0–1.0
-    "assembly": 0.0,
-    "electronics": 0.0,
-    "phreaking": 0.0,
-    "social_engineering": 0.0,
-    "lockpicking": 0.0,
+    "basic_programming": 0.0,   # Code Fu (0-100)
+    "assembly": 0.0,            # Hex Sense (0-100)
+    "electronics": 0.0,         # Solder Finger (0-100)
+    "phreaking": 0.0,           # Phone Phreak (0-100)
+    "social_engineering": 0.0,  # Moxie (0-100)
 }
-var inventory: Array[Item] = []
+var inventory: Array[Dictionary] = []
 var phone_contacts: Dictionary = {}  # name → number
 var bbs_accounts: Dictionary = {}    # bbs_name → {user, pass, messages}
 var floppy_disks: Dictionary = {}    # label → data (from Keyboard Time)
-```
+var quest_flags: Dictionary = {}
+var cash: float = 3.25               # money in pocket ($)
+var day_count: int = 0               # total days elapsed
+var garbage_taken_out: bool = false  # daily chore
+var room_clean: bool = false         # daily chore
+var allowance_collected: bool = false # per-week flag
+var current_objective: String = ""   # shown on HUD quest tracker
 
 - Keyboard Time quiz completion → unlocks overworld dialogue options
 - Hands On puzzle completion → grants items used in overworld
@@ -407,6 +522,6 @@ All in-world brands are fictional alternatives to real companies, avoiding trade
 
 ---
 
-*Document version: 0.4 — Town layout restructured with subdivision, Burger Barn, all doors accessible*
+*Document version: 0.5 — XP/stats system, money/chores, family NPCs, military base, expanded town (100×82), sidewalks, fire/police/hospital, TileMap→TileMapLayer migration*
 *Created: 2026-05-16*
-*Updated: 2026-05-17*
+*Updated: 2026-05-18*

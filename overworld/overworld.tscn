@@ -8,11 +8,11 @@
 y_sort_enabled = true
 script = ExtResource("1")
 
-[node name="GroundTileMap" type="TileMap" parent="."]
+[node name="GroundTileMap" type="TileMapLayer" parent="."]
 collision_enabled = false
 z_index = -10
 
-[node name="DecorationTileMap" type="TileMap" parent="."]
+[node name="DecorationTileMap" type="TileMapLayer" parent="."]
 collision_enabled = false
 z_index = -10
 

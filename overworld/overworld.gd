@@ -3,7 +3,7 @@ extends Node2D
 signal terminal_requested()
 
 const TILE_SIZE := 32
-const TILE_TYPES := 12
+const TILE_TYPES := 14
 const FURNITURE_SCALE := 2.0
 
 const INTERACTIVE_FURNITURE := ["desk", "bed"]
@@ -27,8 +27,8 @@ func _get_ps():
 			_ps = preload("res://scripts/player_state.gd").new()
 	return _ps
 
-@onready var _ground_map: TileMap = $GroundTileMap
-@onready var _deco_map: TileMap = $DecorationTileMap
+@onready var _ground_map: TileMapLayer = $GroundTileMap
+@onready var _deco_map: TileMapLayer = $DecorationTileMap
 @onready var _player: CharacterBody2D = $Player
 @onready var _camera: Camera2D = $Camera2D
 @onready var _dialogue: CanvasLayer = $DialogueBox
@@ -81,6 +81,7 @@ func _build_tilemaps() -> void:
 			Tile.TREE: Color(0.18, 0.50, 0.18),
 			Tile.SIGN: Color(0.55, 0.40, 0.20),
 			Tile.BLANK: Color(0, 0, 0, 0),
+			Tile.SIDEWALK: Color(0.50, 0.38, 0.22),
 		}
 		var s := TILE_SIZE
 		var atlas_img := Image.create(TILE_TYPES * s, s, false, Image.FORMAT_RGBA8)
@@ -108,9 +109,9 @@ func _build_tilemaps() -> void:
 			var g = _map_data.get_ground(x, y)
 			var d = _map_data.get_decoration(x, y)
 			if g != preload("res://overworld/town_map.gd").Tile.BLANK:
-				_ground_map.set_cell(0, Vector2i(x, y), 0, Vector2i(g, 0))
+				_ground_map.set_cell(Vector2i(x, y), 0, Vector2i(g, 0))
 			if d != preload("res://overworld/town_map.gd").Tile.BLANK:
-				_deco_map.set_cell(0, Vector2i(x, y), 0, Vector2i(d, 0))
+				_deco_map.set_cell(Vector2i(x, y), 0, Vector2i(d, 0))
 
 func _clear_furniture() -> void:
 	for node in _furniture_nodes:
@@ -272,7 +273,7 @@ func _get_npc_definitions() -> Array:
 		{
 			"name": "Mike",
 			"appearance": 0,
-			"position": Vector2(18, 10),
+			"position": Vector2(19, 39),
 			"dialogue": [
 				{"speaker": "Mike", "text": "Hey! You made it. Check out my new computer — it's a Vector 64! My parents got it for my birthday."},
 				{"speaker": "Mike", "text": "I've been messing around with BASIC all week. There's this weird BBS number I found... 555-0199. I can't get it to connect though."},
@@ -283,7 +284,7 @@ func _get_npc_definitions() -> Array:
 		{
 			"name": "Librarian",
 			"appearance": 1,
-			"position": Vector2(6, 6),
+			"position": Vector2(9, 10),
 			"quest_req": "met_mike",
 			"dialogue": [
 				{"speaker": "Librarian", "text": "Shhh... oh, it's you. Someone left this manual on the table yesterday. It's from the Water Reclamation Department."},
@@ -297,7 +298,7 @@ func _get_npc_definitions() -> Array:
 		{
 			"name": "Clerk",
 			"appearance": 2,
-			"position": Vector2(10, 23),
+			"position": Vector2(55, 10),
 			"dialogue": [
 				{"speaker": "Clerk", "text": "Welcome to ChipMart! Let me know if you need any components."},
 				{"speaker": "Clerk", "text": "If you're studying electronics, you should learn your resistor color codes. Black, Brown, Red, Orange, Yellow, Green, Blue, Violet, Gray, White."},
@@ -307,7 +308,7 @@ func _get_npc_definitions() -> Array:
 		{
 			"name": "Girl",
 			"appearance": 3,
-			"position": Vector2(34, 9),
+			"position": Vector2(77, 10),
 			"dialogue": [
 				{"speaker": "Girl", "text": "Don't you have anything better to do than talk to me?"},
 				{"speaker": "Girl", "text": "...But since you're here, I heard someone's been war dialing the phone company exchange. Weird busy signal pattern on 555-01xx.", "require_flag": "met_mike"},
@@ -316,7 +317,7 @@ func _get_npc_definitions() -> Array:
 		{
 			"name": "Old Man",
 			"appearance": 4,
-			"position": Vector2(26, 22),
+			"position": Vector2(30, 32),
 			"dialogue": [
 				{"speaker": "Old Man", "text": "Back in my day, computers took up entire rooms. Now kids have 'em on their desks."},
 				{"speaker": "Old Man", "text": "Progress, I suppose. Still doesn't beat a good soldering iron and a handful of components."},
