@@ -73,7 +73,7 @@ Your sister Jessica thinks you're a nerd. Your mom Linda tolerates the computer 
 From here you move through a small city and surrounding areas — your school, library, ChipMart electronics shop, phone company building, junkyard, the lazer tag arcade, BBS meetup spots, the "rich kid" neighborhood with better equipment, and the church on the square where not everything is as pious as it seems.
 
 **Art style:** Direct Earth Bound homage:
-- Chibi 16×24 NPC sprites with expressive idle animations
+- Chibi 16×32 NPC sprites (Stardew-scale) with expressive idle animations
 - Warm, saturated 16-bit color palette (green grass, brown dirt, teal buildings)
 - Suburban / small-city America mid-80s to late-90s
 - Day/night cycle with different NPC schedules
@@ -136,7 +136,7 @@ From here you move through a small city and surrounding areas — your school, l
 
 **House interior layout (48×21 tiles):**
 - Garage/Workshop (left) with bench, tools
-- 4 bedrooms in a row (Your Room is bedroom 1, bed + desk with computer)
+- Ranch layout: garage/workshop/kitchen on the west, bedroom wing north, living room south (front door), your room with bed + desk
 - Hallway connecting all rooms
 - Bathroom, Living Room, and Kitchen in southern half
 - Kitchen has trash can (interactive — take out garbage chore)
@@ -145,7 +145,7 @@ From here you move through a small city and surrounding areas — your school, l
 
 **House interior layout (48×21 tiles):**
 - Garage/Workshop (left) with bench, tools
-- 4 bedrooms in a row (Your Room is bedroom 1, bed + desk with computer)
+- Ranch layout: garage/workshop/kitchen on the west, bedroom wing north, living room south (front door), your room with bed + desk
 - Hallway connecting all rooms
 - Bathroom, Living Room, and Kitchen in southern half
 - Desk and bed are interactive furniture (yellow flash, Space to use)
@@ -337,7 +337,7 @@ Inspirations: Earth Bound's inventory screen, but themed for a teenage hacker.
 ## 6. Art & Audio
 
 ### Art Direction
-- **Overworld:** 16×16 tile grid, 16×24 character sprites, 4-color-per-tile SNES constraints (for authenticity), 256×224 internal resolution upscaled 3× to 768×672
+- **Overworld:** 16×16 tile grid, 16×32 character sprites (Stardew-scale), 4× camera zoom on a 320×180 viewport
 - **Hands On puzzles:** Zoomed-in 2× to 4× view of circuit boards / phone blocks / component trays, same pixel art style, detailed enough to read resistor bands and IC part numbers
 - **Keyboard Time:** The existing terminal UI, but re-skinned per location (green phosphor for the old terminal, amber for the Omni PC, white-on-blue for the school Scholar)
 - **GUI:** Earth Bound–style menu windows (cream parchment borders, blue gradient backgrounds, serif font for dialogue)

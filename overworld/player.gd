@@ -1,69 +1,68 @@
 extends CharacterBody2D
 
-const SPEED: float = 144.0
-const TILE_SIZE: int = 32
-const PLAYER_W: int = 32
-const PLAYER_H: int = 64
+const _OW = preload("res://overworld/overworld_constants.gd")
+const GABE_SHEET := preload(
+	"res://overworld/art/tilesets/generic-rpg/generic-rpg-pack_v0.4_(alpha-release)_vacaroxa/rpg-pack/chars/gabe/gabe-idle-run.png"
+)
+const GABE_FRAME_W := 24
+const GABE_FRAME_H := 24
+const SPEED: float = 72.0
 
 var facing: Vector2 = Vector2(0, 1)
 var moving: bool = false
 var can_move: bool = true
 
-var _sprite: Sprite2D
-var _anim: AnimationPlayer
+var _sprite: AnimatedSprite2D
 var _collision: CollisionShape2D
 var _input_dir: Vector2 = Vector2.ZERO
 var _ps = null
+var _facing_flip_h: bool = false
 
 func _get_ps():
 	if _ps == null:
-		if Engine.has_singleton("PlayerState"):
-			_ps = Engine.get_singleton("PlayerState")
-		else:
-			_ps = preload("res://scripts/player_state.gd").new()
+		_ps = preload("res://scripts/player_state.gd").resolve()
 	return _ps
 
 func _ready() -> void:
 	_collision = CollisionShape2D.new()
 	_collision.shape = RectangleShape2D.new()
-	_collision.shape.size = Vector2(PLAYER_W * 0.75, PLAYER_H * 0.5)
-	_collision.position = Vector2(0, PLAYER_H * 0.15)
+	_collision.shape.size = Vector2(GABE_FRAME_W * 0.65, 8)
+	_collision.position = Vector2(0, -4)
 	add_child(_collision)
 
-	_sprite = Sprite2D.new()
-	_sprite.name = "Sprite2D"
-	var img := Image.create(PLAYER_W, PLAYER_H, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.9, 0.15, 0.15))
-	var tex := ImageTexture.create_from_image(img)
-	_sprite.texture = tex
-	_sprite.centered = true
+	_sprite = AnimatedSprite2D.new()
+	_sprite.name = "AnimatedSprite2D"
+	_sprite.sprite_frames = _build_gabe_sprite_frames()
+	_sprite.animation = &"idle"
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_sprite.offset = Vector2(0, -PLAYER_H * 0.25)
+	_sprite.centered = false
+	_sprite.position = Vector2(-GABE_FRAME_W / 2.0, -GABE_FRAME_H)
 	add_child(_sprite)
 
-	_anim = AnimationPlayer.new()
-	_anim.name = "AnimationPlayer"
-	add_child(_anim)
-	_make_walk_animation()
-
-	position = Vector2(
-		_get_ps().overworld_position.x * TILE_SIZE + TILE_SIZE / 2,
-		_get_ps().overworld_position.y * TILE_SIZE + TILE_SIZE / 2
+	position = _OW.tile_to_world(
+		Vector2i(int(_get_ps().overworld_position.x), int(_get_ps().overworld_position.y))
 	)
 	_update_map_pos()
 
-func _make_walk_animation() -> void:
-	var anim := Animation.new()
-	anim.length = 0.4
-	anim.loop_mode = Animation.LOOP_LINEAR
-	var track := anim.add_track(Animation.TYPE_VALUE)
-	anim.track_set_path(track, "Sprite2D:position:y")
-	anim.track_insert_key(track, 0.0, 0.0)
-	anim.track_insert_key(track, 0.2, -4.0 * (PLAYER_H / 64.0))
-	anim.track_insert_key(track, 0.4, 0.0)
-	var lib = AnimationLibrary.new()
-	lib.add_animation("walk", anim)
-	_anim.add_animation_library("", lib)
+static func _build_gabe_sprite_frames() -> SpriteFrames:
+	var sf := SpriteFrames.new()
+	sf.add_animation(&"idle")
+	sf.set_animation_loop(&"idle", true)
+	sf.set_animation_speed(&"idle", 1.0)
+	var idle_frame := AtlasTexture.new()
+	idle_frame.atlas = GABE_SHEET
+	idle_frame.region = Rect2(0, 0, GABE_FRAME_W, GABE_FRAME_H)
+	sf.add_frame(&"idle", idle_frame)
+
+	sf.add_animation(&"walk")
+	sf.set_animation_loop(&"walk", true)
+	sf.set_animation_speed(&"walk", 10.0)
+	for i in range(7):
+		var frame_tex := AtlasTexture.new()
+		frame_tex.atlas = GABE_SHEET
+		frame_tex.region = Rect2(i * GABE_FRAME_W, 0, GABE_FRAME_W, GABE_FRAME_H)
+		sf.add_frame(&"walk", frame_tex)
+	return sf
 
 func forward_input(event: InputEvent) -> void:
 	if not can_move:
@@ -105,9 +104,8 @@ func _would_pass(target: Vector2) -> bool:
 	var map = _get_map_data()
 	if map == null:
 		return true
-	var tx := int(target.x / TILE_SIZE)
-	var ty := int(target.y / TILE_SIZE)
-	return map.is_passable(tx, ty)
+	var tile := _OW.world_to_tile(target)
+	return map.is_passable(tile.x, tile.y)
 
 func _get_map_data():
 	var overworld := get_parent()
@@ -117,23 +115,23 @@ func _get_map_data():
 
 func _update_animation() -> void:
 	if moving:
-		if not _anim.is_playing():
-			_anim.play("walk")
-	else:
-		_anim.stop()
+		if _sprite.animation != &"walk":
+			_sprite.play(&"walk")
+	elif _sprite.animation != &"idle":
+		_sprite.play(&"idle")
+
 	if facing.x < 0:
-		_sprite.flip_h = true
+		_facing_flip_h = true
 	elif facing.x > 0:
-		_sprite.flip_h = false
+		_facing_flip_h = false
+	_sprite.flip_h = _facing_flip_h
 
 func _update_map_pos() -> void:
-	var tx := int(position.x / TILE_SIZE)
-	var ty := int(position.y / TILE_SIZE)
-	_get_ps().overworld_position = Vector2(tx, ty)
+	var tile := _OW.world_to_tile(position)
+	_get_ps().overworld_position = Vector2(tile.x, tile.y)
 
 func interact_front_tile() -> Vector2i:
-	var tx := int(position.x / TILE_SIZE)
-	var ty := int(position.y / TILE_SIZE)
+	var tile := _OW.world_to_tile(position)
 	var fx := int(round(facing.x))
 	var fy := int(round(facing.y))
-	return Vector2i(tx + fx, ty + fy)
+	return Vector2i(tile.x + fx, tile.y + fy)

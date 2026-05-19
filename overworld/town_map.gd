@@ -61,9 +61,9 @@ const ENTRY_POINTS := {
 }
 
 const EXITS := {
-	Vector2i(21, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
-	Vector2i(22, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
-	Vector2i(20, 32): {"map": "res://overworld/house_map.gd", "entry": "workshop_exit"},
+	Vector2i(21, 36): {"map": "res://overworld/maps/house.tscn", "entry": "front_door"},
+	Vector2i(22, 36): {"map": "res://overworld/maps/house.tscn", "entry": "front_door"},
+	Vector2i(20, 32): {"map": "res://overworld/maps/house.tscn", "entry": "workshop_exit"},
 	Vector2i(9, 7): {"map": "res://overworld/interiors/library.gd", "entry": "front_door"},
 	Vector2i(24, 7): {"map": "res://overworld/interiors/school.gd", "entry": "front_door"},
 	Vector2i(37, 7): {"map": "res://overworld/interiors/church.gd", "entry": "front_door"},

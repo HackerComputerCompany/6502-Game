@@ -2,14 +2,17 @@ extends Node2D
 
 signal terminal_requested()
 
-const TILE_SIZE := 32
+const _OW = preload("res://overworld/overworld_constants.gd")
+const TILE_SIZE := _OW.TILE_SIZE
 const TILE_TYPES := 14
-const FURNITURE_SCALE := 2.0
+const FURNITURE_SCALE := _OW.FURNITURE_SCALE
 
 const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can", "garbage_bin", "phone"]
 
 var _map_data
 var _map_script_path: String = ""
+var _map_scene_instance: Node2D = null
+var _uses_scene_map: bool = false
 var _npc_list: Array = []
 var _active_npc: Node = null
 var _furniture_nodes: Array = []
@@ -44,26 +47,71 @@ func _ready() -> void:
 	_night_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_night_overlay.z_index = 50
 	add_child(_night_overlay)
-	_load_map("res://overworld/house_map.gd")
+	_load_map("res://overworld/maps/house.tscn", "bed")
 
 func load_map(path: String, entry_point: String = "") -> void:
 	_load_map(path, entry_point)
 
+func _resolve_map_path(path: String) -> String:
+	match path:
+		"res://overworld/house_map.gd":
+			return "res://overworld/maps/house.tscn"
+		"res://overworld/town_map.gd":
+			return "res://overworld/maps/town.tscn"
+		"res://overworld/interiors/library.gd":
+			return "res://overworld/maps/library.tscn"
+	return path
+
 func _load_map(path: String, entry_point: String = "") -> void:
+	path = _resolve_map_path(path)
 	_map_script_path = path
 	_clear_furniture()
-	_map_data = load(path).new()
-	_build_tilemaps()
-	_place_furniture()
-	_place_labels()
+	_unload_map_scene()
+
+	if path.ends_with(".tscn"):
+		_load_map_scene(path)
+	else:
+		_uses_scene_map = false
+		_ground_map.visible = true
+		_deco_map.visible = true
+		_map_data = load(path).new()
+		_build_tilemaps()
+		_place_furniture()
+		_place_labels()
+
+	if _uses_scene_map:
+		_place_furniture()
+		# Labels are embedded in scene maps
+
 	_place_npcs()
 	_setup_camera()
-	var ep_dict = _map_data.get("ENTRY_POINTS")
+	var ep_dict = _map_data.get("ENTRY_POINTS") if _map_data else null
 	if entry_point != "" and ep_dict != null and ep_dict.has(entry_point):
 		var ep = ep_dict[entry_point]
-		_player.position = Vector2(ep.x * TILE_SIZE + TILE_SIZE / 2, ep.y * TILE_SIZE + TILE_SIZE / 2)
+		if ep is Array:
+			ep = ep[0]
+		_player.position = _OW.tile_to_world(Vector2i(int(ep.x), int(ep.y)))
 	_update_map_pos()
 	_transition_cooldown = 0.3
+
+func _unload_map_scene() -> void:
+	if _map_scene_instance and is_instance_valid(_map_scene_instance):
+		_map_scene_instance.queue_free()
+	_map_scene_instance = null
+	_uses_scene_map = false
+	_ground_map.visible = true
+	_deco_map.visible = true
+
+func _load_map_scene(path: String) -> void:
+	var packed: PackedScene = load(path) as PackedScene
+	_map_scene_instance = packed.instantiate() as Node2D
+	_map_scene_instance.name = "MapScene"
+	add_child(_map_scene_instance)
+	move_child(_map_scene_instance, 0)
+	_uses_scene_map = true
+	_ground_map.visible = false
+	_deco_map.visible = false
+	_map_data = preload("res://overworld/map_from_scene.gd").new(_map_scene_instance)
 
 var _atlas_built := false
 
@@ -74,43 +122,50 @@ func _build_tilemaps() -> void:
 	_deco_map.clear()
 
 	if not _atlas_built:
-		var Tile = preload("res://overworld/town_map.gd").Tile
-		var tile_colors := {
-			Tile.GRASS: Color(0.25, 0.45, 0.15),
-			Tile.PATH: Color(0.30, 0.18, 0.08),
-			Tile.WALL_BROWN: Color(1.0, 1.0, 1.0),
-			Tile.WALL_BEIGE: Color(1.0, 1.0, 1.0),
-			Tile.WALL_GRAY: Color(0.85, 0.85, 0.85),
-			Tile.ROOF_RED: Color(0.55, 0.12, 0.10),
-			Tile.ROOF_GRAY: Color(0.40, 0.40, 0.45),
-			Tile.DOOR: Color(0.75, 0.65, 0.25),
-			Tile.WATER: Color(0.15, 0.30, 0.65),
-			Tile.FENCE: Color(0.45, 0.30, 0.15),
-			Tile.TREE: Color(0.18, 0.50, 0.18),
-			Tile.SIGN: Color(0.55, 0.40, 0.20),
-			Tile.BLANK: Color(0, 0, 0, 0),
-			Tile.SIDEWALK: Color(0.50, 0.38, 0.22),
-		}
-		var s := TILE_SIZE
-		var atlas_img := Image.create(TILE_TYPES * s, s, false, Image.FORMAT_RGBA8)
-		atlas_img.fill(Color(0, 0, 0, 0))
-		for i in range(TILE_TYPES):
-			var color = tile_colors.get(i, Color.MAGENTA)
-			for py in range(s):
-				for px in range(s):
-					atlas_img.set_pixel(i * s + px, py, color)
-		var atlas_tex := ImageTexture.create_from_image(atlas_img)
-		var ts := TileSet.new()
-		ts.tile_size = Vector2i(s, s)
-		var source := TileSetAtlasSource.new()
-		source.texture = atlas_tex
-		source.texture_region_size = Vector2i(s, s)
-		for i in TILE_TYPES:
-			source.create_tile(Vector2i(i, 0))
-		ts.add_source(source, 0)
-		_ground_map.tile_set = ts
-		_deco_map.tile_set = ts
-		_atlas_built = true
+		var shared_path := "res://overworld/art/tilesets/shared_tileset.tres"
+		if ResourceLoader.exists(shared_path):
+			var shared_ts: TileSet = load(shared_path) as TileSet
+			_ground_map.tile_set = shared_ts
+			_deco_map.tile_set = shared_ts
+			_atlas_built = true
+		else:
+			var Tile = preload("res://overworld/town_map.gd").Tile
+			var tile_colors := {
+				Tile.GRASS: Color(0.25, 0.45, 0.15),
+				Tile.PATH: Color(0.30, 0.18, 0.08),
+				Tile.WALL_BROWN: Color(1.0, 1.0, 1.0),
+				Tile.WALL_BEIGE: Color(1.0, 1.0, 1.0),
+				Tile.WALL_GRAY: Color(0.85, 0.85, 0.85),
+				Tile.ROOF_RED: Color(0.55, 0.12, 0.10),
+				Tile.ROOF_GRAY: Color(0.40, 0.40, 0.45),
+				Tile.DOOR: Color(0.75, 0.65, 0.25),
+				Tile.WATER: Color(0.15, 0.30, 0.65),
+				Tile.FENCE: Color(0.45, 0.30, 0.15),
+				Tile.TREE: Color(0.18, 0.50, 0.18),
+				Tile.SIGN: Color(0.55, 0.40, 0.20),
+				Tile.BLANK: Color(0, 0, 0, 0),
+				Tile.SIDEWALK: Color(0.50, 0.38, 0.22),
+			}
+			var s := TILE_SIZE
+			var atlas_img := Image.create(TILE_TYPES * s, s, false, Image.FORMAT_RGBA8)
+			atlas_img.fill(Color(0, 0, 0, 0))
+			for i in range(TILE_TYPES):
+				var color = tile_colors.get(i, Color.MAGENTA)
+				for py in range(s):
+					for px in range(s):
+						atlas_img.set_pixel(i * s + px, py, color)
+			var atlas_tex := ImageTexture.create_from_image(atlas_img)
+			var ts := TileSet.new()
+			ts.tile_size = Vector2i(s, s)
+			var source := TileSetAtlasSource.new()
+			source.texture = atlas_tex
+			source.texture_region_size = Vector2i(s, s)
+			for i in TILE_TYPES:
+				source.create_tile(Vector2i(i, 0))
+			ts.add_source(source, 0)
+			_ground_map.tile_set = ts
+			_deco_map.tile_set = ts
+			_atlas_built = true
 
 	for y in range(_map_data.MAP_H):
 		for x in range(_map_data.MAP_W):
@@ -251,6 +306,11 @@ func _place_labels() -> void:
 		_label_nodes.append(label)
 
 func _collide_tile(tx: int, ty: int) -> void:
+	if _map_data == null:
+		return
+	if _map_data.has_method("set_collision_tile"):
+		_map_data.set_collision_tile(tx, ty, 1)
+		return
 	if tx < 0 or tx >= _map_data.MAP_W or ty < 0 or ty >= _map_data.MAP_H:
 		return
 	var Tile = preload("res://overworld/town_map.gd").Tile
@@ -274,7 +334,7 @@ func _place_npcs() -> void:
 		)
 		npc.facing_left = def.get("facing_left", false)
 		var pos = def.get("position", Vector2.ZERO)
-		npc.position = Vector2(pos.x * TILE_SIZE + TILE_SIZE / 2, pos.y * TILE_SIZE + TILE_SIZE / 2)
+		npc.position = _OW.tile_to_world(Vector2i(int(pos.x), int(pos.y)))
 		_npc_container.add_child(npc)
 		_npc_list.append(npc)
 		var area := Area2D.new()
@@ -288,7 +348,7 @@ func _place_npcs() -> void:
 		_npc_areas.append(area)
 
 func _get_npc_definitions() -> Array:
-	if _map_script_path.find("house_map") != -1:
+	if _map_script_path.find("house") != -1:
 		return [
 			{
 				"name": "Dad",
@@ -481,6 +541,7 @@ func _get_npc_definitions() -> Array:
 	]
 
 func _setup_camera() -> void:
+	_camera.zoom = Vector2(_OW.CAMERA_ZOOM, _OW.CAMERA_ZOOM)
 	_camera.position = _player.position
 	_camera.limit_left = 0
 	_camera.limit_top = 0
@@ -497,7 +558,7 @@ func _process(delta: float) -> void:
 		_player.can_move = true
 	_get_ps().tick_game_time(delta)
 	_daylight = _get_ps().get_daylight_factor()
-	if _map_script_path.find("town_map") != -1:
+	if _map_script_path.find("town") != -1:
 		var night_alpha: float = (1.0 - _daylight) * 0.55
 		_night_overlay.color = Color(0, 0, 0.15, night_alpha)
 		_night_overlay.visible = true
@@ -559,8 +620,8 @@ func _try_interact() -> void:
 			if abs(px - spot.x) <= 1 and abs(py - spot.y) <= 1:
 				_open_terminal()
 				return
-	if ep_dict != null and ep_dict.has("bed"):
-		var bed_val = ep_dict["bed"]
+	if ep_dict != null and ep_dict.has("bed_sleep"):
+		var bed_val = ep_dict["bed_sleep"]
 		var bed_spots: Array = []
 		if bed_val is Array:
 			for pos in bed_val:

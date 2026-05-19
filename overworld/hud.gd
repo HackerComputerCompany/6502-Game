@@ -1,5 +1,8 @@
 extends CanvasLayer
 
+const HUD_FONT := preload("res://fonts/pressstart2p.ttf")
+const HUD_FONT_SIZE := 8
+
 var _money_label: Label
 var _time_label: Label
 var _date_label: Label
@@ -11,10 +14,7 @@ var _ps = null
 
 func _get_ps():
 	if _ps == null:
-		if Engine.has_singleton("PlayerState"):
-			_ps = Engine.get_singleton("PlayerState")
-		else:
-			_ps = preload("res://scripts/player_state.gd").new()
+		_ps = preload("res://scripts/player_state.gd").resolve()
 	return _ps
 
 func _ready() -> void:
@@ -28,8 +28,8 @@ func _ready() -> void:
 
 	_title_label = Label.new()
 	_title_label.text = "SIGNAL.ZERO"
+	_apply_hud_font(_title_label)
 	_title_label.add_theme_color_override("font_color", Color(0.2, 1, 0.2))
-	_title_label.add_theme_font_size_override("font_size", 16)
 	_title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_title_label.add_theme_constant_override("outline_size", 3)
 	_title_label.position = Vector2(8, bar_y)
@@ -37,8 +37,8 @@ func _ready() -> void:
 	add_child(_title_label)
 
 	_money_label = Label.new()
+	_apply_hud_font(_money_label)
 	_money_label.add_theme_color_override("font_color", Color(1, 1, 0.4))
-	_money_label.add_theme_font_size_override("font_size", 16)
 	_money_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_money_label.add_theme_constant_override("outline_size", 3)
 	_money_label.position = Vector2(150, bar_y)
@@ -46,8 +46,8 @@ func _ready() -> void:
 	add_child(_money_label)
 
 	_time_label = Label.new()
+	_apply_hud_font(_time_label)
 	_time_label.add_theme_color_override("font_color", Color(0.5, 0.8, 1))
-	_time_label.add_theme_font_size_override("font_size", 16)
 	_time_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_time_label.add_theme_constant_override("outline_size", 3)
 	_time_label.position = Vector2(260, bar_y)
@@ -55,8 +55,8 @@ func _ready() -> void:
 	add_child(_time_label)
 
 	_date_label = Label.new()
+	_apply_hud_font(_date_label)
 	_date_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
-	_date_label.add_theme_font_size_override("font_size", 16)
 	_date_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_date_label.add_theme_constant_override("outline_size", 3)
 	_date_label.position = Vector2(380, bar_y)
@@ -64,8 +64,8 @@ func _ready() -> void:
 	add_child(_date_label)
 
 	_skills_label = Label.new()
+	_apply_hud_font(_skills_label)
 	_skills_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	_skills_label.add_theme_font_size_override("font_size", 16)
 	_skills_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_skills_label.add_theme_constant_override("outline_size", 3)
 	_skills_label.position = Vector2(510, bar_y)
@@ -73,8 +73,8 @@ func _ready() -> void:
 	add_child(_skills_label)
 
 	_quest_label = Label.new()
+	_apply_hud_font(_quest_label)
 	_quest_label.add_theme_color_override("font_color", Color(1, 0.8, 0.3))
-	_quest_label.add_theme_font_size_override("font_size", 16)
 	_quest_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_quest_label.add_theme_constant_override("outline_size", 3)
 	_quest_label.position = Vector2(8, 32)
@@ -82,6 +82,10 @@ func _ready() -> void:
 	add_child(_quest_label)
 
 	_quest_label.visible = false
+
+func _apply_hud_font(label: Label) -> void:
+	label.add_theme_font_override("font", HUD_FONT)
+	label.add_theme_font_size_override("font_size", HUD_FONT_SIZE)
 
 func _process(_delta: float) -> void:
 	var ps = _get_ps()

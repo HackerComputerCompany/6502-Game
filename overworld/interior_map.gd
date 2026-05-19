@@ -1,10 +1,7 @@
+class_name InteriorMap
 extends Node
 
-# Generic interior map builder.
-# Each interior is a simple building template: exterior walls, floor, front door(s), 
-# optional back door(s), and basic room layout with labels and furniture.
-
-const Tile = preload("res://overworld/town_map.gd").Tile
+const Tile = preload("res://overworld/overworld_constants.gd").Tile
 
 var collision: Array = []
 var ground: Array = []
@@ -12,6 +9,7 @@ var decorations: Array = []
 
 var MAP_W: int = 10
 var MAP_H: int = 8
+var WALL_COLOR: int = Tile.WALL_GRAY
 
 var _entry_points: Dictionary = {}
 var _exits: Dictionary = {}
@@ -51,14 +49,14 @@ func _build_room() -> void:
 
 func _walls_around() -> void:
 	for x in range(MAP_W):
-		ground[0][x] = Tile.WALL_GRAY
+		ground[0][x] = WALL_COLOR
 		collision[0][x] = 1
-		ground[MAP_H - 1][x] = Tile.WALL_GRAY
+		ground[MAP_H - 1][x] = WALL_COLOR
 		collision[MAP_H - 1][x] = 1
 	for y in range(MAP_H):
-		ground[y][0] = Tile.WALL_GRAY
+		ground[y][0] = WALL_COLOR
 		collision[y][0] = 1
-		ground[y][MAP_W - 1] = Tile.WALL_GRAY
+		ground[y][MAP_W - 1] = WALL_COLOR
 		collision[y][MAP_W - 1] = 1
 
 func _doors_from_exits() -> void:
@@ -90,7 +88,7 @@ func _door(x: int, y: int) -> void:
 
 func _window(x: int, y: int) -> void:
 	if x >= 0 and x < MAP_W and y >= 0 and y < MAP_H:
-		ground[y][x] = Tile.WALL_GRAY
+		ground[y][x] = WALL_COLOR
 
 func _furniture_block(x: int, y: int, w: int = 1, h: int = 1) -> void:
 	for dy in range(h):
@@ -117,9 +115,10 @@ func get_decoration(x: int, y: int) -> int:
 		return Tile.BLANK
 	return decorations[y][x]
 
+var labels: Array = []
+
 func get_labels() -> Array:
 	return labels
 
 func get_furniture() -> Array:
 	return _furniture
-

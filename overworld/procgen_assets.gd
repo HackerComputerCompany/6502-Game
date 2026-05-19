@@ -1,3 +1,5 @@
+const _OW = preload("res://overworld/overworld_constants.gd")
+
 static func make_tile_texture(color: Color, detail_color: Color = Color(), detail_pixels: Array = []) -> ImageTexture:
 	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	img.fill(color)
@@ -92,32 +94,31 @@ static func tile_sign() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 static func make_character_texture(body_color: Color, head_color: Color, hat_color: Color = Color()) -> ImageTexture:
-	var img := Image.create(16, 24, false, Image.FORMAT_RGBA8)
+	var h := _OW.SPRITE_H
+	var img := Image.create(_OW.SPRITE_W, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	if hat_color.a > 0:
 		for x in range(4, 12):
-			for y in range(0, 4):
+			for y in range(0, 5):
 				img.set_pixel(x, y, hat_color)
 	for x in range(4, 12):
-		for y in range(4, 10):
+		for y in range(5, 12):
 			img.set_pixel(x, y, head_color)
 	for x in range(5, 11):
-		for y in range(10, 18):
+		for y in range(12, 22):
 			img.set_pixel(x, y, body_color)
 	for x in range(5, 8):
-		for y in range(18, 24):
+		for y in range(22, h):
 			img.set_pixel(x, y, Color(0.2, 0.15, 0.1))
 	for x in range(8, 11):
-		for y in range(18, 24):
+		for y in range(22, h):
 			img.set_pixel(x, y, Color(0.2, 0.15, 0.1))
-	img.set_pixel(6, 6, Color(1, 1, 1))
-	img.set_pixel(9, 6, Color(1, 1, 1))
-	img.set_pixel(6, 7, Color(0.1, 0.1, 0.1))
-	img.set_pixel(9, 7, Color(0.1, 0.1, 0.1))
-	img.set_pixel(7, 8, Color(0.8, 0.5, 0.3))
-	img.set_pixel(8, 8, Color(0.8, 0.5, 0.3))
-	img.set_pixel(7, 9, Color(0.8, 0.5, 0.3))
-	img.set_pixel(8, 9, Color(0.8, 0.5, 0.3))
+	img.set_pixel(6, 7, Color(1, 1, 1))
+	img.set_pixel(9, 7, Color(1, 1, 1))
+	img.set_pixel(6, 8, Color(0.1, 0.1, 0.1))
+	img.set_pixel(9, 8, Color(0.1, 0.1, 0.1))
+	img.set_pixel(7, 10, Color(0.8, 0.5, 0.3))
+	img.set_pixel(8, 10, Color(0.8, 0.5, 0.3))
 	return ImageTexture.create_from_image(img)
 
 static func player_texture() -> ImageTexture:

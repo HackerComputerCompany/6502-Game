@@ -160,7 +160,21 @@ func _ready() -> void:
 	call_deferred("_apply_font_deferred")
 	call_deferred("_load_state_silent")
 	call_deferred("_setup_overworld")
-	call_deferred("_start_cold_boot")
+	call_deferred("_begin_game_session")
+
+func _begin_game_session() -> void:
+	if _boot_done:
+		return
+	_start_in_bedroom()
+
+func _start_in_bedroom() -> void:
+	_warmup_done = true
+	_boot_done = true
+	crt_overlay.material.set_shader_parameter("brightness", 1.0)
+	crt_overlay.material.set_shader_parameter("static_intensity", 0.0)
+	if _has_overworld() and _overworld_scene.has_method("load_map"):
+		_overworld_scene.load_map("res://overworld/maps/house.tscn", "bed")
+	_enter_overworld()
 
 func _start_cold_boot() -> void:
 	if _warmup_done:

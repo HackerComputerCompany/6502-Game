@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dwu84dfl2whbp" path="res://scripts/terminal.gd" id="1"]
 [ext_resource type="Shader" uid="uid://dusf7rrflv3c7" path="res://shaders/crt_overlay.gdshader" id="2"]
-[ext_resource type="Script" uid="uid://dto31jcb0g2x6" path="res://scripts/segment_clock.gd" id="3"]
+
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
 bg_color = Color(0.12, 0.12, 0.14, 1)
@@ -94,10 +94,7 @@ theme_override_colors/font_shadow_color = Color(0, 0.3, 0, 1)
 theme_override_font_sizes/font_size = 20
 text = "  BASIC6502  |  6502 CPU  |  Cart: BASIC  |  0 bytes / 64K RAM"
 
-[node name="SegmentClock" type="Control" parent="VBoxContainer/TopBar" unique_id=987654322]
-layout_mode = 2
-size_flags_horizontal = 0
-script = ExtResource("3")
+
 
 [node name="Screen" type="RichTextLabel" parent="VBoxContainer" unique_id=1904423418]
 layout_mode = 2

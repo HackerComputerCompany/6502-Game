@@ -35,9 +35,9 @@ var current_month: int = START_MONTH
 var current_day_of_month: int = START_DAY
 var current_weekday: int = START_WEEKDAY
 
-var overworld_position: Vector2 = Vector2(16, 5)
+var overworld_position: Vector2 = Vector2(12, 6)
 var overworld_scene: String = "bedroom"
-var current_map: String = "res://overworld/house_map.gd"
+var current_map: String = "res://overworld/maps/house.tscn"
 
 var terminal_unlocked: bool = true
 var current_quest: String = ""
@@ -48,6 +48,14 @@ var allowance_collected: bool = false
 var last_allowance_day: int = -1
 
 const GAME_MINUTES_PER_REAL_SECOND: float = 0.6
+
+static func resolve() -> Node:
+	var tree := Engine.get_main_loop()
+	if tree is SceneTree:
+		var node = tree.root.get_node_or_null("PlayerState")
+		if node != null:
+			return node
+	return load("res://scripts/player_state.gd").new()
 
 func has_item(item_name: String) -> bool:
 	for item in inventory:

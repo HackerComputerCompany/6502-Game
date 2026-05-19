@@ -127,7 +127,7 @@ func test_procgen_assets() -> void:
 	var grass = P.tile_grass()
 	_assert(grass.get_image().get_size() == Vector2i(16, 16), "tile texture is 16x16")
 	var player = P.player_texture()
-	_assert(player.get_image().get_size() == Vector2i(16, 24), "player texture is 16x24")
+	_assert(player.get_image().get_size() == Vector2i(16, 32), "player texture is 16x32 (Stardew-scale)")
 
 # --- player_state.gd ---
 

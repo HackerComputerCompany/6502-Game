@@ -1,6 +1,8 @@
 extends Node2D
 
+const _OW = preload("res://overworld/overworld_constants.gd")
 const _PlayerStateScript = preload("res://scripts/player_state.gd")
+const _Procgen = preload("res://overworld/procgen_assets.gd")
 
 var npc_name: String = ""
 var dialogue: Array = []
@@ -10,8 +12,7 @@ var item_given: String = ""
 var appearance: int = 0
 var facing_left: bool = false
 
-var _sprite: ColorRect
-var _border: ColorRect
+var _sprite: Sprite2D
 var _label: Label
 var _bubble: ColorRect
 var _bubble_dot1: ColorRect
@@ -19,77 +20,60 @@ var _bubble_dot2: ColorRect
 var _bubble_dot3: ColorRect
 var _player_state = null
 
-const NPC_COLORS := [
-	Color(0.6, 0.4, 0.8),
-	Color(0.4, 0.6, 0.9),
-	Color(0.8, 0.5, 0.3),
-	Color(0.5, 0.8, 0.5),
-	Color(0.9, 0.4, 0.4),
-	Color(0.4, 0.8, 0.8),
-	Color(0.9, 0.7, 0.3),
-	Color(0.7, 0.3, 0.6),
-]
-
 func get_player_state():
 	if _player_state == null:
-		if Engine.has_singleton("PlayerState"):
-			_player_state = Engine.get_singleton("PlayerState")
-		else:
-			_player_state = _PlayerStateScript.new()
+		_player_state = _PlayerStateScript.resolve()
 	return _player_state
 
 func _ready() -> void:
-	var color: Color = NPC_COLORS[appearance % NPC_COLORS.size()]
+	var sw := _OW.SPRITE_W
+	var sh := _OW.SPRITE_H
 
-	_border = ColorRect.new()
-	_border.name = "Border"
-	_border.size = Vector2(34, 34)
-	_border.color = Color(color.r * 0.5, color.g * 0.5, color.b * 0.5)
-	_border.position = Vector2(-17, -33)
-	add_child(_border)
-
-	_sprite = ColorRect.new()
+	_sprite = Sprite2D.new()
 	_sprite.name = "Sprite2D"
-	_sprite.size = Vector2(32, 32)
-	_sprite.color = color
-	_sprite.position = Vector2(-16, -32)
+	_sprite.texture = _Procgen.npc_texture(appearance)
+	_sprite.centered = false
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sprite.position = Vector2(-sw / 2, -sh)
+	if facing_left:
+		_sprite.flip_h = true
 	add_child(_sprite)
 
 	_label = Label.new()
 	_label.name = "NameLabel"
 	_label.text = npc_name
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.add_theme_font_size_override("font_size", 10)
+	_label.add_theme_font_size_override("font_size", 8)
 	_label.add_theme_color_override("font_color", Color(1, 1, 0.4))
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_label.add_theme_constant_override("outline_size", 2)
-	_label.position = Vector2(-24, -46)
-	_label.size = Vector2(48, 14)
+	_label.position = Vector2(-24, -sh - 14)
+	_label.size = Vector2(48, 12)
 	add_child(_label)
 
 	_bubble = ColorRect.new()
 	_bubble.name = "BubbleBg"
-	_bubble.size = Vector2(14, 12)
+	_bubble.size = Vector2(12, 10)
 	_bubble.color = Color(1, 1, 1)
-	_bubble.position = Vector2(18, -38)
+	_bubble.position = Vector2(10, -sh - 6)
 	add_child(_bubble)
 
 	_bubble_dot1 = ColorRect.new()
 	_bubble_dot1.size = Vector2(2, 2)
 	_bubble_dot1.color = Color(0, 0, 0)
-	_bubble_dot1.position = Vector2(21, -34)
+	_bubble_dot1.position = Vector2(12, -sh - 2)
 	add_child(_bubble_dot1)
 
 	_bubble_dot2 = ColorRect.new()
 	_bubble_dot2.size = Vector2(2, 2)
 	_bubble_dot2.color = Color(0, 0, 0)
-	_bubble_dot2.position = Vector2(24, -34)
+	_bubble_dot2.position = Vector2(14, -sh - 2)
 	add_child(_bubble_dot2)
 
 	_bubble_dot3 = ColorRect.new()
 	_bubble_dot3.size = Vector2(2, 2)
 	_bubble_dot3.color = Color(0, 0, 0)
-	_bubble_dot3.position = Vector2(27, -34)
+	_bubble_dot3.position = Vector2(16, -sh - 2)
 	add_child(_bubble_dot3)
 
 	_bubble.visible = false
@@ -106,6 +90,8 @@ func setup(name_str: String, dia: Array, app: int = 0, quest_req: String = "", q
 	item_given = item
 	if _label:
 		_label.text = name_str
+	if _sprite:
+		_sprite.texture = _Procgen.npc_texture(appearance)
 
 func get_dialogue() -> Array:
 	var result: Array = []

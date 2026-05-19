@@ -1,0 +1,130 @@
+[gd_scene format=4]
+
+[ext_resource type="Script" path="res://overworld/map_root.gd" id="1_do4sa"]
+[ext_resource type="TileSet" path="res://overworld/art/tilesets/shared_tileset.tres" id="2_fb0ii"]
+[ext_resource type="Script" path="res://overworld/markers/entry_point_marker.gd" id="3_3euwr"]
+[ext_resource type="Script" path="res://overworld/markers/exit_marker.gd" id="4_w06kn"]
+[ext_resource type="Script" path="res://overworld/markers/furniture_marker.gd" id="5_icuju"]
+[ext_resource type="Script" path="res://overworld/collision_cache.gd" id="6_wucf5"]
+
+[node name="Library" type="Node2D" unique_id=1962209753]
+script = ExtResource("1_do4sa")
+
+[node name="GroundTileMap" type="TileMapLayer" parent="." unique_id=1684221688]
+z_index = -10
+texture_filter = 1
+tile_map_data = PackedByteArray("AAAAAAAAAAACAAAAAAABAAAAAAACAAAAAAACAAAAAAACAAAAAAADAAAAAAACAAAAAAAEAAAAAAACAAAAAAAFAAAAAAACAAAAAAAGAAAAAAACAAAAAAAHAAAAAAACAAAAAAAAAAEAAAACAAAAAAABAAEAAAABAAAAAAACAAEAAAABAAAAAAADAAEAAAABAAAAAAAEAAEAAAABAAAAAAAFAAEAAAABAAAAAAAGAAEAAAABAAAAAAAHAAEAAAACAAAAAAAAAAIAAAACAAAAAAABAAIAAAABAAAAAAACAAIAAAABAAAAAAADAAIAAAABAAAAAAAEAAIAAAABAAAAAAAFAAIAAAABAAAAAAAGAAIAAAABAAAAAAAHAAIAAAACAAAAAAAAAAMAAAACAAAAAAABAAMAAAABAAAAAAACAAMAAAABAAAAAAADAAMAAAABAAAAAAAEAAMAAAABAAAAAAAFAAMAAAABAAAAAAAGAAMAAAABAAAAAAAHAAMAAAACAAAAAAAAAAQAAAACAAAAAAABAAQAAAABAAAAAAACAAQAAAABAAAAAAADAAQAAAABAAAAAAAEAAQAAAABAAAAAAAFAAQAAAABAAAAAAAGAAQAAAABAAAAAAAHAAQAAAACAAAAAAAAAAUAAAACAAAAAAABAAUAAAABAAAAAAACAAUAAAABAAAAAAADAAUAAAABAAAAAAAEAAUAAAABAAAAAAAFAAUAAAABAAAAAAAGAAUAAAABAAAAAAAHAAUAAAACAAAAAAAAAAYAAAACAAAAAAABAAYAAAABAAAAAAACAAYAAAABAAAAAAADAAYAAAABAAAAAAAEAAYAAAABAAAAAAAFAAYAAAABAAAAAAAGAAYAAAABAAAAAAAHAAYAAAACAAAAAAAAAAcAAAACAAAAAAABAAcAAAACAAAAAAACAAcAAAACAAAAAAADAAcAAAACAAAAAAAEAAcAAAABAAAAAAAFAAcAAAACAAAAAAAGAAcAAAACAAAAAAAHAAcAAAACAAAAAAA=")
+tile_set = ExtResource("2_fb0ii")
+
+[node name="DecorationTileMap" type="TileMapLayer" parent="." unique_id=1446274498]
+z_index = -9
+texture_filter = 1
+tile_map_data = PackedByteArray("AAAEAAcAAAAHAAAAAAA=")
+tile_set = ExtResource("2_fb0ii")
+
+[node name="EntryPoints" type="Node2D" parent="." unique_id=463014803]
+
+[node name="front_door" type="Marker2D" parent="EntryPoints" unique_id=2007677148]
+position = Vector2(72, 120)
+script = ExtResource("3_3euwr")
+entry_id = "front_door"
+
+[node name="Exits" type="Node2D" parent="." unique_id=2106809349]
+
+[node name="exit_4_7" type="Marker2D" parent="Exits" unique_id=1887105658]
+position = Vector2(72, 120)
+script = ExtResource("4_w06kn")
+target_map = "res://overworld/maps/town.tscn"
+entry_id = "library_door"
+tile_x = 4
+tile_y = 7
+
+[node name="Furniture" type="Node2D" parent="." unique_id=746279921]
+
+[node name="shelf_1_2" type="Node2D" parent="Furniture" unique_id=1572189507]
+position = Vector2(16, 32)
+script = ExtResource("5_icuju")
+furniture_name = "shelf"
+tile_height = 4
+z_layer = 4
+
+[node name="shelf_1_1" type="Node2D" parent="Furniture" unique_id=1659118182]
+position = Vector2(16, 16)
+script = ExtResource("5_icuju")
+furniture_name = "shelf"
+blocks_movement = true
+tile_width = 6
+z_layer = 4
+
+[node name="table_3_3" type="Node2D" parent="Furniture" unique_id=1844752480]
+position = Vector2(48, 48)
+script = ExtResource("5_icuju")
+furniture_name = "table"
+tile_width = 2
+z_layer = 2
+
+[node name="table_3_5" type="Node2D" parent="Furniture" unique_id=157332385]
+position = Vector2(48, 80)
+script = ExtResource("5_icuju")
+furniture_name = "table"
+tile_width = 2
+z_layer = 2
+
+[node name="desk_5_6" type="Node2D" parent="Furniture" unique_id=616821435]
+position = Vector2(80, 96)
+script = ExtResource("5_icuju")
+furniture_name = "desk"
+tile_width = 2
+z_layer = 3
+is_interactive = true
+
+[node name="Labels" type="Node2D" parent="." unique_id=279065334]
+
+[node name="@Label@11" type="Label" parent="Labels" unique_id=1192915183]
+offset_left = 32.0
+offset_right = 32.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1, 1, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+text = "Library"
+horizontal_alignment = 1
+
+[node name="@Label@12" type="Label" parent="Labels" unique_id=1328187953]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 16.0
+offset_bottom = 16.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1, 1, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+text = "Shelves"
+horizontal_alignment = 1
+
+[node name="@Label@13" type="Label" parent="Labels" unique_id=425414414]
+offset_left = 48.0
+offset_top = 48.0
+offset_right = 48.0
+offset_bottom = 48.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1, 1, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+text = "Reading"
+horizontal_alignment = 1
+
+[node name="@Label@14" type="Label" parent="Labels" unique_id=1971545170]
+offset_left = 80.0
+offset_top = 96.0
+offset_right = 80.0
+offset_bottom = 96.0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1, 1, 0.4, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
+text = "Desk"
+horizontal_alignment = 1
+
+[node name="CollisionCache" type="Node" parent="." unique_id=1762766465]
+script = ExtResource("6_wucf5")
