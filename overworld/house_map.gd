@@ -1,10 +1,11 @@
 extends Node
 
 # Ranch house with garage + workshop on west side, 4 bedrooms, hallway,
-# bathroom, living room, kitchen. Player starts in "your room" (bedroom 1).
+# bathroom, living room. Kitchen is next to garage on west side.
+# Workshop has a north exit to the backyard.
 #
-# Layout (48 wide × 21 tall):
-#   x=0-10:  Garage/Workshop (west side, garage doors face south)
+# Layout (48 wide x 21 tall):
+#   x=0-10:  Workshop (top) / Garage (mid) / Kitchen (bottom)
 #   x=11:     Garage/house divider wall (full height)
 #   x=12-19:  Bedroom 1 (Your Room)
 #   x=20:     Wall divider
@@ -16,14 +17,14 @@ extends Node
 #   x=47:     East outer wall
 #
 # Row layout:
-#   0:    North outer wall
+#   0:    North outer wall + workshop exit door
 #   1-5:  Workshop (left), Bedrooms
 #   6:    Workshop divider wall (garage side), bedrooms continue
 #   7-8:  Garage parking (left), bedrooms continue
-#   9:    Bedroom bottom walls + doors
+#   9:    Bedroom bottom walls + doors + kitchen top wall + door
 #   10:   Hallway (open, full width)
-#   11:   Top walls (bathroom, living room, kitchen doors)
-#   12-19: Interior (bathroom walled, LR + kitchen open)
+#   11:   Top walls (kitchen, bathroom, living room doors)
+#   12-19: Kitchen (left), Bathroom (walled), Living Room
 #   20:   South outer wall + front door
 
 const MAP_W := 48
@@ -39,14 +40,16 @@ const ENTRY_POINTS := {
 	"your_room": Vector2(16, 5),
 	"front_door": Vector2(24, 19),
 	"garage": Vector2(5, 8),
+	"workshop_exit": Vector2(5, 1),
 	"desk": [Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3)],
 	"bed": [Vector2i(16, 7), Vector2i(16, 8)],
-	"garbage_can": Vector2i(35, 17),
+	"garbage_can": Vector2i(3, 16),
 }
 
 const EXITS := {
 	Vector2i(24, 20): {"map": "res://overworld/town_map.gd", "entry": "house_door"},
 	Vector2i(25, 20): {"map": "res://overworld/town_map.gd", "entry": "house_door"},
+	Vector2i(5, 0): {"map": "res://overworld/town_map.gd", "entry": "workshop_exit"},
 }
 
 var labels: Array = []
@@ -101,6 +104,9 @@ func _build():
 	_wall(0, 0, 1, MAP_H)
 	_wall(MAP_W - 1, 0, 1, MAP_H)
 
+	# === WORKSHOP NORTH EXIT ===
+	_door(5, 0)
+
 	# === GARAGE / HOUSE DIVIDER (x=11, full height) ===
 	_wall(11, 0, 1, 10)
 	_door(11, 10)
@@ -109,6 +115,9 @@ func _build():
 	# === WORKSHOP DIVIDER inside garage (y=6) ===
 	_wall(1, 6, 10, 1)
 	_door(4, 6)
+	# === GARAGE DOOR to kitchen (y=9) ===
+	_wall(1, 9, 10, 1)
+	_door(5, 9)
 
 	# === BEDROOM DIVIDERS ===
 	_wall(20, 0, 1, 10)
@@ -161,31 +170,43 @@ func _build():
 	_window(21, MAP_H - 1)
 	_window(27, MAP_H - 1)
 	_window(28, MAP_H - 1)
-	# Kitchen windows
 	_window(36, MAP_H - 1)
 	_window(37, MAP_H - 1)
-	_window(40, MAP_H - 1)
-	_window(41, MAP_H - 1)
-	# Garage windows
+	# Kitchen windows (west side)
+	_window(1, MAP_H - 1)
+	_window(2, MAP_H - 1)
 	_window(5, MAP_H - 1)
 	_window(6, MAP_H - 1)
 
-	# === SOUTH SECTION TOP WALL (y=11) ===
-	# Full wall across, then punch doors for bathroom, LR, kitchen
+	# === KITCHEN TOP WALL (y=11, x=1-10) ===
+	_wall(1, 11, 3, 1)
+	_door(4, 11)
+	_wall(5, 11, 6, 1)
+
+	# === SOUTH SECTION TOP WALL (y=11, house side) ===
 	_wall(12, 11, 35, 1)
 	_door(14, 11)
 	_door(22, 11)
 	_door(23, 11)
-	_door(34, 11)
-	_door(35, 11)
 
 	# === BATHROOM (x=12-16, y=11-15) ===
 	_wall(12, 12, 1, 3)
 	_wall(16, 12, 1, 3)
 	_wall(12, 15, 5, 1)
 
-	# === LIVING ROOM / KITCHEN DIVIDER (x=33) ===
-	_wall(33, 12, 1, 8)
+	# === KITCHEN FURNITURE ===
+	# Stove (west wall, y=13)
+	collision[12][1] = 1
+	collision[12][2] = 1
+	# Fridge (west wall, y=14)
+	collision[14][1] = 1
+	# Counter (south wall)
+	for dx in range(5):
+		collision[18][1 + dx] = 1
+	# Sink (east wall near divider)
+	collision[13][9] = 1
+	collision[14][9] = 1
+	collision[15][9] = 1
 
 	# === FRONT DOOR (south wall, living room) ===
 	collision[MAP_H - 1][24] = 0
@@ -202,13 +223,11 @@ func _build():
 	ground[MAP_H - 1][8] = Tile.WALL_GRAY
 
 	# === DESK (Your Room, against north wall) ===
-	# Desk collision: 3 wide × 2 tall
 	for dx in range(3):
 		for dy in range(2):
 			collision[1 + dy][15 + dx] = 1
 
 	# === BED (Your Room, bottom-right corner) ===
-	# Bed collision: 2 wide × 2 tall
 	for dx in range(2):
 		for dy in range(2):
 			collision[7 + dy][17 + dx] = 1
@@ -217,14 +236,14 @@ func _build():
 	labels = [
 		["Workshop", 4, 3],
 		["Garage", 5, 8],
+		["Kitchen", 4, 14],
 		["Your Room", 14, 4],
 		["Bedroom", 23, 4],
 		["Bedroom", 32, 4],
 		["Bedroom", 41, 4],
 		["Hallway", 27, 10],
 		["Bathroom", 13, 13],
-		["Living Room", 24, 15],
-		["Kitchen", 38, 15],
+		["Living Room", 28, 15],
 	]
 
 func get_labels() -> Array:
@@ -234,7 +253,14 @@ func get_furniture() -> Array:
 	return [
 		["desk", 15, 1, 3, true, 3, 2],
 		["bed", 17, 7, 2, true, 2, 2],
-		["garbage_can", 35, 17, 0, false, 1, 1],
+		["garbage_can", 3, 16, 0, false, 1, 1],
+		["stove", 1, 12, 15, true, 2, 1],
+		["fridge", 1, 14, 15, true, 1, 1],
+		["counter", 1, 18, 18, true, 5, 1],
+		["sink", 9, 13, 15, true, 1, 3],
+		["couch", 20, 16, 18, true, 3, 2],
+		["tv", 17, 13, 16, true, 2, 1],
+		["table", 30, 15, 16, true, 2, 1],
 	]
 
 func is_passable(x, y):

@@ -56,12 +56,14 @@ const ENTRY_POINTS := {
 	"office_bldg_door": Vector2(69, 47),
 	"water_recl_door": Vector2(55, 57),
 	"substation_door": Vector2(8, 67),
-	"outdoor_bin": Vector2i(20, 37),
+	"outdoor bin": Vector2i(20, 37),
+	"workshop_exit": Vector2(20, 31),
 }
 
 const EXITS := {
 	Vector2i(21, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
 	Vector2i(22, 36): {"map": "res://overworld/house_map.gd", "entry": "front_door"},
+	Vector2i(20, 32): {"map": "res://overworld/house_map.gd", "entry": "workshop_exit"},
 	Vector2i(9, 7): {"map": "res://overworld/interiors/library.gd", "entry": "front_door"},
 	Vector2i(24, 7): {"map": "res://overworld/interiors/school.gd", "entry": "front_door"},
 	Vector2i(37, 7): {"map": "res://overworld/interiors/church.gd", "entry": "front_door"},
@@ -296,6 +298,7 @@ func _build_town() -> void:
 	_building(17, 32, 8, 5, Tile.WALL_BEIGE, Tile.ROOF_RED)
 	_door(21, 36)
 	_door(22, 36)
+	_door(20, 32)
 	_building(33, 32, 8, 5, Tile.WALL_BROWN, Tile.ROOF_RED)
 	_door(37, 36)
 

@@ -24,10 +24,7 @@ var _npc_areas: Array = []
 
 func _get_ps():
 	if _ps == null:
-		if Engine.has_singleton("PlayerState"):
-			_ps = Engine.get_singleton("PlayerState")
-		else:
-			_ps = preload("res://scripts/player_state.gd").new()
+		_ps = preload("res://scripts/player_state.gd").resolve()
 	return _ps
 
 @onready var _ground_map: TileMapLayer = $GroundTileMap
@@ -307,7 +304,7 @@ func _get_npc_definitions() -> Array:
 			{
 				"name": "Mom",
 				"appearance": 6,
-				"position": Vector2(38, 15),
+				"position": Vector2(5, 16),
 				"facing_left": true,
 				"dialogue": [
 					{"speaker": "Mom", "text": "Honey, is your room clean? I don't want to have to ask again."},
