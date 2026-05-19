@@ -6,7 +6,7 @@ const TILE_SIZE := 32
 const TILE_TYPES := 14
 const FURNITURE_SCALE := 2.0
 
-const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can", "garbage_bin"]
+const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can", "garbage_bin", "phone"]
 
 var _map_data
 var _map_script_path: String = ""
@@ -159,6 +159,7 @@ const FURNITURE_COLORS := {
 	"couch": Color(0.4, 0.55, 0.35),
 	"garbage_can": Color(0.35, 0.35, 0.35),
 	"garbage_bin": Color(0.45, 0.45, 0.45),
+	"phone": Color(0.15, 0.15, 0.2),
 }
 
 func _place_furniture() -> void:
@@ -597,6 +598,20 @@ func _try_interact() -> void:
 				_deposit_garbage()
 				return
 
+	for phone_key in ["phone_kitchen", "phone_living"]:
+		if ep_dict != null and ep_dict.has(phone_key):
+			var ph_val = ep_dict[phone_key]
+			var ph_spots: Array = []
+			if ph_val is Array:
+				for pos in ph_val:
+					ph_spots.append(Vector2i(pos))
+			else:
+				ph_spots = [Vector2i(ph_val)]
+			for spot in ph_spots:
+				if abs(px - spot.x) <= 1 and abs(py - spot.y) <= 1:
+					_use_phone()
+					return
+
 	var best_npc = null
 	var best_dist: float = 999.0
 	for npc in _npc_list:
@@ -678,6 +693,12 @@ func _deposit_garbage() -> void:
 	_get_ps().set_quest_flag("garbage_taken_out", true)
 	_update_chores()
 	_dialogue.show_text("", "You toss the garbage bag into the bin. That's one chore done!")
+
+func _use_phone() -> void:
+	if _get_ps().get_quest_flag("met_mike"):
+		_dialogue.show_text("Phone", "You pick up the phone. The dial tone hums steadily. You could try dialing a number...")
+	else:
+		_dialogue.show_text("Phone", "The phone sits on the cradle. No reason to use it right now.")
 
 func _update_chores() -> void:
 	if _get_ps().get_quest_flag("garbage_taken_out") and _get_ps().get_quest_flag("room_clean"):

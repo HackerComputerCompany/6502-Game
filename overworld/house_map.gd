@@ -44,6 +44,8 @@ const ENTRY_POINTS := {
 	"desk": [Vector2i(15, 3), Vector2i(16, 3), Vector2i(17, 3)],
 	"bed": [Vector2i(16, 7), Vector2i(16, 8)],
 	"garbage_can": Vector2i(3, 16),
+	"phone_kitchen": Vector2i(8, 16),
+	"phone_living": Vector2i(25, 17),
 }
 
 const EXITS := {
@@ -254,6 +256,8 @@ func get_furniture() -> Array:
 		["desk", 15, 1, 3, true, 3, 2],
 		["bed", 17, 7, 2, true, 2, 2],
 		["garbage_can", 3, 16, 0, false, 1, 1],
+		["phone", 8, 16, 19, false, 1, 1],
+		["phone", 25, 17, 19, false, 1, 1],
 		["stove", 1, 12, 15, true, 2, 1],
 		["fridge", 1, 14, 15, true, 1, 1],
 		["counter", 1, 18, 18, true, 5, 1],
