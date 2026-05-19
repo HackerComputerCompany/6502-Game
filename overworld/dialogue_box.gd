@@ -60,13 +60,13 @@ func _ready() -> void:
 	hbox.add_child(text_vbox)
 
 	_speaker_label = Label.new()
-	_speaker_label.add_theme_color_override("font_color", Color(0.9, 0.85, 0.3))
+	_speaker_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	_speaker_label.add_theme_font_size_override("font_size", 14)
 	_speaker_label.text = ""
 	text_vbox.add_child(_speaker_label)
 
 	_text_label = RichTextLabel.new()
-	_text_label.add_theme_color_override("default_color", Color(0.05, 0.05, 0.05))
+	_text_label.add_theme_color_override("default_color", Color(1, 1, 1))
 	_text_label.add_theme_font_size_override("normal_font_size", 13)
 	_text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_text_label.bbcode_enabled = true
@@ -136,12 +136,12 @@ func _make_open_stream() -> AudioStreamWAV:
 
 func _make_panel_style() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.95, 0.92, 0.85)
+	s.bg_color = Color(0, 0, 0)
 	s.border_width_left = 3
 	s.border_width_top = 3
 	s.border_width_right = 3
 	s.border_width_bottom = 3
-	s.border_color = Color(0.3, 0.25, 0.2)
+	s.border_color = Color(0.8, 0.8, 0.8)
 	s.corner_radius_top_left = 4
 	s.corner_radius_top_right = 4
 	s.corner_radius_bottom_right = 4
