@@ -56,6 +56,7 @@ const ENTRY_POINTS := {
 	"office_bldg_door": Vector2(69, 47),
 	"water_recl_door": Vector2(55, 57),
 	"substation_door": Vector2(8, 67),
+	"outdoor_bin": Vector2i(20, 37),
 }
 
 const EXITS := {
@@ -471,3 +472,8 @@ func get_decoration(x: int, y: int) -> int:
 
 func get_labels() -> Array:
 	return labels
+
+func get_furniture() -> Array:
+	return [
+		["garbage_bin", 20, 37, 37, false, 1, 1],
+	]

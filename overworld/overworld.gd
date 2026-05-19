@@ -6,7 +6,7 @@ const TILE_SIZE := 32
 const TILE_TYPES := 14
 const FURNITURE_SCALE := 2.0
 
-const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can"]
+const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can", "garbage_bin"]
 
 var _map_data
 var _map_script_path: String = ""
@@ -161,6 +161,7 @@ const FURNITURE_COLORS := {
 	"tv": Color(0.15, 0.15, 0.15),
 	"couch": Color(0.4, 0.55, 0.35),
 	"garbage_can": Color(0.35, 0.35, 0.35),
+	"garbage_bin": Color(0.45, 0.45, 0.45),
 }
 
 func _place_furniture() -> void:
@@ -579,7 +580,20 @@ func _try_interact() -> void:
 			gc_spots = [Vector2i(gc_val)]
 		for spot in gc_spots:
 			if abs(px - spot.x) <= 1 and abs(py - spot.y) <= 1:
-				_take_out_garbage()
+				_pick_up_garbage()
+				return
+
+	if ep_dict != null and ep_dict.has("garbage_bin"):
+		var gb_val = ep_dict["garbage_bin"]
+		var gb_spots: Array = []
+		if gb_val is Array:
+			for pos in gb_val:
+				gb_spots.append(Vector2i(pos))
+		else:
+			gb_spots = [Vector2i(gb_val)]
+		for spot in gb_spots:
+			if abs(px - spot.x) <= 1 and abs(py - spot.y) <= 1:
+				_deposit_garbage()
 				return
 
 	var best_npc = null
@@ -642,10 +656,27 @@ func _use_bed() -> void:
 	_dialogue.show_text("", "You crawl into bed and sleep through the night.")
 	_transition_cooldown = 0.5
 
-func _take_out_garbage() -> void:
+func _pick_up_garbage() -> void:
+	if _get_ps().get_quest_flag("garbage_taken_out"):
+		_dialogue.show_text("", "The garbage can is empty. You already took it out.")
+		return
+	if _get_ps().has_item("Garbage Bag"):
+		_dialogue.show_text("", "You already have the garbage. Take it outside to the bin!")
+		return
+	_get_ps().add_item("Garbage Bag", "A smelly garbage bag from the kitchen. Take it to the bin outside.")
+	_dialogue.show_text("", "You pick up the garbage bag. Better take it outside to the bin by the house.")
+
+func _deposit_garbage() -> void:
+	if _get_ps().get_quest_flag("garbage_taken_out"):
+		_dialogue.show_text("", "The bin is already empty. Good job getting that done.")
+		return
+	if not _get_ps().has_item("Garbage Bag"):
+		_dialogue.show_text("", "A large gray garbage bin. You need something to put in it first.")
+		return
+	_get_ps().remove_item("Garbage Bag")
 	_get_ps().set_quest_flag("garbage_taken_out", true)
 	_update_chores()
-	_dialogue.show_text("", "You take out the garbage. Good job!")
+	_dialogue.show_text("", "You toss the garbage bag into the bin. That's one chore done!")
 
 func _update_chores() -> void:
 	if _get_ps().get_quest_flag("garbage_taken_out") and _get_ps().get_quest_flag("room_clean"):
