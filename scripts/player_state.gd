@@ -125,7 +125,7 @@ func _check_allowance() -> void:
 
 func get_time_string() -> String:
 	var h: int = int(game_time_hour)
-	var m: int = int(game_time_minute)
+	var m: int = int(game_time_minute / 10.0) * 10
 	var ampm := "AM"
 	var dh := h
 	if dh >= 12:
