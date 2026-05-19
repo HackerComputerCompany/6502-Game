@@ -47,7 +47,7 @@ var room_clean: bool = false
 var allowance_collected: bool = false
 var last_allowance_day: int = -1
 
-const GAME_MINUTES_PER_REAL_SECOND: float = 72.0
+const GAME_MINUTES_PER_REAL_SECOND: float = 0.6
 
 func has_item(item_name: String) -> bool:
 	for item in inventory:
