@@ -499,8 +499,12 @@ func _process(delta: float) -> void:
 		_player.can_move = true
 	_get_ps().tick_game_time(delta)
 	_daylight = _get_ps().get_daylight_factor()
-	var night_alpha: float = (1.0 - _daylight) * 0.55
-	_night_overlay.color = Color(0, 0, 0.15, night_alpha)
+	if _map_script_path.find("town_map") != -1:
+		var night_alpha: float = (1.0 - _daylight) * 0.55
+		_night_overlay.color = Color(0, 0, 0.15, night_alpha)
+		_night_overlay.visible = true
+	else:
+		_night_overlay.visible = false
 
 func _physics_process(delta: float) -> void:
 	if _dialogue.visible:
