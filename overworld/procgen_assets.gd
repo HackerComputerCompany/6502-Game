@@ -94,31 +94,30 @@ static func tile_sign() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 static func make_character_texture(body_color: Color, head_color: Color, hat_color: Color = Color()) -> ImageTexture:
-	var h := _OW.SPRITE_H
-	var img := Image.create(_OW.SPRITE_W, h, false, Image.FORMAT_RGBA8)
+	var sw := _OW.SPRITE_W
+	var sh := _OW.SPRITE_H
+	var img := Image.create(sw, sh, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	if hat_color.a > 0:
 		for x in range(4, 12):
-			for y in range(0, 5):
+			for y in range(0, 4):
 				img.set_pixel(x, y, hat_color)
 	for x in range(4, 12):
-		for y in range(5, 12):
+		for y in range(4, 8):
 			img.set_pixel(x, y, head_color)
 	for x in range(5, 11):
-		for y in range(12, 22):
+		for y in range(8, 14):
 			img.set_pixel(x, y, body_color)
 	for x in range(5, 8):
-		for y in range(22, h):
+		for y in range(14, sh):
 			img.set_pixel(x, y, Color(0.2, 0.15, 0.1))
 	for x in range(8, 11):
-		for y in range(22, h):
+		for y in range(14, sh):
 			img.set_pixel(x, y, Color(0.2, 0.15, 0.1))
-	img.set_pixel(6, 7, Color(1, 1, 1))
-	img.set_pixel(9, 7, Color(1, 1, 1))
-	img.set_pixel(6, 8, Color(0.1, 0.1, 0.1))
-	img.set_pixel(9, 8, Color(0.1, 0.1, 0.1))
-	img.set_pixel(7, 10, Color(0.8, 0.5, 0.3))
-	img.set_pixel(8, 10, Color(0.8, 0.5, 0.3))
+	img.set_pixel(5, 5, Color(1, 1, 1))
+	img.set_pixel(10, 5, Color(1, 1, 1))
+	img.set_pixel(5, 6, Color(0.1, 0.1, 0.1))
+	img.set_pixel(10, 6, Color(0.1, 0.1, 0.1))
 	return ImageTexture.create_from_image(img)
 
 static func player_texture() -> ImageTexture:

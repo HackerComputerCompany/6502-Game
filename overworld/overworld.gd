@@ -47,19 +47,15 @@ func _ready() -> void:
 	_night_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_night_overlay.z_index = 50
 	add_child(_night_overlay)
-	_load_map("res://overworld/maps/house.tscn", "bed")
+	_load_map("res://overworld/house_map.gd", "bed")
 
 func load_map(path: String, entry_point: String = "") -> void:
 	_load_map(path, entry_point)
 
 func _resolve_map_path(path: String) -> String:
 	match path:
-		"res://overworld/house_map.gd":
-			return "res://overworld/maps/house.tscn"
 		"res://overworld/town_map.gd":
 			return "res://overworld/maps/town.tscn"
-		"res://overworld/interiors/library.gd":
-			return "res://overworld/maps/library.tscn"
 	return path
 
 func _load_map(path: String, entry_point: String = "") -> void:
@@ -258,7 +254,7 @@ func _place_furniture() -> void:
 			var desk_color = color
 			for py in range(fh * TILE_SIZE):
 				for px in range(fw * TILE_SIZE):
-					var on_edge = px < 2 or px >= fw * TILE_SIZE - 2 or py < 2 or py >= fh * TILE_SIZE - 2
+					var on_edge = px < 1 or px >= fw * TILE_SIZE - 1 or py < 1 or py >= fh * TILE_SIZE - 1
 					if on_edge:
 						img.set_pixel(px, py, Color(color.r * 0.5, color.g * 0.5, color.b * 0.5, 1.0))
 					else:

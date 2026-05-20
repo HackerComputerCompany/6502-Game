@@ -47,8 +47,8 @@ func _ready() -> void:
 	_label.add_theme_color_override("font_color", Color(1, 1, 0.4))
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	_label.add_theme_constant_override("outline_size", 2)
-	_label.position = Vector2(-24, -sh - 14)
-	_label.size = Vector2(48, 12)
+	_label.position = Vector2(-16, -sh - 8)
+	_label.size = Vector2(32, 10)
 	add_child(_label)
 
 	_bubble = ColorRect.new()

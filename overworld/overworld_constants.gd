@@ -1,4 +1,4 @@
-extends Node
+class_name OWConst
 
 enum Tile {
 	GRASS = 0,
@@ -17,7 +17,7 @@ enum Tile {
 	SIDEWALK = 13,
 }
 
-const TILE_SIZE := 32
+const TILE_SIZE := 16
 const TILE_TYPES := 14
 
 const INTERACTIVE_FURNITURE := ["desk", "bed", "garbage_can", "garbage_bin", "phone"]
@@ -56,3 +56,14 @@ const NIGHT_OVERLAY_TINT := Color(0, 0, 0.15)
 const DIALOGUE_SPEED := 30.0
 const TRANSITION_COOLDOWN := 0.3
 const BED_COOLDOWN := 0.5
+const FURNITURE_SCALE := 1.0
+const SPRITE_W := 16
+const SPRITE_H := 16
+const CAMERA_ZOOM := 4.0
+const PLAYER_SCALE := 0.667
+
+static func tile_to_world(tile: Vector2i) -> Vector2:
+	return Vector2(tile.x * TILE_SIZE + TILE_SIZE / 2, tile.y * TILE_SIZE + TILE_SIZE / 2)
+
+static func world_to_tile(pos: Vector2) -> Vector2i:
+	return Vector2i(int(pos.x / TILE_SIZE), int(pos.y / TILE_SIZE))
