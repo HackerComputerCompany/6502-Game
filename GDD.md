@@ -73,7 +73,7 @@ Your sister Jessica thinks you're a nerd. Your mom Linda tolerates the computer 
 From here you move through a small city and surrounding areas — your school, library, ChipMart electronics shop, phone company building, junkyard, the lazer tag arcade, BBS meetup spots, the "rich kid" neighborhood with better equipment, and the church on the square where not everything is as pious as it seems.
 
 **Art style:** Direct Earth Bound homage:
-- Chibi 16×32 NPC sprites (Stardew-scale) with expressive idle animations
+- Chibi 16×16 NPC sprites with expressive idle animations
 - Warm, saturated 16-bit color palette (green grass, brown dirt, teal buildings)
 - Suburban / small-city America mid-80s to late-90s
 - Day/night cycle with different NPC schedules
@@ -134,13 +134,53 @@ From here you move through a small city and surrounding areas — your school, l
 
 **Map scale:** 100×82 tiles (expanded from 60×55). Sidewalk tiles line major roads. 3-wide Main Street and Boulevard, 2-wide secondary roads. All buildings have proper clearance from roads via sidewalks and green space.
 
-**House interior layout (48×21 tiles):**
-- Garage/Workshop (left) with bench, tools
-- Ranch layout: garage/workshop/kitchen on the west, bedroom wing north, living room south (front door), your room with bed + desk
-- Hallway connecting all rooms
-- Bathroom, Living Room, and Kitchen in southern half
-- Kitchen has trash can (interactive — take out garbage chore)
-- Desk and bed are interactive furniture (yellow flash, Space to use)
+**Rendering pipeline:**
+- Native 16×16 tile size (no scaling — the tileset atlas is 16×16 per tile)
+- 4× camera zoom on a 160×120 tile viewport, outputting to 640×480
+- Procedural textures: solid-color tiles generated at runtime, character sprites from procgen_assets.gd
+- Town map uses pre-built .tscn scenes (editor-authored)
+- Interiors use ASCII RoomParser (runtime-generated from character grids)
+
+**Interior design with ASCII RoomParser:**
+Interiors are defined as visual ASCII templates rather than procedural loop code. Each room is a single .gd file with:
+- `MAP` — multiline string where each character represents a tile or furniture origin
+- `LEGEND` — dictionary mapping characters to tile/furniture definitions
+- Optional overlay layers (`LAYER2`/`LAYER2_LEGEND`, etc.) for spawns, effects, and late additions
+
+```
+const MAP := """
+########
+#1.....#
+#V..t.w#
+#V..... #
+#V..t..#
+#V...k.#
+####D###
+"""
+const LEGEND := {
+    '#': {'ground': Tile.WALL_BROWN, 'collision': true},
+    '.': {'ground': Tile.PATH},
+    'D': {'ground': Tile.PATH, 'decoration': Tile.DOOR},
+    'w': {'ground': Tile.WALL_BROWN, 'collision': true},
+    '1': {'furniture': 'desk', 'fw': 3, 'fh': 2, 'z': 3, 'blocks': true},
+    'V': {'furniture': 'shelf', 'fw': 1, 'fh': 4, 'z': 4, 'blocks': true},
+    't': {'furniture': 'table', 'fw': 2, 'fh': 1, 'z': 2, 'blocks': true},
+    'k': {'furniture': 'desk',  'fw': 2, 'fh': 1, 'z': 3, 'blocks': true},
+}
+```
+
+Advantages over procedural `_build()` functions:
+- Visual: you can see the room layout at a glance
+- Single-source: collision, ground, decoration, and furniture from one grid
+- Easy editing: move furniture by moving one character
+- Overlay layers allow NPC spawns, effects, or nightly changes without touching the base map
+
+Legend entry keys: `ground` (tile type), `collision` (bool), `decoration` (tile type), `furniture` (name), `fw`/`fh` (size), `z` (render order), `blocks` (collision), `spawn` (NPC name).
+
+The town map is NOT converted — it remains a procedural script due to its size (100×82) and complexity. Only interiors use ASCII.
+
+**House interior layout (36×17 tiles):**
+- Single-story ranch: workshop/garage/kitchen on the west, bedroom wing north, living room south
 - Mom, Dad, and Jessica spawn in living room / kitchen / hallway respectively
 
 **House interior layout (48×21 tiles):**
@@ -418,8 +458,7 @@ var current_objective: String = ""   # shown on HUD quest tracker
 - Overworld and Hands On modes use Godot's native 2D rendering with sub-pixel precision
 - Keyboard Time uses the existing terminal UI with TextureRect GPU overlay
 - CRT shader is reused as a full-screen option for atmosphere
-- Both pixel-art modes target 320×180 internal resolution with integer 3× upscale to 960×540
-- The 960×720 project resolution is maintained; pixel art is centered-black-bar or `2d` viewport
+- Both pixel-art modes target 160×120 tile viewport at 16×16 native tile size with 4× camera zoom (640×480 output)
 
 ---
 
@@ -522,6 +561,6 @@ All in-world brands are fictional alternatives to real companies, avoiding trade
 
 ---
 
-*Document version: 0.5 — XP/stats system, money/chores, family NPCs, military base, expanded town (100×82), sidewalks, fire/police/hospital, TileMap→TileMapLayer migration*
+*Document version: 0.6 — ASCII RoomParser for interior design, 16×16 native tile size, procedural player sprites, InteriorMap inheritance removed, RoomParser + LEGEND system documented*
 *Created: 2026-05-16*
-*Updated: 2026-05-18*
+*Updated: 2026-05-19*
