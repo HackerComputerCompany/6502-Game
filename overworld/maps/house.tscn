@@ -19,7 +19,7 @@ tile_set = ExtResource("2_idfp3")
 [node name="DecorationTileMap" type="TileMapLayer" parent="." unique_id=474521899]
 z_index = -9
 texture_filter = 1
-tile_map_data = PackedByteArray("AAAEAAAAAAAHAAAAAAAEAAQAAAAHAAAAAAAMAAgAAAAHAAAAAAATAAgAAAAHAAAAAAAaAAgAAAAHAAAAAAAgAAgAAAAHAAAAAAAFAAkAAAAHAAAAAAAJAAkAAAAHAAAAAAANAAoAAAAHAAAAAAAVABAAAAAHAAAAAAAWABAAAAAHAAAAAAA=")
+tile_map_data = PackedByteArray("AAAEAAAAAAAHAAAAAAAEAAQAAAAHAAAAAAAMAAgAAAAHAAAAAAATAAgAAAAHAAAAAAAaAAgAAAAHAAAAAAAgAAgAAAAHAAAAAAAFAAkAAAAHAAAAAAAJAAkAAAADAAAAAAANAAoAAAAHAAAAAAAVABAAAAAHAAAAAAAWABAAAAAHAAAAAAA=")
 tile_set = ExtResource("2_idfp3")
 
 [node name="EntryPoints" type="Node2D" parent="." unique_id=2000770379]
@@ -264,6 +264,7 @@ text = "Your Room"
 horizontal_alignment = 1
 
 [node name="@Label@6" type="Label" parent="Labels" unique_id=1107336164]
+visible = false
 offset_left = 304.0
 offset_top = 48.0
 offset_right = 304.0
@@ -276,6 +277,7 @@ text = "Bathroom"
 horizontal_alignment = 1
 
 [node name="@Label@7" type="Label" parent="Labels" unique_id=1773439280]
+visible = false
 offset_left = 416.0
 offset_top = 64.0
 offset_right = 416.0
@@ -288,6 +290,7 @@ text = "Parents' Room"
 horizontal_alignment = 1
 
 [node name="@Label@8" type="Label" parent="Labels" unique_id=959602220]
+visible = false
 offset_left = 512.0
 offset_top = 64.0
 offset_right = 512.0
@@ -300,6 +303,7 @@ text = "Guest Room"
 horizontal_alignment = 1
 
 [node name="@Label@9" type="Label" parent="Labels" unique_id=592752765]
+visible = false
 offset_left = 288.0
 offset_top = 128.0
 offset_right = 288.0
@@ -312,6 +316,7 @@ text = "Hallway"
 horizontal_alignment = 1
 
 [node name="@Label@10" type="Label" parent="Labels" unique_id=323170302]
+visible = false
 offset_left = 384.0
 offset_top = 192.0
 offset_right = 384.0
